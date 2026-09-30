@@ -255,7 +255,7 @@ describe("validación de pago", () => {
   });
 });
 
-describe("descuento sobre el límite (settings: 10 %)", () => {
+describe("descuento sobre el límite (settings: 10 %; la vendedora requiere aprobación, el ADMIN no)", () => {
   it("10,01 % se rechaza en el servidor con 'Requiere aprobación de Belén' y no toca el stock", async () => {
     await openRga();
     const error = await expectAppError(saleRga([{ sku: AZU_48, discountBps: 1001 }]), "APROBACION_REQUERIDA", /^Requiere aprobación de Belén/);
@@ -268,6 +268,53 @@ describe("descuento sobre el límite (settings: 10 %)", () => {
     const { result } = await saleRga([{ sku: AZU_48, discountBps: 1000 }]);
     expect(result).toMatchObject({ discountTotal: 2_999, total: 26_991 });
     expect(result.lines[0]).toMatchObject({ discountBps: 1000, discount: 2_999, lineTotal: 26_991 });
+  });
+  it("Belén (ADMIN) sí puede superar el límite sin aprobación y queda en audit_log (DISCOUNT_OVERRIDE)", async () => {
+    await openPro();
+    const { result } = await createSale({
+      actor: f.actors.belen,
+      locationId: f.loc.TIENDA_PROVIDENCIA,
+      lines: [
+        { variantId: await f.variant(PBA_XL), qty: 1, discountBps: 2000 },
+        { variantId: await f.variant(AZU_48), qty: 1, discountBps: 500 },
+      ],
+      payment: card(),
+      idempotencyKey: newKey(),
+    });
+    const pba = result.lines.find((l) => l.sku === PBA_XL)!;
+    expect(pba).toMatchObject({ discountBps: 2000, discount: Math.round(pba.unitPrice * 0.2) });
+
+    const audit = await db.auditLog.findMany({ where: { action: "DISCOUNT_OVERRIDE" } });
+    expect(audit).toHaveLength(1);
+    expect(audit[0]).toMatchObject({ userId: f.actors.belen.id, entity: "sale", entityId: result.id, locationId: f.loc.TIENDA_PROVIDENCIA });
+    expect(audit[0].after).toMatchObject({
+      saleNumber: result.number,
+      limitBps: 1000,
+      maxDiscountBps: 2000,
+      lines: [{ sku: PBA_XL, discountBps: 2000 }], // solo la línea sobre el límite
+    });
+  });
+  it("Belén dentro del límite no genera DISCOUNT_OVERRIDE; la vendedora sigue sin poder superarlo", async () => {
+    await openPro();
+    await createSale({
+      actor: f.actors.belen,
+      locationId: f.loc.TIENDA_PROVIDENCIA,
+      lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 1000 }],
+      payment: card(),
+      idempotencyKey: newKey(),
+    });
+    expect(await db.auditLog.count({ where: { action: "DISCOUNT_OVERRIDE" } })).toBe(0);
+    await expectAppError(
+      createSale({
+        actor: f.actors.vendPro,
+        locationId: f.loc.TIENDA_PROVIDENCIA,
+        lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 2000 }],
+        payment: card(),
+        idempotencyKey: newKey(),
+      }),
+      "APROBACION_REQUERIDA",
+    );
+    expect(await db.auditLog.count({ where: { action: "DISCOUNT_OVERRIDE" } })).toBe(0);
   });
   it("el límite sale de settings (no está fijo en el código)", async () => {
     await openRga();

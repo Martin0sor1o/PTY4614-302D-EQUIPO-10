@@ -39,7 +39,7 @@ function othersText(item: PosItem): string {
   return item.others.map((o) => `${o.name} (${o.available}${o.reserved > 0 ? `, ${o.reserved} reservada${o.reserved === 1 ? "" : "s"}` : ""})`).join(" · ");
 }
 
-export function PosTerminal({ locationName, limitBps }: { locationName: string; limitBps: number }) {
+export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName: string; limitBps: number; isAdmin: boolean }) {
   const router = useRouter();
   const scanRef = useRef<HTMLInputElement>(null);
   const searchSeq = useRef(0);
@@ -170,7 +170,8 @@ export function PosTerminal({ locationName, limitBps }: { locationName: string; 
   const lineIssues = cart.map((l) => {
     const bps = discountBpsOf(l.discountPct);
     if (Number.isNaN(bps)) return "Descuento inválido";
-    if (isDiscountOverLimit(bps, limitBps)) return "Requiere aprobación de Belén";
+    // La vendedora no puede superar el límite sin aprobación; el ADMIN sí (queda en auditoría).
+    if (!isAdmin && isDiscountOverLimit(bps, limitBps)) return "Requiere aprobación de Belén";
     if (l.qty > l.item.here.available) return `Solo hay ${l.item.here.available} disponible(s)`;
     return null;
   });
@@ -370,7 +371,7 @@ export function PosTerminal({ locationName, limitBps }: { locationName: string; 
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Descuento máximo por línea sin aprobación: {limitBps / 100} %. Precios con IVA incluido.
+          Descuento máximo por línea sin aprobación: {limitBps / 100} %{isAdmin ? " (como administradora puedes superarlo; queda registrado)" : ""}. Precios con IVA incluido.
         </p>
       </section>
 

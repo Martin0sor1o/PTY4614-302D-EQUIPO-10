@@ -9,7 +9,7 @@ import { SaleChannel } from "@/generated/prisma/client";
 import { sell } from "@/modules/inventory";
 import { nextDocumentNumber } from "@/modules/numbering";
 import { getDiscountLimitBps, getPosLocation, loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
-import { assertDiscountWithinLimit, effectivePrice, priceSale, quotePayment } from "./pricing";
+import { assertDiscountWithinLimit, effectivePrice, isDiscountOverLimit, priceSale, quotePayment } from "./pricing";
 import { createSaleSchema } from "./schemas";
 import type { SaleView } from "./types";
 
@@ -76,9 +76,14 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
   const variantById = new Map(variants.filter((v) => basePriceOf.has(v.productId)).map((v) => [v.id, v]));
   if (variantById.size !== variantIds.length) throw new AppError("NOT_FOUND", "Una o más prendas no existen o están inactivas.");
 
-  // 3. Límite de descuento (settings). Sobre el límite se exige aprobación (flujo en la Etapa 6).
+  // 3. Límite de descuento (settings). La VENDEDORA no puede superarlo sin aprobación (flujo en la Etapa 6);
+  //    el ADMIN sí puede (02_REQUERIMIENTOS §1) y queda en audit_log (DISCOUNT_OVERRIDE, más abajo).
   const limitBps = await getDiscountLimitBps(tx);
-  for (const line of lines) assertDiscountWithinLimit(line.discountBps, limitBps, variantById.get(line.variantId)!.sku);
+  const isAdmin = actor.role === "ADMIN";
+  if (!isAdmin) {
+    for (const line of lines) assertDiscountWithinLimit(line.discountBps, limitBps, variantById.get(line.variantId)!.sku);
+  }
+  const overLimit = lines.filter((l) => isDiscountOverLimit(l.discountBps, limitBps));
 
   // 4. Montos: todo calculado aquí con las funciones puras.
   const priced = priceSale(
@@ -147,6 +152,24 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
       cashReceived: payment.method === "EFECTIVO" ? payment.cashReceived : null,
     },
   });
+
+  if (isAdmin && overLimit.length > 0) {
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        locationId,
+        action: "DISCOUNT_OVERRIDE",
+        entity: "sale",
+        entityId: saleId,
+        after: {
+          saleNumber: number,
+          limitBps,
+          maxDiscountBps: Math.max(...overLimit.map((l) => l.discountBps)),
+          lines: overLimit.map((l) => ({ sku: variantById.get(l.variantId)!.sku, discountBps: l.discountBps })),
+        },
+      },
+    });
+  }
 
   return saleId;
 }

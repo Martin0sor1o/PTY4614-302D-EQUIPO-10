@@ -162,7 +162,6 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
 - Definir el manejo de prendas no incluidas en un traspaso (pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén".
 - Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
-- Descuento sobre el límite: hoy se rechaza con "Requiere aprobación de Belén" para TODOS los roles (incluida Belén); el flujo de aprobación llega en la Etapa 6. Definir si el límite aplica a ADMIN.
 - Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
 - Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
 - Direcciones de las tiendas del ticket son datos de ejemplo del seed; el ticket dice "Comprobante interno – no válido como boleta".
@@ -184,3 +183,4 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 4. **Ticket:** nombre y dirección de la tienda + texto "Comprobante interno – no válido como boleta".
 5. **Efectivo esperado** = monto inicial + Σ pagos en efectivo (cada `payments.amount` ya es neto de vuelto y trae el redondeo). Vuelto = `cash_received − amount`.
 6. **Concurrencia de caja:** la venta bloquea la caja con `FOR SHARE`; el cierre con `FOR UPDATE` espera a las ventas en curso y las siguientes ya no encuentran caja abierta. El correlativo (`SALE:{prefijo}`) se toma al final de la transacción: un rollback no deja huecos.
+7. **Descuento sobre el límite:** según `02_REQUERIMIENTOS.md` §1, el ADMIN puede superarlo sin aprobación y la VENDEDORA no ("Requiere aprobación de Belén"; flujo en la Etapa 6). Cuando el ADMIN lo supera se guarda en `audit_log` (`DISCOUNT_OVERRIDE`: usuario, venta, N° de venta, límite y % por línea).

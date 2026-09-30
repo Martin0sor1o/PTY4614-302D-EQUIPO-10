@@ -23,7 +23,7 @@ export default async function PosPage() {
           {session.salesCount === 1 ? "venta" : "ventas"}
         </p>
       </div>
-      <PosTerminal locationName={location.name} limitBps={limitBps} />
+      <PosTerminal locationName={location.name} limitBps={limitBps} isAdmin={user.role === "ADMIN"} />
     </div>
   );
 }
