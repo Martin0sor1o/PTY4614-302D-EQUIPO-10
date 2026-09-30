@@ -112,7 +112,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
               aria-current={active ? "page" : undefined}
               className={cn(
                 "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                active ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
+                active ? "border-brand-pink-strong bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
               )}
             >
               {l.name}

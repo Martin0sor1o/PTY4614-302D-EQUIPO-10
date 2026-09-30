@@ -24,15 +24,15 @@ function StockCellView({ cell, threshold }: { cell: StockCell; threshold: number
       <span
         className={cn(
           "text-base font-semibold tabular-nums",
-          cell.available === 0 && "font-normal text-muted-foreground/60",
-          low && "text-amber-600",
+          cell.available === 0 && "font-normal text-muted-foreground",
+          low && "text-amber-700",
         )}
       >
         {cell.available}
       </span>
       {cell.reserved > 0 && (
         <div className="text-[11px] text-muted-foreground">
-          de {cell.onHand} · <span className="text-violet-600">{cell.reserved} res.</span>
+          de {cell.onHand} · <span className="text-violet-700">{cell.reserved} res.</span>
         </div>
       )}
     </div>
@@ -75,7 +75,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
               {locations.map((l) => (
                 <TableHead
                   key={l.id}
-                  className={cn("text-center", l.id === myLocationId && "bg-primary/5 text-primary")}
+                  className={cn("text-center", l.id === myLocationId && "bg-primary/25 text-brand-ink")}
                 >
                   {SHORT_NAME[l.code] ?? l.name}
                 </TableHead>
@@ -95,7 +95,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
             {rows.map((r) => (
               <TableRow key={r.variantId}>
                 <TableCell className="font-mono text-xs">
-                  <Link href={`/stock/${r.variantId}/kardex`} className="text-primary underline-offset-4 hover:underline" title="Ver kardex">
+                  <Link href={`/stock/${r.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline" title="Ver kardex">
                     {r.sku}
                   </Link>
                   <div className="font-sans text-[11px] text-muted-foreground sm:hidden">
@@ -108,12 +108,12 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                 </TableCell>
                 <TableCell className="text-center">{r.size}</TableCell>
                 {locations.map((l) => (
-                  <TableCell key={l.id} className={cn("text-center", l.id === myLocationId && "bg-primary/5")}>
+                  <TableCell key={l.id} className={cn("text-center", l.id === myLocationId && "bg-primary/15")}>
                     <StockCellView cell={cellFor(r, l.id)} threshold={r.lowStockThreshold} />
                   </TableCell>
                 ))}
                 <TableCell className="text-center tabular-nums">
-                  {r.inTransit > 0 ? <span className="font-medium text-sky-700">{r.inTransit}</span> : <span className="text-muted-foreground/60">—</span>}
+                  {r.inTransit > 0 ? <span className="font-medium text-sky-700">{r.inTransit}</span> : <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 <TableCell className="text-center font-medium tabular-nums">{r.total}</TableCell>
               </TableRow>
@@ -123,7 +123,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        <span className="text-amber-600">Ámbar</span>: stock bajo · <span className="text-violet-600">res.</span>: unidades
+        <span className="text-amber-700">Ámbar</span>: stock bajo · <span className="text-violet-700">res.</span>: unidades
         reservadas para pedidos online · Total = físico en todas las ubicaciones + en tránsito. Toca un SKU para ver su kardex.
       </p>
     </div>

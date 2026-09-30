@@ -10,7 +10,7 @@ export default function SinAccesoPage() {
           <CardDescription>Tu rol no tiene permiso para ver esta pantalla.</CardDescription>
         </CardHeader>
         <div className="px-4 pb-4">
-          <Link href="/" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+          <Link href="/" className="text-sm font-medium text-brand-ink underline-offset-4 hover:underline">
             Volver al inicio
           </Link>
         </div>

@@ -1,6 +1,7 @@
 import { isDemoMode } from "@/lib/demo";
 import { listDemoLoginOptions } from "@/modules/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Badge } from "@/components/ui/badge";
 import { demoLoginAction } from "./actions";
 
@@ -16,8 +17,10 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-4 py-12">
       <div className="space-y-1 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Big Curvas</h1>
-        <p className="text-muted-foreground">Inventario, POS y pedidos online</p>
+        <h1 className="flex justify-center">
+          <BrandLogo size="lg" />
+        </h1>
+        <p className="pt-2 text-muted-foreground">Inventario, POS y pedidos online</p>
       </div>
 
       {demo ? (
@@ -34,7 +37,7 @@ export default async function LoginPage() {
                 <input type="hidden" name="userId" value={u.id} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border p-4 text-left transition-colors hover:border-primary hover:bg-muted"
+                  className="w-full rounded-lg border p-4 text-left transition-colors hover:border-brand-pink-strong hover:bg-accent focus-visible:border-brand-pink-strong focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong"
                 >
                   <div className="font-medium">{u.name}</div>
                   <div className="text-sm text-muted-foreground">
