@@ -157,8 +157,10 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Vencimiento de reservas (job) y cancelación de pedidos online.
 - Liberar reservas vencidas de forma perezosa dentro de la misma transacción antes de vender o reservar, ya que `stock_levels.reserved` no descuenta solo las vencidas.
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
+- Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
+- Definir el manejo de prendas no incluidas en un traspaso (pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén".
 
-## Dudas abiertas (Etapa 2)
+## Decisiones del usuario (Etapa 2)
 
-- **Recepción de traspaso con prendas que no venían:** si en destino se escanea una variante que NO está en el traspaso, hoy se rechaza (`VALIDATION`), porque `transfer_lines.qty_sent > 0` no permite registrar una línea "sobrante" sin envío. Si llegan MÁS unidades de una variante que sí venía, se acepta y queda como diferencia. ¿Así está bien, o la prenda ajena debe quedar registrada para que Belén la resuelva?
-- `sell` solo se permite en ubicaciones con POS (`sells_pos`); BODEGA vende solo vía pedido online (`consumeReservations`). Confirmar.
+1. Prenda que no viene en el traspaso: en la demo se **rechaza** al recibir con el mensaje "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén". Regla pendiente de confirmar con el cliente. Si llegan más unidades de una prenda que sí venía, se aceptan y quedan como diferencia.
+2. Confirmado: `sell` solo en ubicaciones con POS (`sells_pos`). La bodega descuenta únicamente vía `consumeReservations`.

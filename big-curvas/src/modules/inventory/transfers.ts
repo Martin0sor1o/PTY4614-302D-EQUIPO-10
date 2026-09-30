@@ -203,7 +203,8 @@ export async function receiveTransfer(
   const inTransfer = new Set(transfer.lines.map((l) => l.variantId));
   for (const variantId of scanned.keys()) {
     if (!inTransfer.has(variantId)) {
-      throw new AppError("VALIDATION", "Escaneaste una prenda que no viene en este traspaso.", { variantId });
+      // DEMO: regla pendiente de confirmar con el cliente (ver docs/DEMO_PLAN.md, Pendientes para Fase 1).
+      throw new AppError("VALIDATION", "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén.", { variantId });
     }
   }
 
