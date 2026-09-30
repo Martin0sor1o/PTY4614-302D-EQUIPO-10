@@ -1,7 +1,8 @@
-import { db, type Tx } from "@/lib/db";
+import { db } from "@/lib/db";
+import type { Actor } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
 import { AppError } from "@/lib/errors";
-import { MovementType, RefType } from "@/generated/prisma/client";
+import { findLedgerMismatches, findReservationMismatches, loadInitialStock } from "@/modules/inventory";
 import {
   CATEGORIES,
   COLORS,
@@ -82,33 +83,6 @@ function randomStock(sku: string): StockTriple {
   };
   const bodega = () => (rnd() < 0.08 ? 0 : 4 + Math.floor(rnd() * 11)); // 0 o 4–14
   return { TIENDA_RANCAGUA: store(), TIENDA_PROVIDENCIA: store(), BODEGA: bodega() };
-}
-
-export interface LedgerMismatch {
-  variantId: string;
-  locationId: string;
-  onHand: number;
-  ledgerSum: number;
-}
-
-/** Invariante: SUM(inventory_movements.quantity) por (variante, ubicación) = stock_levels.on_hand. */
-export async function findLedgerMismatches(client: Pick<Tx, "$queryRaw"> = db): Promise<LedgerMismatch[]> {
-  const rows = await client.$queryRaw<
-    { variant_id: string; location_id: string; on_hand: number; ledger_sum: bigint }[]
-  >`
-    SELECT sl.variant_id, sl.location_id, sl.on_hand, COALESCE(SUM(m.quantity), 0) AS ledger_sum
-    FROM stock_levels sl
-    LEFT JOIN inventory_movements m
-      ON m.variant_id = sl.variant_id AND m.location_id = sl.location_id
-    GROUP BY sl.variant_id, sl.location_id, sl.on_hand
-    HAVING sl.on_hand <> COALESCE(SUM(m.quantity), 0)
-  `;
-  return rows.map((r) => ({
-    variantId: r.variant_id,
-    locationId: r.location_id,
-    onHand: r.on_hand,
-    ledgerSum: Number(r.ledger_sum),
-  }));
 }
 
 export interface SeedSummary {
@@ -197,51 +171,27 @@ export async function resetAndSeedDemoData(): Promise<SeedSummary> {
         if (!variantRows.some((v) => v.sku === sku)) throw new Error(`STOCK_OVERRIDES: la variante ${sku} no existe`);
       }
 
-      // SEED: escritura directa de stock_levels e inventory_movements (CARGA_INICIAL).
-      // Excepción TEMPORAL a la regla 1 (solo InventoryService escribe stock): el servicio llega en la Etapa 2,
-      // donde este bloque se migra a InventoryService (ver docs/DEMO_PLAN.md).
-      const stockLevels: { variantId: string; locationId: string; onHand: number }[] = [];
-      const movements: {
-        variantId: string;
-        locationId: string;
-        type: MovementType;
-        quantity: number;
-        onHandAfter: number;
-        reason: string;
-        refType: RefType;
-        userId: string;
-        idempotencyKey: string;
-      }[] = [];
+      // Carga inicial vía InventoryService (regla 1): una operación por ubicación, idempotencyKey determinística.
+      // Las líneas con 0 solo crean la fila de stock (sin movimiento).
+      const admin: Actor = { id: adminId, role: "ADMIN", location: null };
       const unitsByLocation: Record<string, number> = {};
-
-      for (const v of variantRows) {
-        const triple = stockBySku.get(v.sku)!;
-        for (const loc of LOCATIONS) {
-          const qty = triple[loc.code];
-          const locationId = locationByCode.get(loc.code)!;
-          stockLevels.push({ variantId: v.id, locationId, onHand: qty });
-          unitsByLocation[loc.code] = (unitsByLocation[loc.code] ?? 0) + qty;
-          if (qty > 0) {
-            movements.push({
-              variantId: v.id,
-              locationId,
-              type: MovementType.CARGA_INICIAL,
-              quantity: qty,
-              onHandAfter: qty,
-              reason: "Carga inicial (datos de demo)",
-              refType: RefType.MANUAL,
-              userId: adminId,
-              idempotencyKey: `seed:initial:${v.id}:${locationId}`,
-            });
-          }
-        }
+      for (const loc of LOCATIONS) {
+        const lines = variantRows.map((v) => ({ variantId: v.id, qty: stockBySku.get(v.sku)![loc.code] }));
+        await loadInitialStock(tx, {
+          actor: admin,
+          locationId: locationByCode.get(loc.code)!,
+          lines,
+          idempotencyKey: `seed-carga-inicial-${loc.code}`,
+        });
+        unitsByLocation[loc.code] = lines.reduce((sum, l) => sum + l.qty, 0);
       }
-      await tx.stockLevel.createMany({ data: stockLevels });
-      await tx.inventoryMovement.createMany({ data: movements });
 
       const mismatches = await findLedgerMismatches(tx);
       if (mismatches.length > 0) {
         throw new Error(`El ledger no cuadra tras la carga inicial: ${mismatches.length} diferencias`);
+      }
+      if ((await findReservationMismatches(tx)).length > 0) {
+        throw new Error("El reservado no cuadra con las reservas activas tras la carga inicial");
       }
 
       return {

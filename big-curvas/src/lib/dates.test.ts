@@ -3,6 +3,7 @@ import {
   formatDate,
   formatDateTime,
   formatTime,
+  formatTimeWithSeconds,
   santiagoDayKey,
   santiagoOffsetMinutes,
   startOfDaySantiago,
@@ -30,5 +31,6 @@ describe("dates (America/Santiago)", () => {
     expect(formatDate(d)).toBe("15-07-2026");
     expect(formatTime(d)).toBe("14:05");
     expect(formatDateTime(d)).toBe("15-07-2026 14:05");
+    expect(formatTimeWithSeconds(new Date("2026-07-15T18:05:09Z"))).toBe("14:05:09");
   });
 });

@@ -17,13 +17,13 @@
   - [x] Login demo "Entrar como…" (`DEMO_MODE`) + `getCurrentUser()` + `requireAccess()`
   - [x] Layout con menú por rol e indicador "Ubicación: X"
   - [x] lint + typecheck + tests · commit
-- [ ] **Etapa 2 – InventoryService + matriz de stock**
-  - [ ] Migrar el seed para que use InventoryService (quitar escritura directa `// SEED:`)
-  - [ ] `src/modules/inventory` (receive, adjust, sell, reserve, releaseReservation, consumeReservation, sendTransfer, receiveTransfer)
-  - [ ] Tests de integración contra Postgres real (venta OK, stock insuficiente, reserva bloquea venta, concurrencia última unidad, traspaso con diferencia, ledger cuadra, idempotencia, acceso cruzado)
-  - [ ] Pantalla Stock (matriz + búsqueda + auto-refresco)
-  - [ ] Pantalla Kardex
-  - [ ] lint + typecheck + tests · commit
+- [x] **Etapa 2 – InventoryService + matriz de stock**
+  - [x] Migrar el seed para que use InventoryService (quitar escritura directa `// SEED:`)
+  - [x] `src/modules/inventory` (receive, adjust, sell, reserve, releaseReservation, consumeReservation, sendTransfer, receiveTransfer)
+  - [x] Tests de integración contra Postgres real (venta OK, stock insuficiente, reserva bloquea venta, concurrencia última unidad, traspaso con diferencia, ledger cuadra, idempotencia, acceso cruzado)
+  - [x] Pantalla Stock (matriz + búsqueda + auto-refresco)
+  - [x] Pantalla Kardex
+  - [x] lint + typecheck + tests · commit
 - [ ] **Etapa 3 – POS por tienda**
   - [ ] Escaneo con foco permanente + búsqueda, carrito, descuento por línea
   - [ ] Pago efectivo (vuelto, redondeo $10) / tarjeta (voucher), ticket
@@ -116,6 +116,9 @@ Del stack definido: `next`, `react`, `typescript`, `tailwindcss`, shadcn/ui (tra
 - Idempotencia: la operación (venta, traspaso, pedido) lleva `idempotencyKey` único; cada movimiento deriva `"{key}:{n}"` único.
 - El InventoryService se amplía con operaciones auxiliares que el contrato implica pero no lista: `createTransfer`, `cancelTransfer`, `resolveTransferDifference` (el §5 sí la define), consultas de stock/tránsito.
 - Pruebas contra una BD `big_curvas_test` en el mismo contenedor Docker (migrada por el `globalSetup` de Vitest).
+- **Concurrencia (Etapa 2, aprobado):** cada cambio de stock es un UPDATE/UPSERT condicional con `RETURNING` (`src/modules/inventory/stock-sql.ts`, único archivo que escribe `stock_levels`), en READ COMMITTED. Orden global de bloqueo: traspaso → reservas → `stock_levels`, siempre por `(location_id, variant_id)`. Los cambios de estado de reservas y traspasos también son condicionales (`WHERE status = …`).
+- **Idempotencia (Etapa 2):** `runIdempotent` (`src/lib/idempotency.ts`) busca por clave → ejecuta la `$transaction` → ante cualquier error (P2002 incluido) relee FUERA de la transacción. Movimientos `{clave}:{n}` con n = índice de la línea ya ordenada. Comandos de UI con transacción propia: `receiveStock`, `adjustStock`, `createTransferCommand`, `sendTransferCommand`, `receiveTransferCommand`; `sell`/`reserve`/`consumeReservations` los llama sales/orders con su `tx`.
+- Reservas y consumos se exponen en plural (`releaseReservations`, `consumeReservations`) para ordenar y bloquear varias reservas en una sola operación.
 - Puerto Postgres local: 5432 (libre hoy).
 
 ## Respuestas del usuario a las dudas (Etapa 0 aprobada)
@@ -152,3 +155,10 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Validar con el contador el redondeo de efectivo a $10 (1–5 baja, 6–9 sube).
 - P-08 (límite de descuento de la vendedora) sigue pendiente con el cliente; en la demo es 10 % (`settings`, marcado `is_demo_value`).
 - Vencimiento de reservas (job) y cancelación de pedidos online.
+- Liberar reservas vencidas de forma perezosa dentro de la misma transacción antes de vender o reservar, ya que `stock_levels.reserved` no descuenta solo las vencidas.
+- Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
+
+## Dudas abiertas (Etapa 2)
+
+- **Recepción de traspaso con prendas que no venían:** si en destino se escanea una variante que NO está en el traspaso, hoy se rechaza (`VALIDATION`), porque `transfer_lines.qty_sent > 0` no permite registrar una línea "sobrante" sin envío. Si llegan MÁS unidades de una variante que sí venía, se acepta y queda como diferencia. ¿Así está bien, o la prenda ajena debe quedar registrada para que Belén la resuelva?
+- `sell` solo se permite en ubicaciones con POS (`sells_pos`); BODEGA vende solo vía pedido online (`consumeReservations`). Confirmar.

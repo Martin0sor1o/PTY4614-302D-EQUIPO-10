@@ -72,6 +72,13 @@ const timeFormatter = new Intl.DateTimeFormat("es-CL", {
   minute: "2-digit",
   hourCycle: "h23",
 });
+const timeSecondsFormatter = new Intl.DateTimeFormat("es-CL", {
+  timeZone: SANTIAGO_TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
 
 /** "30-09-2026" */
 export function formatDate(date: Date): string {
@@ -81,6 +88,11 @@ export function formatDate(date: Date): string {
 /** "14:05" (hora de Chile) */
 export function formatTime(date: Date): string {
   return timeFormatter.format(date);
+}
+
+/** "14:05:09" (hora de Chile) */
+export function formatTimeWithSeconds(date: Date): string {
+  return timeSecondsFormatter.format(date);
 }
 
 /** "30-09-2026 14:05" (hora de Chile) */

@@ -34,8 +34,11 @@ export interface AccessRequirement {
   locationId?: string;
 }
 
+/** Quién ejecuta una operación: lo mínimo de la sesión que necesitan los servicios para validar y auditar. */
+export type Actor = Pick<SessionUser, "id" | "role" | "location">;
+
 /** Valida rol y ubicación. Lanza AppError FORBIDDEN si no corresponde. */
-export function assertAccess(user: SessionUser, requirement: AccessRequirement): void {
+export function assertAccess(user: Pick<SessionUser, "role" | "location">, requirement: AccessRequirement): void {
   if (!requirement.roles.includes(user.role)) {
     throw new AppError("FORBIDDEN", "Tu rol no tiene permiso para esta acción.");
   }
@@ -46,7 +49,7 @@ export function assertAccess(user: SessionUser, requirement: AccessRequirement):
   }
 }
 
-export function canAccess(user: SessionUser, requirement: AccessRequirement): boolean {
+export function canAccess(user: Pick<SessionUser, "role" | "location">, requirement: AccessRequirement): boolean {
   try {
     assertAccess(user, requirement);
     return true;
