@@ -24,12 +24,14 @@
   - [x] Pantalla Stock (matriz + búsqueda + auto-refresco)
   - [x] Pantalla Kardex
   - [x] lint + typecheck + tests · commit
-- [ ] **Etapa 3 – POS por tienda**
-  - [ ] Escaneo con foco permanente + búsqueda, carrito, descuento por línea
-  - [ ] Pago efectivo (vuelto, redondeo $10) / tarjeta (voucher), ticket
-  - [ ] Sin stock: otras ubicaciones (consulta) / unidad reservada: indicar pedido
-  - [ ] Apertura y cierre de caja
-  - [ ] lint + typecheck + tests · commit
+- [x] **Etapa 3 – Identidad visual y POS por tienda**
+  - [x] 3.0 Tokens de marca en `globals.css`, `<BrandLogo />` (usa `public/brand/logo.png` si existe), barra/menú en negro, contraste AA verificado
+  - [x] Escaneo con foco permanente + búsqueda, carrito, descuento por línea (límite en `settings`)
+  - [x] Pago efectivo (vuelto, redondeo $10) / débito-crédito (voucher) / transferencia (referencia), ticket 80 mm
+  - [x] Sin stock: otras ubicaciones (consulta) / unidad reservada: se indica
+  - [x] Apertura y cierre de caja (una por tienda), ventas del día
+  - [x] Migración `pos_cash_and_payments` (índice único parcial de caja abierta, `payments.cash_received`, CHECK)
+  - [x] lint + typecheck + tests · commits (`feat(ui)` y `feat(sales)`)
 - [ ] **Etapa 4 – Traspasos**
   - [ ] Crear (escaneo/búsqueda) → Enviar → EN_TRANSITO
   - [ ] Bandeja "Por recibir" → recibir escaneando → RECIBIDO / RECIBIDO_CON_DIFERENCIAS
@@ -159,8 +161,26 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
 - Definir el manejo de prendas no incluidas en un traspaso (pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén".
+- Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
+- Descuento sobre el límite: hoy se rechaza con "Requiere aprobación de Belén" para TODOS los roles (incluida Belén); el flujo de aprobación llega en la Etapa 6. Definir si el límite aplica a ADMIN.
+- Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
+- Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
+- Direcciones de las tiendas del ticket son datos de ejemplo del seed; el ticket dice "Comprobante interno – no válido como boleta".
 
 ## Decisiones del usuario (Etapa 2)
 
 1. Prenda que no viene en el traspaso: en la demo se **rechaza** al recibir con el mensaje "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén". Regla pendiente de confirmar con el cliente. Si llegan más unidades de una prenda que sí venía, se aceptan y quedan como diferencia.
 2. Confirmado: `sell` solo en ubicaciones con POS (`sells_pos`). La bodega descuenta únicamente vía `consumeReservations`.
+
+## Advertencia técnica: índice parcial de caja
+
+`cash_sessions_one_open_per_location_idx` (índice único parcial `WHERE status = 'ABIERTA'`) vive solo en el SQL de la migración `20260930055539_pos_cash_and_payments`: **Prisma no lo conoce**. En cada migración futura hay que revisar el SQL generado y **quitar cualquier `DROP INDEX` de ese índice** antes de aplicarla. Lo mismo vale para los CHECK y el trigger de `inventory_movements`.
+
+## Decisiones del usuario (Etapa 3)
+
+1. **Paleta:** negro `#0A0A0A`, rosado `#F5C6D6`, rosado intenso `#E0507F` (hover y foco; el propuesto `#E56A98` daba 2,9:1 de anillo de foco sobre blanco), fondo de trabajo `#FFF5F8`, énfasis sobre claro `#9D1F52`. Sin modo oscuro. El rosado claro nunca va como texto sobre fondo claro. Provisional hasta tener el color exacto del logo (solo cambian los cinco `--brand-*`).
+2. **Cierre de caja con diferencia:** se permite, con observación obligatoria si la diferencia ≠ 0 (queda en `audit_log`). El conteo es "ciego": la vendedora ingresa lo contado y el sistema muestra esperado y diferencia al cerrar.
+3. **Caja que cruza días:** sigue abierta hasta cerrarse; "Ventas del día" filtra por fecha de la venta en `America/Santiago`.
+4. **Ticket:** nombre y dirección de la tienda + texto "Comprobante interno – no válido como boleta".
+5. **Efectivo esperado** = monto inicial + Σ pagos en efectivo (cada `payments.amount` ya es neto de vuelto y trae el redondeo). Vuelto = `cash_received − amount`.
+6. **Concurrencia de caja:** la venta bloquea la caja con `FOR SHARE`; el cierre con `FOR UPDATE` espera a las ventas en curso y las siguientes ya no encuentran caja abierta. El correlativo (`SALE:{prefijo}`) se toma al final de la transacción: un rollback no deja huecos.

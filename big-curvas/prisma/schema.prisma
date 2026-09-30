@@ -538,12 +538,13 @@ model SaleLine {
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  saleId    String        @map("sale_id")
-  method    PaymentMethod
-  amount    Int
-  reference String? // N° de voucher
-  createdAt DateTime      @default(now()) @map("created_at")
+  id           String        @id @default(cuid())
+  saleId       String        @map("sale_id")
+  method       PaymentMethod
+  amount       Int
+  reference    String? // N° de voucher
+  cashReceived Int?          @map("cash_received") // solo EFECTIVO: monto entregado por la clienta (vuelto = cash_received − amount)
+  createdAt    DateTime      @default(now()) @map("created_at")
 
   sale Sale @relation(fields: [saleId], references: [id])
 

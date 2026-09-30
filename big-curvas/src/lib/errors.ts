@@ -5,6 +5,7 @@ export type AppErrorCode =
   | "NOT_FOUND"
   | "CONFLICT"
   | "STOCK_INSUFICIENTE"
+  | "APROBACION_REQUERIDA"
   | "APROBACION_INVALIDA";
 
 /** Error de negocio con código estable y mensaje en español apto para mostrar en la UI. */

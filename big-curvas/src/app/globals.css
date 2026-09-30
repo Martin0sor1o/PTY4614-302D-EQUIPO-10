@@ -111,3 +111,32 @@
     @apply font-sans;
   }
 }
+/*
+ * Ticket de venta (Etapa 3.1): al imprimir sale solo el ticket, en papel térmico de 80 mm.
+ * En pantalla el ticket se ve como una tira; los controles llevan `print:hidden`.
+ */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+    width: 80mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .ticket {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 3mm !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+}

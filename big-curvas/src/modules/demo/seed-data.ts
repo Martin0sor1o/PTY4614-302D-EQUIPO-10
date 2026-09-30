@@ -7,11 +7,13 @@ export interface LocationDef {
   sellsPos: boolean;
   fulfillsOnline: boolean;
   salePrefix: string;
+  /** DEMO: direcciones de ejemplo (aparecen en el ticket). */
+  address?: string;
 }
 
 export const LOCATIONS: LocationDef[] = [
-  { code: "TIENDA_RANCAGUA", name: "Tienda Rancagua", type: "STORE", sellsPos: true, fulfillsOnline: false, salePrefix: "RGA" },
-  { code: "TIENDA_PROVIDENCIA", name: "Tienda Providencia", type: "STORE", sellsPos: true, fulfillsOnline: false, salePrefix: "PRO" },
+  { code: "TIENDA_RANCAGUA", name: "Tienda Rancagua", type: "STORE", sellsPos: true, fulfillsOnline: false, salePrefix: "RGA", address: "Calle de Ejemplo 123, Rancagua" },
+  { code: "TIENDA_PROVIDENCIA", name: "Tienda Providencia", type: "STORE", sellsPos: true, fulfillsOnline: false, salePrefix: "PRO", address: "Av. de Ejemplo 456, Providencia, Santiago" },
   { code: "BODEGA", name: "Bodega", type: "WAREHOUSE", sellsPos: false, fulfillsOnline: true, salePrefix: "BOD" },
 ];
 
