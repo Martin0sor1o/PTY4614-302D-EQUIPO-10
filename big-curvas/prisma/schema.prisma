@@ -1,0 +1,703 @@
+// Big Curvas – subconjunto del modelo de datos para la DEMO (docs/04_MODELO_DE_DATOS.md).
+// Convenciones: tablas y columnas en snake_case (via @@map/@map); montos Int en CLP; cantidades Int;
+// sin borrado físico (active=false); fechas en UTC.
+// Las constraints CHECK y el trigger de solo-INSERT de inventory_movements viven en el SQL de la migración
+// (Prisma no los soporta de forma nativa).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum LocationType {
+  STORE
+  WAREHOUSE
+
+  @@map("location_type")
+}
+
+enum UserRole {
+  ADMIN
+  VENDEDORA
+  BODEGA
+
+  @@map("user_role")
+}
+
+enum BarcodeSource {
+  PROVEEDOR
+  INTERNO
+
+  @@map("barcode_source")
+}
+
+enum MovementType {
+  CARGA_INICIAL
+  RECEPCION
+  VENTA_POS
+  VENTA_ONLINE
+  DEVOLUCION
+  ANULACION_VENTA
+  AJUSTE
+  AJUSTE_CONTEO
+  MERMA
+  TRASPASO_SALIDA
+  TRASPASO_ENTRADA
+  MERMA_TRASPASO
+  REINGRESO_PEDIDO_CANCELADO
+  VENTA_CONTINGENCIA
+
+  @@map("movement_type")
+}
+
+enum RefType {
+  SALE
+  RETURN
+  ONLINE_ORDER
+  GOODS_RECEIPT
+  STOCK_COUNT
+  TRANSFER
+  MANUAL
+
+  @@map("ref_type")
+}
+
+enum ReservationStatus {
+  ACTIVA
+  CONSUMIDA
+  LIBERADA
+  VENCIDA
+  TRASPASADA
+
+  @@map("reservation_status")
+}
+
+enum TransferStatus {
+  BORRADOR
+  EN_TRANSITO
+  RECIBIDO
+  RECIBIDO_CON_DIFERENCIAS
+  CERRADO
+  ANULADO
+
+  @@map("transfer_status")
+}
+
+enum TransferReason {
+  REPOSICION
+  PEDIDO_ONLINE
+  DEVOLUCION_A_BODEGA
+  OTRO
+
+  @@map("transfer_reason")
+}
+
+enum DifferenceResolution {
+  MERMA
+  REENVIO
+  ERROR_ENVIO
+
+  @@map("difference_resolution")
+}
+
+enum CashSessionStatus {
+  ABIERTA
+  CERRADA
+
+  @@map("cash_session_status")
+}
+
+enum SaleChannel {
+  POS
+  INSTAGRAM
+  WHATSAPP
+  WEB
+
+  @@map("sale_channel")
+}
+
+enum SaleStatus {
+  COMPLETADA
+  ANULADA
+
+  @@map("sale_status")
+}
+
+enum PaymentMethod {
+  EFECTIVO
+  DEBITO
+  CREDITO
+  TRANSFERENCIA
+  VALE
+
+  @@map("payment_method")
+}
+
+enum ApprovalType {
+  REEMBOLSO
+  ANULACION
+  DESCUENTO_SOBRE_LIMITE
+  CAMBIO_FUERA_PLAZO
+  CAMBIO_SIN_BOLETA
+
+  @@map("approval_type")
+}
+
+enum ApprovalStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  VENCIDA
+  USADA
+
+  @@map("approval_status")
+}
+
+enum ApprovalMethod {
+  REMOTA
+  PIN
+
+  @@map("approval_method")
+}
+
+enum OrderStatus {
+  PENDIENTE_PAGO
+  PAGADO
+  ESPERANDO_TRASPASO
+  LISTO_PARA_PREPARAR
+  PREPARADO
+  DESPACHADO
+  EN_CAMINO_A_TIENDA
+  LISTO_PARA_RETIRO
+  ENTREGADO
+  CANCELADO
+
+  @@map("order_status")
+}
+
+enum DeliveryMethod {
+  DESPACHO
+  RETIRO_TIENDA
+
+  @@map("delivery_method")
+}
+
+// ─────────────────── Ubicaciones y usuarios ───────────────────
+
+model Location {
+  id                String       @id @default(cuid())
+  code              String       @unique // TIENDA_RANCAGUA | TIENDA_PROVIDENCIA | BODEGA
+  name              String
+  type              LocationType
+  address           String?
+  sellsPos          Boolean      @default(false) @map("sells_pos")
+  fulfillsOnline    Boolean      @default(false) @map("fulfills_online") // solo BODEGA
+  receivesSuppliers Boolean      @default(true) @map("receives_suppliers")
+  salePrefix        String       @map("sale_prefix") // RGA | PRO | BOD
+  active            Boolean      @default(true)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  users              User[]
+  stockLevels        StockLevel[]
+  movements          InventoryMovement[]
+  reservations       Reservation[]
+  transfersFrom      Transfer[]          @relation("TransferFrom")
+  transfersTo        Transfer[]          @relation("TransferTo")
+  cashSessions       CashSession[]
+  sales              Sale[]
+  approvalRequests   ApprovalRequest[]
+  fulfilledOrders    OnlineOrder[]       @relation("OrderFulfillment")
+  pickupOrders       OnlineOrder[]       @relation("OrderPickup")
+  orderLinesAtSource OnlineOrderLine[]
+
+  @@map("locations")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String?  @unique
+  role       UserRole
+  locationId String?  @map("location_id") // obligatorio para VENDEDORA y BODEGA (CHECK en la migración)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  location Location? @relation(fields: [locationId], references: [id])
+
+  movements            InventoryMovement[]
+  reservationsCreated  Reservation[]
+  transfersCreated     Transfer[]          @relation("TransferCreatedBy")
+  transfersSent        Transfer[]          @relation("TransferSentBy")
+  transfersReceived    Transfer[]          @relation("TransferReceivedBy")
+  transfersResolved    Transfer[]          @relation("TransferResolvedBy")
+  cashSessionsOpened   CashSession[]       @relation("CashOpenedBy")
+  cashSessionsClosed   CashSession[]       @relation("CashClosedBy")
+  sales                Sale[]
+  approvalsRequested   ApprovalRequest[]   @relation("ApprovalRequestedBy")
+  approvalsDecided     ApprovalRequest[]   @relation("ApprovalDecidedBy")
+  ordersCreated        OnlineOrder[]       @relation("OrderCreatedBy")
+  ordersPrepared       OnlineOrder[]       @relation("OrderPreparedBy")
+  ordersDelivered      OnlineOrder[]       @relation("OrderDeliveredBy")
+  ordersReceivedAtShop OnlineOrder[]       @relation("OrderStoreReceivedBy")
+  auditLogs            AuditLog[]
+
+  @@map("users")
+}
+
+// ───────────────────────── Catálogo ─────────────────────────
+
+model Category {
+  id       String  @id @default(cuid())
+  name     String
+  parentId String? @map("parent_id")
+  active   Boolean @default(true)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Size {
+  id        String  @id @default(cuid())
+  code      String  @unique // 44, 46, XL, 2XL…
+  sortOrder Int     @map("sort_order")
+  active    Boolean @default(true)
+
+  variants ProductVariant[]
+
+  @@map("sizes")
+}
+
+model Color {
+  id     String  @id @default(cuid())
+  code   String  @unique // NEG
+  name   String // Negro
+  hex    String?
+  active Boolean @default(true)
+
+  variants ProductVariant[]
+
+  @@map("colors")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  modelCode         String   @unique @map("model_code")
+  name              String
+  description       String?
+  categoryId        String   @map("category_id")
+  basePrice         Int      @map("base_price") // CLP, IVA incluido, igual en todas las tiendas
+  baseCost          Int?     @map("base_cost")
+  lowStockThreshold Int?     @map("low_stock_threshold")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  category Category         @relation(fields: [categoryId], references: [id])
+  variants ProductVariant[]
+
+  @@map("products")
+}
+
+model ProductVariant {
+  id            String        @id @default(cuid())
+  productId     String        @map("product_id")
+  sizeId        String        @map("size_id")
+  colorId       String        @map("color_id")
+  sku           String        @unique // MODELO-COLOR-TALLA
+  barcode       String        @unique
+  barcodeSource BarcodeSource @default(PROVEEDOR) @map("barcode_source")
+  priceOverride Int?          @map("price_override")
+  costOverride  Int?          @map("cost_override")
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  size    Size    @relation(fields: [sizeId], references: [id])
+  color   Color   @relation(fields: [colorId], references: [id])
+
+  stockLevels      StockLevel[]
+  movements        InventoryMovement[]
+  reservations     Reservation[]
+  transferLines    TransferLine[]
+  saleLines        SaleLine[]
+  onlineOrderLines OnlineOrderLine[]
+
+  @@unique([productId, sizeId, colorId])
+  @@map("product_variants")
+}
+
+// ───────────────────────── Inventario ⭐ ─────────────────────────
+// Solo src/modules/inventory escribe en stock_levels, inventory_movements, reservations, transfers y transfer_lines.
+
+model StockLevel {
+  variantId  String   @map("variant_id")
+  locationId String   @map("location_id")
+  onHand     Int      @default(0) @map("on_hand")
+  reserved   Int      @default(0)
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  variant  ProductVariant @relation(fields: [variantId], references: [id])
+  location Location       @relation(fields: [locationId], references: [id])
+
+  // CHECK (on_hand >= 0), CHECK (reserved >= 0), CHECK (reserved <= on_hand) → en la migración
+  @@id([variantId, locationId])
+  @@index([locationId, variantId])
+  @@map("stock_levels")
+}
+
+model InventoryMovement {
+  id             String       @id @default(cuid())
+  variantId      String       @map("variant_id")
+  locationId     String       @map("location_id")
+  type           MovementType
+  quantity       Int // con signo (±)
+  onHandAfter    Int          @map("on_hand_after")
+  unitCost       Int?         @map("unit_cost")
+  reason         String?
+  refType        RefType      @map("ref_type")
+  refId          String?      @map("ref_id")
+  userId         String       @map("user_id")
+  idempotencyKey String?      @unique @map("idempotency_key")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  variant  ProductVariant @relation(fields: [variantId], references: [id])
+  location Location       @relation(fields: [locationId], references: [id])
+  user     User           @relation(fields: [userId], references: [id])
+
+  // Inmutable: un trigger rechaza UPDATE y DELETE (ver migración)
+  @@index([variantId, locationId, createdAt])
+  @@map("inventory_movements")
+}
+
+model Reservation {
+  id             String            @id @default(cuid())
+  variantId      String            @map("variant_id")
+  locationId     String            @map("location_id")
+  quantity       Int
+  status         ReservationStatus @default(ACTIVA)
+  orderLineId    String?           @map("order_line_id")
+  expiresAt      DateTime?         @map("expires_at") // null = firme (demo: se guarda, sin job de vencimiento)
+  transferLineId String?           @map("transfer_line_id")
+  createdBy      String            @map("created_by")
+  releasedReason String?           @map("released_reason")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  closedAt       DateTime?         @map("closed_at")
+
+  variant                  ProductVariant   @relation(fields: [variantId], references: [id])
+  location                 Location         @relation(fields: [locationId], references: [id])
+  orderLine                OnlineOrderLine? @relation(fields: [orderLineId], references: [id])
+  transferLine             TransferLine?    @relation("ReservationTransferLine", fields: [transferLineId], references: [id])
+  creator                  User             @relation(fields: [createdBy], references: [id])
+  reservedForTransferLines TransferLine[]   @relation("TransferLineReservation")
+
+  @@index([status, expiresAt])
+  @@index([orderLineId])
+  @@index([variantId, locationId, status])
+  @@map("reservations")
+}
+
+model Transfer {
+  id              String         @id @default(cuid())
+  number          String         @unique // TR-000123
+  fromLocationId  String         @map("from_location_id")
+  toLocationId    String         @map("to_location_id")
+  status          TransferStatus @default(BORRADOR)
+  reason          TransferReason @default(OTRO)
+  onlineOrderId   String?        @map("online_order_id")
+  createdBy       String         @map("created_by")
+  sentBy          String?        @map("sent_by")
+  sentAt          DateTime?      @map("sent_at")
+  receivedBy      String?        @map("received_by")
+  receivedAt      DateTime?      @map("received_at")
+  resolvedBy      String?        @map("resolved_by")
+  resolvedAt      DateTime?      @map("resolved_at")
+  resolutionNotes String?        @map("resolution_notes")
+  idempotencyKey  String?        @unique @map("idempotency_key")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  fromLocation Location       @relation("TransferFrom", fields: [fromLocationId], references: [id])
+  toLocation   Location       @relation("TransferTo", fields: [toLocationId], references: [id])
+  creator      User           @relation("TransferCreatedBy", fields: [createdBy], references: [id])
+  sender       User?          @relation("TransferSentBy", fields: [sentBy], references: [id])
+  receiver     User?          @relation("TransferReceivedBy", fields: [receivedBy], references: [id])
+  resolver     User?          @relation("TransferResolvedBy", fields: [resolvedBy], references: [id])
+  onlineOrder  OnlineOrder?   @relation(fields: [onlineOrderId], references: [id])
+  lines        TransferLine[]
+
+  // CHECK (from_location_id <> to_location_id) → en la migración
+  @@index([status, toLocationId])
+  @@index([status, fromLocationId])
+  @@map("transfers")
+}
+
+model TransferLine {
+  id                   String                @id @default(cuid())
+  transferId           String                @map("transfer_id")
+  variantId            String                @map("variant_id")
+  qtySent              Int                   @map("qty_sent")
+  qtyReceived          Int?                  @map("qty_received") // null hasta recibir
+  orderLineId          String?               @map("order_line_id")
+  reservationId        String?               @map("reservation_id") // reserva en origen que se consume al enviar
+  differenceResolution DifferenceResolution? @map("difference_resolution")
+
+  transfer             Transfer         @relation(fields: [transferId], references: [id])
+  variant              ProductVariant   @relation(fields: [variantId], references: [id])
+  orderLine            OnlineOrderLine? @relation(fields: [orderLineId], references: [id])
+  reservation          Reservation?     @relation("TransferLineReservation", fields: [reservationId], references: [id])
+  reservationsFromLine Reservation[]    @relation("ReservationTransferLine")
+
+  @@unique([transferId, variantId])
+  @@map("transfer_lines")
+}
+
+// ───────────────────── Caja, ventas y pagos ─────────────────────
+
+model CashSession {
+  id           String            @id @default(cuid())
+  locationId   String            @map("location_id")
+  openedBy     String            @map("opened_by")
+  openedAt     DateTime          @default(now()) @map("opened_at")
+  openingCash  Int               @map("opening_cash")
+  closedBy     String?           @map("closed_by")
+  closedAt     DateTime?         @map("closed_at")
+  expectedCash Int?              @map("expected_cash")
+  countedCash  Int?              @map("counted_cash")
+  difference   Int?
+  notes        String?
+  status       CashSessionStatus @default(ABIERTA)
+
+  location Location @relation(fields: [locationId], references: [id])
+  opener   User     @relation("CashOpenedBy", fields: [openedBy], references: [id])
+  closer   User?    @relation("CashClosedBy", fields: [closedBy], references: [id])
+  sales    Sale[]
+
+  @@index([locationId, status])
+  @@map("cash_sessions")
+}
+
+model Sale {
+  id                 String      @id @default(cuid())
+  number             String      @unique // {prefijo}-{correlativo}, ej. PRO-000045
+  channel            SaleChannel @default(POS)
+  locationId         String      @map("location_id") // tienda para POS; BODEGA para online
+  cashSessionId      String?     @map("cash_session_id") // null en online
+  sellerId           String      @map("seller_id")
+  customerId         String?     @map("customer_id")
+  onlineOrderId      String?     @unique @map("online_order_id")
+  status             SaleStatus  @default(COMPLETADA)
+  subtotal           Int
+  discountTotal      Int         @default(0) @map("discount_total")
+  total              Int
+  roundingAdjustment Int         @default(0) @map("rounding_adjustment")
+  idempotencyKey     String      @unique @map("idempotency_key")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  location    Location     @relation(fields: [locationId], references: [id])
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
+  seller      User         @relation(fields: [sellerId], references: [id])
+  customer    Customer?    @relation(fields: [customerId], references: [id])
+  onlineOrder OnlineOrder? @relation(fields: [onlineOrderId], references: [id])
+  lines       SaleLine[]
+  payments    Payment[]
+
+  @@index([locationId, createdAt])
+  @@index([channel, createdAt])
+  @@map("sales")
+}
+
+model SaleLine {
+  id                 String  @id @default(cuid())
+  saleId             String  @map("sale_id")
+  variantId          String  @map("variant_id")
+  quantity           Int
+  unitPrice          Int     @map("unit_price")
+  unitCost           Int?    @map("unit_cost")
+  manualDiscountBps  Int     @default(0) @map("manual_discount_bps") // % en puntos básicos (1000 = 10 %)
+  manualDiscount     Int     @default(0) @map("manual_discount") // monto resultante en CLP
+  discountApprovalId String? @map("discount_approval_id")
+  lineTotal          Int     @map("line_total")
+
+  sale             Sale             @relation(fields: [saleId], references: [id])
+  variant          ProductVariant   @relation(fields: [variantId], references: [id])
+  discountApproval ApprovalRequest? @relation(fields: [discountApprovalId], references: [id])
+
+  @@map("sale_lines")
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  saleId    String        @map("sale_id")
+  method    PaymentMethod
+  amount    Int
+  reference String? // N° de voucher
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  sale Sale @relation(fields: [saleId], references: [id])
+
+  @@map("payments")
+}
+
+model ApprovalRequest {
+  id              String         @id @default(cuid())
+  type            ApprovalType
+  locationId      String         @map("location_id")
+  requestedBy     String         @map("requested_by")
+  payload         Json
+  amount          Int?
+  status          ApprovalStatus @default(PENDIENTE)
+  method          ApprovalMethod @default(REMOTA)
+  decidedBy       String?        @map("decided_by")
+  decidedAt       DateTime?      @map("decided_at")
+  decisionComment String?        @map("decision_comment")
+  expiresAt       DateTime?      @map("expires_at")
+  usedAt          DateTime?      @map("used_at")
+  usedRefType     String?        @map("used_ref_type")
+  usedRefId       String?        @map("used_ref_id")
+  idempotencyKey  String?        @unique @map("idempotency_key")
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  location  Location   @relation(fields: [locationId], references: [id])
+  requester User       @relation("ApprovalRequestedBy", fields: [requestedBy], references: [id])
+  decider   User?      @relation("ApprovalDecidedBy", fields: [decidedBy], references: [id])
+  saleLines SaleLine[]
+
+  @@index([status, createdAt])
+  @@map("approval_requests")
+}
+
+// ───────────────────────── Pedidos online ─────────────────────────
+
+model Customer {
+  id              String  @id @default(cuid())
+  name            String
+  instagramHandle String? @map("instagram_handle")
+  phone           String?
+  email           String?
+  rut             String?
+  notes           String?
+  active          Boolean @default(true)
+
+  sales  Sale[]
+  orders OnlineOrder[]
+
+  @@map("customers")
+}
+
+model OnlineOrder {
+  id                    String         @id @default(cuid())
+  number                String         @unique // PED-000012
+  channel               SaleChannel    @default(INSTAGRAM)
+  customerId            String         @map("customer_id")
+  status                OrderStatus    @default(PENDIENTE_PAGO)
+  fulfillmentLocationId String         @map("fulfillment_location_id") // = BODEGA
+  deliveryMethod        DeliveryMethod @map("delivery_method")
+  pickupLocationId      String?        @map("pickup_location_id") // tienda de retiro
+  shippingAddress       String?        @map("shipping_address")
+  shippingCost          Int            @default(0) @map("shipping_cost")
+  subtotal              Int
+  discountTotal         Int            @default(0) @map("discount_total")
+  total                 Int
+  paymentMethod         PaymentMethod? @map("payment_method")
+  paymentReference      String?        @map("payment_reference")
+  paidAt                DateTime?      @map("paid_at")
+  preparedAt            DateTime?      @map("prepared_at")
+  preparedBy            String?        @map("prepared_by")
+  courier               String?
+  trackingNumber        String?        @map("tracking_number")
+  shippedAt             DateTime?      @map("shipped_at")
+  arrivedAtStoreAt      DateTime?      @map("arrived_at_store_at")
+  storeReceivedBy       String?        @map("store_received_by")
+  deliveredAt           DateTime?      @map("delivered_at")
+  deliveredBy           String?        @map("delivered_by")
+  pickedUpByName        String?        @map("picked_up_by_name") // quién retira (campo simple)
+  createdBy             String         @map("created_by")
+  idempotencyKey        String         @unique @map("idempotency_key")
+  notes                 String?
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  customer            Customer          @relation(fields: [customerId], references: [id])
+  fulfillmentLocation Location          @relation("OrderFulfillment", fields: [fulfillmentLocationId], references: [id])
+  pickupLocation      Location?         @relation("OrderPickup", fields: [pickupLocationId], references: [id])
+  creator             User              @relation("OrderCreatedBy", fields: [createdBy], references: [id])
+  preparer            User?             @relation("OrderPreparedBy", fields: [preparedBy], references: [id])
+  deliverer           User?             @relation("OrderDeliveredBy", fields: [deliveredBy], references: [id])
+  storeReceiver       User?             @relation("OrderStoreReceivedBy", fields: [storeReceivedBy], references: [id])
+  lines               OnlineOrderLine[]
+  sale                Sale?
+  transfers           Transfer[]
+
+  @@index([status, createdAt])
+  @@index([pickupLocationId, status])
+  @@map("online_orders")
+}
+
+model OnlineOrderLine {
+  id               String @id @default(cuid())
+  orderId          String @map("order_id")
+  variantId        String @map("variant_id")
+  quantity         Int
+  unitPrice        Int    @map("unit_price")
+  discountAmount   Int    @default(0) @map("discount_amount")
+  lineTotal        Int    @map("line_total")
+  sourceLocationId String @map("source_location_id") // BODEGA o la tienda de donde se trae
+  pickedQty        Int    @default(0) @map("picked_qty")
+
+  order          OnlineOrder    @relation(fields: [orderId], references: [id])
+  variant        ProductVariant @relation(fields: [variantId], references: [id])
+  sourceLocation Location       @relation(fields: [sourceLocationId], references: [id])
+  reservations   Reservation[]
+  transferLines  TransferLine[]
+
+  @@index([orderId])
+  @@map("online_order_lines")
+}
+
+// ─────────────── Configuración, auditoría y correlativos ───────────────
+
+model Setting {
+  key         String   @id
+  valueInt    Int      @map("value_int")
+  description String?
+  isDemoValue Boolean  @default(false) @map("is_demo_value") // valor provisional de la demo (pendiente de validar con el cliente)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  locationId String?  @map("location_id")
+  action     String
+  entity     String
+  entityId   String?  @map("entity_id")
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+model DocumentCounter {
+  key       String @id // ej. SALE:RGA, TRANSFER, ORDER
+  lastValue Int    @default(0) @map("last_value")
+
+  @@map("document_counters")
+}

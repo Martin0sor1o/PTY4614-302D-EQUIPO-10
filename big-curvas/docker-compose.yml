@@ -1,0 +1,24 @@
+# Postgres local para desarrollo y tests. Uso: docker compose up -d
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: big-curvas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bigcurvas
+      POSTGRES_PASSWORD: bigcurvas
+      POSTGRES_DB: big_curvas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Crea la BD de tests (big_curvas_test) la primera vez que se inicializa el volumen
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bigcurvas -d big_curvas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
