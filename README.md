@@ -6,13 +6,13 @@ Sistema web para centralizar el **inventario, las ventas en tienda (POS) y los p
 
 ---
 
-## 🎯 Problema
+##  Problema
 
 - El stock de las tiendas, la bodega y el canal online no está integrado y se controla manualmente.
 - Las ventas online se mezclan con las de tienda, lo que genera prendas vendidas dos veces, descuadres y demoras en los despachos.
 - No hay trazabilidad de los movimientos entre ubicaciones ni reportes de ventas.
 
-## 💡 Solución
+##  Solución
 
 Un sistema único que lleva el stock **por prenda (talla y color) y por ubicación**, y lo actualiza en tiempo real con cada venta, traspaso o pedido.
 
@@ -25,7 +25,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 | **Aprobaciones** | La administradora autoriza desde su celular los reembolsos y los descuentos especiales |
 | **Reportes** *(próximamente)* | Ventas diarias, semanales y mensuales, y análisis de productos |
 
-## 🛠️ Tecnologías
+##  Tecnologías
 
 - **Next.js** + **TypeScript** (aplicación web full-stack)
 - **PostgreSQL** + **Prisma** (base de datos y migraciones)
@@ -34,7 +34,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 - **Docker** (base de datos local)
 - Desarrollo asistido por IA con **Claude Code**
 
-## 📁 Estructura del repositorio
+##  Estructura del repositorio
 
 ```
 ├── Fase 1/        Entregables del curso – Fase 1
@@ -43,7 +43,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 └── big-curvas/    Código del sistema y documentación técnica (rama feature/demo)
 ```
 
-## 🌿 Ramas
+##  Ramas
 
 | Rama | Uso |
 |------|-----|
@@ -51,7 +51,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 | `develop` | Integración del sistema (código probado) |
 | `feature/*` | Desarrollo de funcionalidades (actualmente `feature/demo`) |
 
-## 🚦 Estado del proyecto
+##  Estado del proyecto
 
 - [x] Levantamiento de requerimientos y arquitectura
 - [x] Base técnica del proyecto (Etapa 1 de la demo)
@@ -60,12 +60,11 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 - [ ] Salida a producción (etapa 1: tiendas y bodega)
 - [ ] Pedidos online completos y reportes
 
-## 👥 Equipo 10
+##  Equipo 10
 
 | Integrante | Rol |
 |------------|-----|
 | Martín Osorio | [Rol] |
-| [Nombre] | [Rol] |
-| [Nombre] | [Rol] |
+| Renato Espina | [Rol] |
+| Benjamín Rojas | [Rol] |
 
-**Docente guía:** [Nombre del profesor]
