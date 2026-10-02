@@ -1,4 +1,4 @@
-# 04 – Modelo de datos (v0.3 – multi-ubicación)
+# 04 – Modelo de datos (v0.4 – tienda + bodega, multi-ubicación)
 
 Convenciones: tablas en `snake_case` plural; PK `id` (UUID v7 o cuid); timestamps `created_at`/`updated_at` en UTC; montos `Int` CLP; cantidades `Int`; soft delete con `active boolean` (no `DELETE`).
 
@@ -45,12 +45,12 @@ erDiagram
 
 ### 2.1 Usuarios, ubicaciones, dispositivos
 
-**locations**: `id`, `code` (único: `TIENDA_RANCAGUA`, `TIENDA_PROVIDENCIA`, `BODEGA`), `name`, `type` (`STORE` | `WAREHOUSE`), `address`, `sells_pos` (bool), `fulfills_online` (bool; solo BODEGA = true), `receives_suppliers` (bool; las 3 = true), `sale_prefix` (`RGA`, `PRO`, `BOD`), `sii_branch_code` (nullable, futuro), `active`.
+**locations**: `id`, `code` (único: `TIENDA_RANCAGUA`, `BODEGA`; el modelo admite más), `name`, `type` (`STORE` | `WAREHOUSE`), `address`, `sells_pos` (bool), `fulfills_online` (bool; solo BODEGA = true), `receives_suppliers` (bool; ambas = true), `sale_prefix` (`RGA`, `BOD`), `sii_branch_code` (nullable, futuro), `active`.
 
 **users**: `id`, `name`, `email` (único, nullable para vendedoras solo-PIN), `password_hash` (nullable), `pin_hash`, `role` (`ADMIN` | `VENDEDORA` | `BODEGA`), `location_id` (**obligatorio para VENDEDORA y BODEGA**; null para ADMIN), `active`, `failed_pin_attempts`, `locked_until`.
 - Constraint: `role = 'ADMIN' OR location_id IS NOT NULL`.
 
-**pos_devices**: `id`, `location_id`, `name` ("Caja 1 Providencia"), `device_token_hash`, `registered_by`, `active`. La sesión POS queda ligada a la tienda del dispositivo.
+**pos_devices**: `id`, `location_id`, `name` ("Caja Tienda Rancagua"), `device_token_hash`, `registered_by`, `active`. La sesión POS queda ligada a la tienda del dispositivo.
 
 ### 2.2 Catálogo (sin cambios de fondo)
 
@@ -58,13 +58,13 @@ erDiagram
 **sizes**: `id`, `code` (`S`, `44`, `3XL`…), `sort_order`, `active`.
 **colors**: `id`, `code` (`NEG`), `name` (`Negro`), `hex` (opcional), `active`.
 
-**products**: `id`, `model_code` (único), `name`, `description`, `category_id`, `base_price` (IVA incl., **igual en todas las tiendas**), `base_cost`, `low_stock_threshold`, `images` (json, opcional), `active`.
+**products**: `id`, `model_code` (único), `name`, `description`, `category_id`, `base_price` (IVA incl., igual en todos los canales; las ofertas van en `promotions`), `base_cost`, `low_stock_threshold`, `images` (json, opcional), `active`.
 
 **product_variants**: `id`, `product_id`, `size_id`, `color_id`, `sku` (único), `barcode` (único), `barcode_source` (`PROVEEDOR` | `INTERNO`), `price_override`, `cost_override`, `active`. Único (`product_id`, `size_id`, `color_id`).
 
 **price_history**: `id`, `product_id`, `variant_id`, `old_price`, `new_price`, `user_id`, `created_at`.
 
-**promotions** / **promotion_targets**: `type` (`PORCENTAJE` | `MONTO`), `value`, `scope` (`PRODUCTO` | `VARIANTE` | `CATEGORIA`), `starts_at`, `ends_at`, `channels` (POS / online / ambos). Aplican a **todas las tiendas** (RN-05). Regla de combinación: RN-20 🟡.
+**promotions** / **promotion_targets**: `type` (`PORCENTAJE` | `MONTO`), `value`, `scope` (`PRODUCTO` | `VARIANTE` | `CATEGORIA`), `starts_at`, `ends_at`, `channels` (POS / online / ambos). Pueden aplicar **solo online o a ambos canales** (RN-05 ✅). Regla de combinación: RN-20 🟡.
 
 ### 2.3 Inventario ⭐
 
@@ -77,7 +77,7 @@ erDiagram
 - Tipos: `CARGA_INICIAL`, `RECEPCION`, `VENTA_POS`, `VENTA_ONLINE`, `DEVOLUCION`, `ANULACION_VENTA`, `AJUSTE`, `AJUSTE_CONTEO`, `MERMA`, `TRASPASO_SALIDA`, `TRASPASO_ENTRADA`, `MERMA_TRASPASO`, `REINGRESO_PEDIDO_CANCELADO`, `VENTA_CONTINGENCIA`.
 - Invariante: `SUM(quantity)` por (variante, ubicación) = `on_hand`.
 
-**reservations**: `id`, `variant_id`, `location_id`, `quantity`, `status` (`ACTIVA` | `CONSUMIDA` | `LIBERADA` | `VENCIDA` | `TRASPASADA`), `order_line_id`, `expires_at` (null = firme), `transfer_line_id` (nullable: si la reserva salió en un traspaso), `created_by`, `released_reason`, `created_at`, `closed_at`.
+**reservations**: `id`, `variant_id`, `location_id`, `quantity`, `status` (`ACTIVA` | `CONSUMIDA` | `LIBERADA` | `VENCIDA` | `TRASPASADA`), `order_line_id`, `expires_at` (null = firme; con la regla "se aparta al pagar" (RN-07) todas las reservas nacen firmes), `transfer_line_id` (nullable: si la reserva salió en un traspaso), `created_by`, `released_reason`, `created_at`, `closed_at`.
 - `TRASPASADA`: la reserva de una tienda se consumió al enviar el traspaso a bodega; en bodega nace una reserva nueva para la misma línea al recibirlo.
 - Invariante: `SUM(quantity WHERE ACTIVA)` por (variante, ubicación) = `reserved`.
 
@@ -94,11 +94,11 @@ erDiagram
 
 ### 2.4 Ventas, caja y aprobaciones
 
-**cash_sessions**: `id`, `location_id` (tienda), `pos_device_id`, `opened_by`, `opened_at`, `opening_cash`, `closed_by`, `closed_at`, `expected_cash`, `counted_cash`, `difference`, `notes`, `status`.
+**cash_sessions** (caja compartida de la tienda): `id`, `location_id` (tienda), `pos_device_id`, `opened_by`, `opened_at`, `opening_cash`, `closed_by`, `closed_at`, `expected_cash`, `counted_cash`, `difference`, `notes`, `status`.
 
 **cash_movements** (D): `id`, `cash_session_id`, `type`, `amount`, `reason`, `user_id`.
 
-**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `PRO-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `total`, `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_approval_id`.
+**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `total`, `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_approval_id`.
 
 **sale_lines**: `id`, `sale_id`, `variant_id`, `quantity`, `unit_price`, `unit_cost`, `promotion_id`, `promotion_discount`, `manual_discount`, `discount_approval_id` (nullable), `line_total`.
 
@@ -113,7 +113,7 @@ erDiagram
 
 **return_lines**: `id`, `return_id`, `sale_line_id`, `variant_id`, `quantity`, `amount`, `condition` (`VENDIBLE` | `DANADA`). La prenda entra al stock de `returns.location_id`.
 
-**store_credits**: `id`, `code`, `customer_id`, `origin_return_id`, `issued_location_id`, `initial_amount`, `balance`, `expires_at` (3 meses), `status`. Se usan en cualquier tienda.
+**store_credits**: `id`, `code`, `customer_id`, `origin_return_id`, `issued_location_id`, `initial_amount`, `balance`, `expires_at` (3 meses), `status`. Se usan en la tienda y online.
 
 ### 2.6 Pedidos online
 
@@ -132,7 +132,7 @@ erDiagram
 
 **audit_log**: `id`, `user_id`, `location_id`, `action`, `entity`, `entity_id`, `before`, `after`, `created_at`.
 
-**settings** (editables por Belén): `reservation_ttl_hours` (24), `max_seller_discount_bps` (0), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡).
+**settings** (editables por Belén): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡).
 
 **stock_min_levels** (post-MVP): `variant_id`, `location_id`, `min_qty`, `target_qty` → sugerencias de reposición.
 
@@ -149,6 +149,6 @@ erDiagram
 
 ## 4. Vistas de reporte
 
-- `v_stock_matrix` (variante × Rancagua / Providencia / Bodega / En tránsito / Total).
+- `v_stock_matrix` (variante × Tienda Rancagua / Bodega / En tránsito / Total).
 - `v_sales_daily` (fecha Chile, ubicación, canal, vendedora, unidades, total, margen).
-- `v_product_performance` (por variante y tienda: vendidas 7/30/90 días, stock, días de inventario) → base para reposición y traspasos entre tiendas.
+- `v_product_performance` (por variante y canal: vendidas 7/30/90 días, stock, días de inventario) → base para reposición y traslados tienda ↔ bodega.

@@ -1,6 +1,6 @@
 # Big Curvas – Documentación del proyecto (índice)
 
-> Estado: **v0.3 – Reestructurado a 2 tiendas + bodega** · Fecha: 2026-09-29
+> Estado: **v0.4 – Validado con la clienta (1 tienda + bodega)** · Fecha: 2026-10-02
 > Estos documentos son la "fuente de verdad" para el diseño y para la IA que programa.
 > Cualquier cambio de regla de negocio se registra primero aquí (en `07_DECISIONES_Y_PREGUNTAS.md`).
 
@@ -39,15 +39,15 @@
 |---------|-------------|
 | Producto / modelo | Prenda genérica (ej. "Jeans Mom Tiro Alto") |
 | Variante | Combinación producto + talla + color. **Es la unidad de stock** y tiene SKU y código de barras propios |
-| Ubicación | Lugar físico donde hay stock: Tienda Rancagua, Tienda Providencia, Bodega. El stock siempre se lleva por variante **y** ubicación |
+| Ubicación | Lugar físico donde hay stock: Tienda Rancagua y Bodega (casa de Belén). El stock siempre se lleva por variante **y** ubicación |
 | On hand (físico) | Unidades físicamente presentes en una ubicación |
-| Reservado | Unidades comprometidas a pedidos online aún no preparados (en bodega, o en una tienda si se traerán a bodega) |
+| Reservado | Unidades apartadas para pedidos online **ya pagados** y aún no preparados (en bodega, o en la tienda si se llevarán a bodega) |
 | Disponible | `físico − reservado`. Es lo único que se puede vender |
 | Movimiento | Registro inmutable de cada cambio de stock (ledger) |
-| Pedido online | Venta tomada por Instagram (la registra Belén), que reserva stock en bodega y se despacha o se envía a una tienda para retiro |
-| Traspaso | Movimiento de prendas entre ubicaciones: se envía (queda en tránsito) y se recibe escaneando |
+| Pedido online | Venta tomada por Instagram (la registra Belén); se aparta al pagar y se despacha desde la bodega |
+| Traspaso / traslado | Movimiento de prendas entre tienda y bodega (hoy Belén, los viernes): se envía (queda en tránsito) y se recibe escaneando |
 | En tránsito | Prendas enviadas en un traspaso y aún no recibidas |
-| Aprobación remota | Autorización que Belén da desde su celular (reembolso, anulación, descuento sobre el límite) |
+| Aprobación remota | Autorización que Belén da desde su celular o con su PIN (cualquier descuento de vendedora, reembolso, anulación) |
 | Caja / turno | Sesión de caja del POS con apertura, cierre y cuadratura |
 | Vale | Saldo a favor del cliente (por cambio/devolución) |
 | CLP | Pesos chilenos, siempre enteros |

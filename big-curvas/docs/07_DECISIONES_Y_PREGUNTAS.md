@@ -5,98 +5,111 @@
 Estados: **Aceptada**, **Propuesta**, **Reemplazada**.
 
 ### ADR-001 · Monolito modular con Next.js + TypeScript — *Aceptada*
-Una sola app con módulos internos (`src/modules/*`) y límites claros. Simple de desplegar para un solo desarrollador.
+Una sola app con módulos internos (`src/modules/*`) y límites claros.
 
 ### ADR-002 · PostgreSQL + Prisma — *Aceptada*
-Transacciones y constraints fuertes para el stock. SQL crudo solo dentro de `inventory` para los updates condicionales. Proveedor: Render (ADR-010).
+Transacciones y constraints fuertes. SQL crudo solo dentro de `inventory` para los updates condicionales. Proveedor: Render (ADR-010).
 
 ### ADR-003 · Inventario como ledger + saldo materializado — *Aceptada*
-`inventory_movements` inmutable + `stock_levels` en la misma transacción; job de conciliación.
+`inventory_movements` inmutable (trigger que solo permite INSERT) + `stock_levels` en la misma transacción.
 
-### ADR-004 v2 · Canal online desde BODEGA con reservas (+ traspasos desde tiendas) — *Aceptada (2026-09-29, reemplaza a v1)*
-- Contexto: ahora hay 2 tiendas y una bodega. La v1 (stock compartido de una tienda con reservas) queda obsoleta.
-- Decisión: los pedidos online se reservan y despachan **solo desde BODEGA**. Si falta stock en bodega, Belén elige una tienda donde reservar; al confirmarse el pago se genera un traspaso tienda → bodega ligado al pedido. La reserva "viaja" con el traspaso (se consume en la tienda al enviar y se recrea en bodega al recibir).
-- Consecuencias: separación física real de online y tiendas (resuelve el problema original). Aparece una dependencia de traspasos para algunos pedidos.
+### ADR-004 v3 · Online desde BODEGA; se aparta al pagar — *Aceptada (2026-10-02, reemplaza a v2)*
+- Contexto: la clienta confirmó que lo online sale solo de la bodega y que la prenda **se aparta cuando se paga** (no al acordar el pedido).
+- Decisión: al registrar el pedido no se reserva nada (solo se muestra el disponible). Al confirmar el pago se reserva en BODEGA; si no hay, Belén lo aparta en la tienda y se genera un traslado tienda → bodega ligado al pedido (C7). Las reservas nacen firmes: no hay vencimientos ni job de expiración.
+- Consecuencias: más simple que v2. Riesgo nuevo: que al pagar ya no haya stock (R-17); el sistema lo valida y avisa.
 
 ### ADR-005 · POS web online-only — *Aceptada*
-PWA que requiere conexión, con contingencia por ubicación.
 
 ### ADR-006 · CLP enteros, IVA incluido, redondeo de efectivo — *Aceptada*
-Precios y promociones **iguales en todas las tiendas**.
+Precio base igual en todos los canales; las ofertas pueden ser **solo online o de ambos canales**.
 
-### ADR-007 · SII fuera del MVP (registro manual de folio/voucher) — *Propuesta, en riesgo*
-Depende de P-04. Con dos tiendas, cada una es una sucursal ante el SII. Si hoy no se emite boleta en efectivo/transferencia, adelantar F8.
+### ADR-007 v2 · Boletas con su app actual; el POS registra el N° — *Aceptada (2026-10-02)*
+- Contexto: emiten boletas con una app ("Veci"; probablemente **Vessi – Boleta Fácil**, proveedor autorizado por el SII) y cobran con máquinas Transbank y BancoEstado. No emiten facturas.
+- Decisión: en el MVP siguen usando su app; el POS guarda tipo y N° de boleta o voucher. Módulo `billing` preparado para integrar la app si ofrece API.
+- Consecuencias: el riesgo tributario baja; hay doble digitación hasta la integración.
 
 ### ADR-008 · Pedidos de Instagram registrados manualmente por Belén — *Aceptada*
 
 ### ADR-009 · Stock online se descuenta al preparar en bodega — *Aceptada*
 
 ### ADR-010 · Hosting de bajo costo: Render (app + Postgres) — *Aceptada*
-~13 USD al mes. Sin cambios por las nuevas ubicaciones (es la misma app). Vigilar la memoria del plan Starter.
+~13 USD al mes.
 
-### ADR-011 · Promociones configurables simples — *Aceptada*
-% o monto con vigencia, iguales en todas las tiendas. NxM después del MVP.
+### ADR-011 · Promociones configurables simples, por canal — *Aceptada*
+% o monto con vigencia; canal **solo online o ambos**. NxM después del MVP.
 
-### ADR-012 · Traspasos con tránsito y recepción confirmada — *Aceptada (2026-09-29)*
-- Decisión: el stock baja en origen al **enviar** y sube en destino al **recibir escaneando**. Lo que no llega queda como diferencia en el traspaso hasta que Belén la resuelve (merma, reenvío o error de envío). El "en tránsito" se calcula a partir de los traspasos abiertos.
-- Consecuencias: detecta pérdidas entre locales. Requiere disciplina de escanear al recibir, por lo que hay alertas de tránsito.
+### ADR-012 · Traslados con tránsito y recepción confirmada — *Aceptada*
+Hoy los hace Belén en su vehículo, los viernes.
 
-### ADR-013 · Acceso por rol y ubicación — *Aceptada (2026-09-29)*
-- Roles: ADMIN (Belén, todas las ubicaciones), VENDEDORA (una tienda fija), BODEGA (bodega).
-- Toda escritura valida rol + ubicación en el servidor. Consultar el stock de otras ubicaciones es de solo lectura para todos.
-- Dispositivos POS registrados por tienda.
+### ADR-013 · Acceso por rol y ubicación — *Aceptada (ajustada 2026-10-02)*
+Roles: ADMIN (Belén, todas las ubicaciones, **incluida la operación de la bodega**), VENDEDORA (Tienda Rancagua, caja compartida). El rol BODEGA se mantiene en el modelo para el futuro, sin usuarios.
 
-### ADR-014 · Aprobaciones remotas de Belén — *Aceptada (2026-09-29)*
-- Contexto: Belén no puede estar en las dos tiendas a la vez.
-- Decisión: solicitudes de autorización (reembolso, anulación, descuento sobre el límite, cambio fuera de plazo) que Belén aprueba desde el celular. La aprobación es de **uso único** y queda ligada a la acción, la ubicación y el monto. En persona se puede usar su PIN. En el MVP la actualización es por consulta periódica (~3 s); las notificaciones push son deseables.
-- Consecuencias: Belén pasa a ser un cuello de botella (R-14), mitigado con límites configurables.
+### ADR-014 · Aprobaciones de Belén (remotas o con PIN) — *Aceptada (confirmada 2026-10-02)*
+**Solo Belén** da descuentos, aprueba reembolsos y anula. Límite de descuento de la vendedora = 0 % (configurable). Aprobación remota desde el celular o con su PIN si está en la tienda. Uso único, ligada a tipo, ubicación y monto.
 
-### ADR-015 · Retiro en tienda como envío interno del pedido — *Aceptada*
-- Decisión: el pedido se prepara y descuenta en bodega y el paquete viaja a la tienda como parte del pedido (estados `EN_CAMINO_A_TIENDA` → `LISTO_PARA_RETIRO`), **no** como traspaso de inventario.
-- Consecuencias: la prenda vendida nunca aparece como stock vendible en la tienda de retiro.
+### ADR-015 · Retiro en tienda como envío interno del pedido — *En revisión*
+Sigue siendo el diseño si existe retiro, pero la existencia del retiro y su lugar quedan pendientes (P-11).
 
-### ADR-016 · Salida a producción en dos etapas — *Propuesta*
-- Etapa 1 (~enero 2027): inventario de las 3 ubicaciones, traspasos, POS en ambas tiendas, aprobaciones, cambios, y "venta online rápida" desde bodega.
-- Etapa 2 (~febrero 2027): pedidos online completos (reservas, traspasos ligados, retiro en tienda).
-- Motivo: Providencia ya opera sin sistema; así se obtiene valor antes y se reduce el riesgo.
+### ADR-016 · Salida a producción en dos etapas — *Aceptada*
+Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~febrero 2027): pedidos online completos.
+
+### ADR-017 · Una tienda + bodega — *Aceptada (2026-10-02, reemplaza la estructura de v0.3)*
+- Contexto: la clienta aclaró que **no existe tienda en Providencia**. Solo está la tienda de Rancagua y la bodega (su casa, en preparación).
+- Decisión: dos ubicaciones (`TIENDA_RANCAGUA`, `BODEGA`), manteniendo el modelo multi-ubicación por si abre otra tienda.
+- Consecuencias: un solo POS, una sola caja; menos esfuerzo.
+
+### ADR-018 · Etiquetado total con código de barras — *Aceptada (2026-10-02)*
+- Contexto: solo los jeans traen código del proveedor.
+- Decisión: toda prenda se etiqueta con código propio (Code 128 con el SKU) si no trae uno. Impresora de etiquetas obligatoria.
+- Consecuencias: venta, conteos y traslados rápidos y sin errores; trabajo inicial de etiquetado antes de la salida (R-01).
 
 ## 2. Preguntas abiertas
 
 | ID | Pregunta | Afecta | Bloquea |
 |----|----------|--------|:------:|
-| P-04 | **Contador:** ¿se emite boleta en efectivo y transferencia? ¿Con qué herramienta? ¿Ambas tiendas están registradas como sucursales ante el SII? ¿Facturas a empresas? | ADR-007, F8 | F3 |
-| P-05 | Plazo para pagar un pedido online antes de liberar la reserva (por defecto 24 h) | RN-07 | No (configurable) |
-| P-06 | ¿Ventas diarias por tienda? (el 20–100 era de una sola tienda) | Rendimiento | No |
-| P-08 | Descuento máximo de una vendedora sin aprobación (por defecto 0 %). **Ojo: con 0 % cada descuento le llega a Belén al celular** | RN-09, R-14 | F3 |
-| P-11 | Couriers, monto de envío gratis, costo de envío (fijo, por comuna o según courier) | RF-PED-06 | F5 |
+| P-04 | Confirmar el nombre de la app de boletas ("Veci" ¿= Vessi?) y si tiene integración o API. Contacto del contador | ADR-007, post-MVP | No |
+| P-06 | Volumen: ventas diarias en tienda y pedidos online diarios (aprox.) | Dimensionamiento | No |
+| P-08b | Tipos de promociones que hacen (%, liquidaciones, 2x1) | RF-POS-13/14 | F2 |
+| P-09 | Cambios y devoluciones: plazo, ¿dinero o vale?, vigencia del vale, envío de cambios online (hoy: supuestos en 🟡) | RN-10, 15, 16, 17 | F3 |
+| P-11 | Envíos: couriers (Starken, Blue Express o Chilexpress), cómo se cobra, envío gratis, ¿hay retiro y dónde? | RF-PED-06/07/08 | Etapa 5 |
 | P-16 | Cambio con diferencia a favor de la clienta: ¿vale o dinero? | RF-DEV-02 | F3 |
-| P-17 | Reembolso de una compra con tarjeta: ¿anulación en Transbank, transferencia o efectivo? | RF-DEV-03 | F3 |
-| P-18 | ¿Promociones se suman o se aplica la mayor? | RN-20 | F3 |
-| P-19 | ¿Dónde está la bodega (Rancagua, Santiago)? ¿Cada cuánto viajan traspasos a cada tienda? | Alertas de tránsito, operación | No |
-| P-20 | ¿Cómo es el internet en Providencia y en la bodega? | R-04 | F4 |
-| P-21 | ¿Las tiendas reciben directo prendas **sin** código de proveedor? (define si necesitan impresora de etiquetas) | Hardware | F0 |
-| P-22 | ¿La bodega también recibe devoluciones de pedidos online por courier y las procesa (con aprobación de Belén para el reembolso)? | RF-DEV-07 | F5 |
+| P-17 | Reembolso de compra con tarjeta: ¿anulación en la máquina, transferencia o efectivo? | RF-DEV-03 | F3 |
+| P-18 | ¿Promociones se suman o se aplica la mayor? | RN-20 | F2 |
+| P-19 | ¿Dónde está la bodega (comuna)? | Operación | No |
+| P-20 | Equipos e internet en la bodega | R-04, hardware | F4 |
+| P-21 | Catálogo: cantidad de modelos y sistema de tallas | Seed, importación | F2 |
+| P-22 | ¿Quién registra las devoluciones de pedidos online que llegan por courier a la bodega? | RF-DEV-07 | F3 |
+| P-23 | Prenda que llega en un traslado sin venir en la lista: ¿qué se hace? | RF-INV-09 | Etapa 4 (demo: se rechaza) |
+| P-24 | ¿Qué reportes quiere ver Belén a diario o semanalmente? | Dashboards | Post-MVP |
+| P-25 | ¿Cuántas vendedoras hay? ¿Turnos? | Usuarios | No |
+| P-26 | Fecha deseada de puesta en marcha y meses de mayor venta | Plan | F4 |
+| P-27 | ¿Le interesa guardar datos de clientas? ¿Proyecta tienda web? Presupuesto mensual | Alcance futuro | No |
 
 ## 3. Preguntas respondidas
 
-| ID | Respuesta |
-|----|-----------|
-| P-01 / P-02 | ~~Providencia cierra~~ → **Reemplazado (2026-09-29)**: hay una nueva tienda en Providencia, ya abierta, además de Rancagua y una bodega |
-| P-03 | No hay sistema previo; todo manual |
-| P-06 (parcial) | 50–300 modelos |
-| P-07 | Código del proveedor si existe; si no, interno. SKU `MODELO-COLOR-TALLA` |
-| P-09 | Cambios en 30 días; devolución en dinero (con aprobación de Belén); vale de 3 meses; el envío de cambios online lo paga la clienta; prenda dañada → merma |
-| P-10 | PC en las 3 ubicaciones; hay que comprar lectores e impresoras. Rancagua con fibra |
-| P-12 | ~~Vendedoras o Belén preparan~~ → la **persona de bodega** prepara los pedidos |
-| P-13 | Roles: Admin (Belén), Vendedora (tienda fija), **Bodega** |
-| P-14 | Presupuesto mínimo → ADR-010 |
-| P-15 | Stock por ubicación física |
-| 2026-09-29 (reestructuración) | Online **solo desde bodega** · recepción de proveedor **en bodega o tienda** (la vendedora ingresa cantidades; el costo lo completa Belén) · la bodega no vende · traspasos con envío + recepción confirmada · cambios en cualquier tienda · precios y promociones iguales en todas las tiendas · vendedoras fijas por tienda · persona de bodega · si falta en bodega → traspaso desde tienda · retiro en cualquier tienda · vendedoras ven el stock de todo (solo lectura) · aprobación remota de Belén · Instagram lo atiende Belén |
+| ID | Respuesta (fuente) |
+|----|--------------------|
+| Ubicaciones | **1 tienda (Rancagua) + bodega (casa de Belén, en preparación).** No hay tienda en Providencia (reunión 2026-10-02) |
+| Bodega | De la bodega salen **solo** los pedidos online. Belén la opera y traslada mercadería entre bodega y tienda en su vehículo los viernes |
+| Proveedores | Llegan a la tienda o a la bodega, generalmente los viernes |
+| Online sin stock en bodega | Se aparta en la tienda y se lleva a bodega (C7) |
+| Momento de apartar | **Al pagar** (I1) |
+| Descuentos | **Solo Belén** (I2) |
+| Aprobaciones | Solo Belén, remoto o con PIN (I3) |
+| Caja | Compartida (I7) |
+| Boletas | App de boletas + Transbank + BancoEstado; registrados en el SII; sin facturas (C1) |
+| Registro actual | Excel manual, separado por medio de pago (C2) |
+| Medios de pago | Efectivo, tarjeta y transferencia (C8) |
+| Códigos de barra | Solo los jeans; se etiquetará todo (C4) |
+| Ofertas | Solo online o en ambos canales (V6) |
+| Transición online | Cuando parta el sistema, lo online saldrá de la bodega (V7) |
+| Anteriores | IVA incluido · redondeo de efectivo · Transbank · stock baja al preparar · venta online cuenta al pagar · anulación solo Belén y el mismo día · presupuesto mínimo (Render) · stock por ubicación física |
 
 ## 4. Historial
 
 | Fecha | Cambio |
 |-------|--------|
-| 2026-09-29 | v0.1: arquitectura inicial (1 tienda + Instagram) |
+| 2026-09-29 | v0.1: arquitectura inicial |
 | 2026-09-29 | v0.2: respuestas de negocio; hosting Render; promociones |
-| 2026-09-29 | **v0.3: reestructuración a 2 tiendas (Rancagua, Providencia) + bodega.** ADR-004 v2, ADR-012 a ADR-016; roles por ubicación; traspasos al MVP; aprobaciones remotas; salida en 2 etapas; nuevas preguntas P-19 a P-22 |
+| 2026-09-29 | v0.3: 2 tiendas + bodega (información de segunda mano) |
+| 2026-10-02 | **v0.4: validación con la clienta.** 1 tienda + bodega (ADR-017), se aparta al pagar (ADR-004 v3), solo Belén da descuentos, etiquetado total (ADR-018), boletas con su app (ADR-007 v2). Cambios y devoluciones vuelven a 🟡 hasta validarlos |

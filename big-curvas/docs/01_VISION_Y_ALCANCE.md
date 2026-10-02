@@ -2,91 +2,94 @@
 
 ## 1. Contexto
 
-Big Curvas es una tienda de ropa que vende en **tiendas físicas** y por **canal online**. El canal online hoy funciona principalmente por **Instagram**, con pedidos tomados y coordinados **a mano** (mensajes directos, transferencia, despacho). **No existe un sistema previo**: el control de stock y ventas es manual.
+Big Curvas es una tienda de ropa de tallas grandes que vende en **una tienda física en Rancagua** y por **canal online** (principalmente Instagram, con pedidos coordinados **a mano**). **No existe un sistema**: el stock y las ventas se llevan en **Excel**, separadas por medio de pago.
 
-**Estructura operativa (actualizada 2026-09-29):**
+**Estructura operativa (validada con la clienta el 2026-10-02):**
 
 | Ubicación | Tipo | Función |
 |-----------|------|---------|
-| **Tienda Rancagua** | Tienda | Venta presencial (POS) |
-| **Tienda Providencia** (nueva, ya abierta) | Tienda | Venta presencial (POS) |
-| **Bodega** | Bodega (sin atención de público) | Almacenamiento, recepción de proveedores, abastecimiento de tiendas y **origen único de los pedidos online** |
+| **Tienda Rancagua** | Tienda | Venta presencial (POS). Caja compartida por las vendedoras |
+| **Bodega** (casa de Belén, en preparación) | Bodega, sin atención de público | Guarda el stock destinado a **online** y despacha **solo los pedidos online** |
+
+- Belén (dueña) administra el sistema, atiende Instagram, opera la bodega y traslada mercadería entre la bodega y la tienda **en su vehículo, los viernes**.
+- La mercadería de proveedores llega **a la tienda o a la bodega** según el caso, generalmente **los viernes**.
+- Hoy lo online sale de la tienda. **Cuando el sistema parta, saldrá desde la bodega.**
 
 ## 2. Problema
 
 | # | Problema | Consecuencia |
 |---|----------|--------------|
-| 1 | Las ventas online descuentan del stock de la tienda, sin control | Se venden prendas que ya no están, descuadres de stock |
-| 2 | Pedidos de tienda y online se mezclan | Errores y demoras en el despacho |
-| 3 | Gestión manual, sin sistema | Sin automatización, sin trazabilidad, sin reportes de venta |
-| 4 | Ahora son 3 ubicaciones (2 tiendas + bodega) con movimientos entre ellas | Sin un sistema, es imposible saber dónde está cada prenda ni controlar lo que viaja entre locales |
+| 1 | Las ventas online descuentan del stock de la tienda sin control | Prendas vendidas dos veces, descuadres |
+| 2 | Pedidos de tienda y online se mezclan | Errores y demoras en los despachos |
+| 3 | Gestión en Excel manual | Sin automatización, sin trazabilidad, sin reportes de venta |
+| 4 | Stock repartido entre tienda y bodega, con movimientos semanales | Sin un sistema no se sabe dónde está cada prenda ni qué se trasladó |
 
 ## 3. Objetivo general
 
-Desarrollar un sistema centralizado de gestión de inventario y ventas para Big Curvas que integre el stock de las dos tiendas, la bodega y el canal online, con control unificado, trazabilidad de traspasos y actualización en tiempo real.
+Desarrollar un sistema centralizado de gestión de inventario y ventas para Big Curvas que integre el stock de la tienda, la bodega y el canal online, con control unificado, trazabilidad de los traslados y actualización en tiempo real.
 
 ## 4. Objetivos específicos y cómo se miden
 
 | # | Objetivo | Indicador de éxito (propuesto, validar con Belén) |
 |---|----------|-----------------------------------------------------|
-| O1 | Centralizar el inventario de las 3 ubicaciones en una base de datos única | 100 % de variantes con stock por ubicación en el sistema |
-| O2 | Actualizar el stock en tiempo real con cada venta, traspaso y pedido | Toda operación mueve stock en < 2 s |
-| O3 | Reducir errores y demoras de despacho | 0 pedidos online con prenda "vendida dos veces"; diferencia de conteo físico vs sistema < 2 % por ubicación |
-| O4 | Controlar los traspasos entre ubicaciones | 100 % de traspasos con recepción confirmada; alerta si un traspaso lleva más de X días en tránsito |
-| O5 | Dashboards de ventas y análisis de productos, por tienda y consolidados | Reportes diario/semanal/mensual sin trabajo manual (post-MVP) |
+| O1 | Centralizar el inventario de la tienda y la bodega en una base de datos única | 100 % de las variantes con stock por ubicación en el sistema |
+| O2 | Actualizar el stock en tiempo real con cada venta, traslado y pedido | Toda operación mueve stock en < 2 s |
+| O3 | Reducir errores y demoras de despacho | 0 pedidos online con prenda "vendida dos veces"; diferencia de conteo vs. sistema < 2 % por ubicación |
+| O4 | Controlar los traslados semanales | 100 % de los traslados con recepción confirmada |
+| O5 | Dashboards de ventas y análisis de productos | Reportes diario, semanal y mensual sin trabajo manual (post-MVP) |
 
-## 5. Modelo operativo (resumen)
+## 5. Modelo operativo del sistema
 
-- **Stock por ubicación física**: `TIENDA_RANCAGUA`, `TIENDA_PROVIDENCIA`, `BODEGA`.
-- **Cada tienda vende solo su propio stock** en su POS. Las vendedoras pueden **consultar** el stock de las otras ubicaciones, pero no moverlo.
-- **El canal online sale solo de la bodega** (ADR-004 v2). Al registrar un pedido se reservan unidades en la bodega. Si no hay en bodega pero sí en una tienda, se reserva en esa tienda y, una vez pagado el pedido, se genera un **traspaso tienda → bodega**.
-- **Recepción de proveedores** en la bodega o directamente en una tienda.
-- **Traspasos con envío y recepción confirmada**: el origen despacha (queda "en tránsito") y el destino escanea y confirma lo recibido. Las diferencias quedan registradas.
-- **Retiro en tienda de pedidos online**: la bodega prepara el pedido y lo envía a la tienda elegida, donde la clienta lo retira.
-- **Autorizaciones remotas**: Belén aprueba desde su celular los reembolsos, las anulaciones y los descuentos sobre el límite.
+- **Stock por ubicación física**: `TIENDA_RANCAGUA` y `BODEGA`. El modelo permite sumar ubicaciones en el futuro.
+- **La tienda vende solo su stock** en el POS. Las vendedoras pueden **consultar** el stock de la bodega, pero no moverlo.
+- **El canal online sale de la bodega** (ADR-004 v3). La prenda se aparta **al confirmar el pago**. Si no hay en bodega pero sí en la tienda, se aparta en la tienda y se genera un **traslado tienda → bodega**.
+- **Recepción de proveedores** en la tienda o en la bodega.
+- **Traslados con envío y recepción confirmada**, normalmente los viernes, a cargo de Belén.
+- **Todas las prendas se etiquetan** con código de barras: el del proveedor (jeans) o uno propio (ADR-018).
+- **Solo Belén** da descuentos, aprueba reembolsos y anula ventas: desde su celular o con su PIN si está en la tienda.
 
 ## 6. Alcance del MVP
 
-1. **Usuarios, roles y ubicaciones**: Admin (Belén), Vendedora (fija en una tienda) y Bodega.
-2. **Catálogo**: productos, variantes (talla/color), SKU y código de barras, etiquetas.
-3. **Inventario multi-ubicación**: stock por variante × ubicación, movimientos, ajustes, recepción de proveedores (en bodega o tienda), **traspasos con tránsito**, conteos por ubicación, carga inicial.
-4. **POS por tienda**: venta con lector, medios de pago, descuentos, promociones, redondeo de efectivo, caja por tienda, ticket.
-5. **Autorizaciones remotas** de Belén.
-6. **Cambios y devoluciones** en cualquier tienda, incluidos los de pedidos online.
-7. **Pedidos online** (Instagram): los registra Belén, se reservan en bodega (o en tienda con traspaso), se preparan y despachan desde bodega o se envían a una tienda para retiro.
-8. **Reportes básicos**: ventas del día por tienda, cierre de caja, stock por ubicación y consolidado, stock en tránsito, kardex.
+1. **Usuarios, roles y ubicaciones**: Admin (Belén, que también opera la bodega) y Vendedora (Tienda Rancagua). El rol Bodega queda disponible por si se contrata a alguien.
+2. **Catálogo**: productos, variantes (talla/color), SKU, códigos de barra (del proveedor o propios) e **impresión de etiquetas**.
+3. **Inventario**: stock por variante y ubicación, movimientos, ajustes, recepción de proveedores (tienda o bodega), **traslados con tránsito**, conteos y carga inicial (desde el Excel actual y conteo físico).
+4. **POS en la tienda**: venta con lector, efectivo/tarjeta/transferencia, redondeo del efectivo, caja compartida, ticket interno.
+5. **Aprobaciones de Belén** (remotas o con PIN): descuentos, reembolsos y anulaciones.
+6. **Cambios y devoluciones** (reglas por validar, P-09).
+7. **Pedidos online**: los registra Belén; se apartan al pagar en la bodega (o en la tienda con traslado); se preparan y despachan desde la bodega.
+8. **Reportes básicos**: ventas del día por medio de pago, cierre de caja, stock por ubicación, traslados en tránsito, kardex.
 
-## 7. Fuera del MVP (siguientes fases)
+## 7. Fuera del MVP
 
 | Módulo | Fase propuesta | Nota |
 |--------|---------------|------|
-| Dashboards (diario/semanal/mensual, por tienda y consolidado, análisis de productos) | Post-MVP 1 | Los datos se capturan desde el MVP |
-| Reposición sugerida bodega → tiendas (stock mínimo por tienda) | Post-MVP 1 | Muy útil con bodega; requiere historial de ventas |
-| Proveedores: órdenes de compra, recepción contra OC | Post-MVP 2 | En el MVP, recepción simple con proveedor opcional |
-| Facturación/boleta electrónica SII integrada | Por confirmar (P-04) | Puede tener que adelantarse (R-02). Con dos tiendas, cada una es una sucursal ante el SII |
+| Dashboards y análisis de productos | Post-MVP 1 | Los datos se capturan desde el MVP |
+| Reposición sugerida bodega ↔ tienda | Post-MVP 1 | |
+| Órdenes de compra a proveedores | Post-MVP 2 | En el MVP, recepción simple |
+| Integración con la app de boletas (Vessi u otra) | Post-MVP | Hoy emiten boletas con su app; en el MVP se registra el N° de boleta o voucher |
 | Tienda web / e-commerce | Post-MVP 3 | Se conecta a las reservas de bodega |
-| Integración API de Instagram / Meta | Post-MVP | |
-| Promociones por cantidad (2x1, 3x2) | Post-MVP | En el MVP: % o monto |
-| Notificaciones push al celular de Belén | Deseable | En el MVP, aviso dentro de la app |
-| Integración con terminal Transbank y couriers | Post-MVP | En el MVP se registran datos a mano |
-| Venta en una tienda con retiro o despacho desde otra ubicación | Post-MVP | En el MVP, la vendedora consulta el stock y deriva el caso a Belén o a Instagram |
+| Promociones por cantidad (2x1, 3x2) | Post-MVP | En el MVP, % o monto, por canal |
+| Integración con Transbank/BancoEstado y couriers | Post-MVP | En el MVP se registran los datos a mano |
+| Segunda tienda | Futuro | El modelo de datos ya lo soporta |
 | POS offline | No planificado | ADR-005 |
 
 ## 8. Usuarios y roles
 
 | Usuario | Rol | Ubicación | Uso principal |
 |---------|-----|-----------|---------------|
-| Belén | **Admin** (dueña) | Todas | Todo: catálogo, precios, promociones, costos, ajustes, reportes, usuarios. **Atiende Instagram y registra los pedidos online.** Aprueba solicitudes remotas |
-| Vendedoras | **Vendedora** | **Una tienda fija** | POS, cambios, recepción de proveedores y de traspasos en su tienda, envío de traspasos desde su tienda, entrega de pedidos para retiro. Consulta el stock de otras ubicaciones |
-| Persona de bodega | **Bodega** | Bodega | Recepción de proveedores, etiquetado, traspasos, preparación y despacho de pedidos online, conteos de bodega |
+| Belén | **Admin** (dueña) | Todas | Todo: catálogo, precios, promociones, costos, ajustes, reportes, usuarios, **Instagram y pedidos online, operación de la bodega y traslados**, aprobaciones y descuentos |
+| Vendedoras | **Vendedora** | Tienda Rancagua | POS (caja compartida), cambios, recepción de proveedores y de traslados en la tienda. Consultan el stock de la bodega |
+| (Futuro) | **Bodega** | Bodega | Por si se contrata a alguien para la bodega |
 
 ## 9. Datos y supuestos
 
 Confirmados:
-- Tres ubicaciones: 2 tiendas y 1 bodega. Providencia ya está abierta.
-- Catálogo de 50–300 modelos, unas 750–4.500 variantes estimadas. Entre 20 y 100 ventas al día en total (a revalidar con dos tiendas, P-06).
-- Precios con IVA incluido y **precios y promociones iguales en todas las tiendas**.
-- Rancagua tiene fibra estable. Rancagua, Providencia y la bodega tienen PC/notebook. Faltan lectores e impresoras.
-- Pagos con tarjeta vía Transbank. Presupuesto mínimo para servicios (≤ ~$20.000 CLP al mes).
+- 1 tienda (Rancagua) y 1 bodega (casa de Belén, en preparación). No hay tienda en Providencia.
+- Registro actual en Excel. Registrados en el SII; boletas con una app ("Veci", probablemente Vessi) y máquinas Transbank y BancoEstado; sin facturas.
+- 3 medios de pago: efectivo, tarjeta y transferencia.
+- Solo los jeans traen código de barras; se etiquetará todo.
+- Precios con IVA incluido. Ofertas por canal: solo online o en ambos.
+- Rancagua tiene fibra estable y un PC en caja.
+- Presupuesto mínimo para servicios (≤ ~$20.000 CLP al mes).
 
-Pendientes: internet en Providencia y en la bodega (P-20), ubicación de la bodega (P-19).
+Pendientes: catálogo (cantidad de modelos, tallas), volúmenes de venta, internet y equipos en la bodega, cambios y devoluciones, envíos, reportes deseados (ver doc 07).
