@@ -371,7 +371,10 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Descuento máximo por línea sin aprobación: {limitBps / 100} %{isAdmin ? " (como administradora puedes superarlo; queda registrado)" : ""}. Precios con IVA incluido.
+          {limitBps === 0
+            ? `Los descuentos los da solo Belén${isAdmin ? " (como administradora puedes aplicarlos; los que superan el límite quedan registrados)" : ": cualquier descuento requiere su aprobación"}.`
+            : `Descuento máximo por línea sin aprobación: ${limitBps / 100} %${isAdmin ? " (como administradora puedes superarlo; queda registrado)" : ""}.`}{" "}
+          Precios con IVA incluido.
         </p>
       </section>
 

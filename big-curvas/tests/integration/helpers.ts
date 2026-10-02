@@ -9,11 +9,15 @@ import { findLedgerMismatches, findReservationMismatches } from "@/modules/inven
 // Utilidades de los tests de integración (Postgres real: BD big_curvas_test).
 // Los tests usan Prisma directo SOLO para preparar datos ajenos a inventory y para verificar resultados.
 
-export type LocationCode = "TIENDA_RANCAGUA" | "TIENDA_PROVIDENCIA" | "BODEGA";
+export type LocationCode = "TIENDA_RANCAGUA" | "BODEGA";
 
 export interface Fixtures {
   loc: Record<LocationCode, string>;
-  actors: { belen: Actor; vendRga: Actor; vendPro: Actor; bodega: Actor };
+  /**
+   * `bodega` es un usuario con rol BODEGA creado solo para los tests: el seed de la demo no lo trae
+   * (Belén opera la bodega con su rol ADMIN), pero el rol sigue existiendo en el código.
+   */
+  actors: { belen: Actor; vendRga: Actor; vendRga2: Actor; bodega: Actor };
   variant: (sku: string) => Promise<string>;
 }
 
@@ -22,6 +26,7 @@ export async function resetDemo(): Promise<Fixtures> {
   await resetAndSeedDemoData();
   const locations = await db.location.findMany();
   const loc = Object.fromEntries(locations.map((l) => [l.code, l.id])) as Record<LocationCode, string>;
+  await db.user.create({ data: { name: "Bodega (test)", email: "bodega@bigcurvas.test", role: "BODEGA", locationId: loc.BODEGA } });
   const users = await db.user.findMany({ include: { location: true } });
   const actor = (email: string): Actor => {
     const u = users.find((x) => x.email === email)!;
@@ -36,11 +41,22 @@ export async function resetDemo(): Promise<Fixtures> {
     actors: {
       belen: actor("belen@bigcurvas.demo"),
       vendRga: actor("rancagua@bigcurvas.demo"),
-      vendPro: actor("providencia@bigcurvas.demo"),
-      bodega: actor("bodega@bigcurvas.demo"),
+      vendRga2: actor("rancagua2@bigcurvas.demo"),
+      bodega: actor("bodega@bigcurvas.test"),
     },
     variant: async (sku) => (await db.productVariant.findUniqueOrThrow({ where: { sku } })).id,
   };
+}
+
+/**
+ * Crea una tienda adicional (el modelo es multi-ubicación). No se borra: la BD de test se reinicia en cada
+ * `resetDemo()` (TRUNCATE), igual que el resto de los datos.
+ */
+export async function createExtraStore(code = "TIENDA_EXTRA"): Promise<{ id: string; code: string }> {
+  const l = await db.location.create({
+    data: { code, name: "Tienda Extra", type: "STORE", sellsPos: true, fulfillsOnline: false, salePrefix: "EXT" },
+  });
+  return { id: l.id, code: l.code };
 }
 
 export const newKey = (label = "op") => `test-${label}-${randomUUID()}`;

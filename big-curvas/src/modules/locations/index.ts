@@ -6,9 +6,9 @@ export interface LocationSummary extends SessionLocation {
   fulfillsOnline: boolean;
 }
 
-const ORDER = ["TIENDA_RANCAGUA", "TIENDA_PROVIDENCIA", "BODEGA"];
+const TYPE_ORDER = { STORE: 0, WAREHOUSE: 1 } as const;
 
-/** Ubicaciones activas, en orden fijo: Rancagua, Providencia, Bodega. */
+/** Ubicaciones activas: primero las tiendas y al final la bodega; dentro de cada tipo, por nombre. */
 export async function listLocations(): Promise<LocationSummary[]> {
   const rows = await db.location.findMany({ where: { active: true } });
   return rows
@@ -20,7 +20,7 @@ export async function listLocations(): Promise<LocationSummary[]> {
       sellsPos: l.sellsPos,
       fulfillsOnline: l.fulfillsOnline,
     }))
-    .sort((a, b) => ORDER.indexOf(a.code) - ORDER.indexOf(b.code));
+    .sort((a, b) => TYPE_ORDER[a.type] - TYPE_ORDER[b.type] || a.name.localeCompare(b.name, "es"));
 }
 
 export async function getLocation(id: string): Promise<LocationSummary | null> {

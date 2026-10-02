@@ -13,7 +13,7 @@ import {
   STOCK_OVERRIDES,
   USERS,
   type LocationDef,
-  type StockTriple,
+  type StockByLocation,
 } from "./seed-data";
 
 // DEMO: reinicia y carga los datos de ejemplo. Vacía las tablas de la app: solo con DEMO_MODE=true.
@@ -73,7 +73,7 @@ export function ean13(index: number): string {
   return `${base}${(10 - (sum % 10)) % 10}`;
 }
 
-function randomStock(sku: string): StockTriple {
+function randomStock(sku: string): StockByLocation {
   const rnd = seededRandom(hashString(sku));
   const store = () => {
     const r = rnd();
@@ -82,7 +82,7 @@ function randomStock(sku: string): StockTriple {
     return 2 + Math.floor(rnd() * 5); // 2–6
   };
   const bodega = () => (rnd() < 0.08 ? 0 : 4 + Math.floor(rnd() * 11)); // 0 o 4–14
-  return { TIENDA_RANCAGUA: store(), TIENDA_PROVIDENCIA: store(), BODEGA: bodega() };
+  return { TIENDA_RANCAGUA: store(), BODEGA: bodega() };
 }
 
 export interface SeedSummary {
@@ -135,7 +135,7 @@ export async function resetAndSeedDemoData(): Promise<SeedSummary> {
       for (const c of COLORS) colorIds.set(c.code, (await tx.color.create({ data: c })).id);
 
       // Productos y variantes
-      const stockBySku = new Map<string, StockTriple>();
+      const stockBySku = new Map<string, StockByLocation>();
       const variantRows: { id: string; sku: string }[] = [];
       let barcodeIndex = 0;
       for (const p of PRODUCTS) {

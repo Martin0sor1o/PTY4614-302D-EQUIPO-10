@@ -18,11 +18,11 @@ beforeEach(async () => {
 describe("seed vía InventoryService", () => {
   it("carga inicial con movimientos CARGA_INICIAL, filas para todas las ubicaciones y ledger cuadrado", async () => {
     const variants = await db.productVariant.count();
-    expect(await db.stockLevel.count()).toBe(variants * 3);
+    expect(await db.stockLevel.count()).toBe(variants * (await db.location.count()));
     const v = await f.variant("JMT012-AZU-48");
     expect(await stockOf(v, f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 1, reserved: 0 });
     const m = await db.inventoryMovement.findMany({ where: { variantId: v } });
-    expect(m.map((x) => x.type)).toEqual(["CARGA_INICIAL", "CARGA_INICIAL", "CARGA_INICIAL"]);
+    expect(m.map((x) => x.type)).toEqual(["CARGA_INICIAL", "CARGA_INICIAL"]); // Rancagua y Bodega
     expect(m.every((x) => x.idempotencyKey?.startsWith("seed-carga-inicial-"))).toBe(true);
     // Sin stock (0) no hay movimiento, pero sí fila
     const sinStock = await f.variant("JMT012-NEG-48");
@@ -196,25 +196,25 @@ describe("reservas", () => {
 describe("receive / adjust", () => {
   it("receive suma stock con UPSERT (crea la fila si no existía)", async () => {
     const v = await f.variant("BLM022-BUR-3XL");
-    await db.$executeRaw`DELETE FROM stock_levels WHERE variant_id = ${v} AND location_id = ${f.loc.TIENDA_PROVIDENCIA}`; // fila inexistente (sin movimientos)
+    await db.$executeRaw`DELETE FROM stock_levels WHERE variant_id = ${v} AND location_id = ${f.loc.TIENDA_RANCAGUA}`; // fila inexistente (sin movimientos)
     const { result } = await receiveStock({
-      actor: f.actors.vendPro,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+      actor: f.actors.vendRga,
+      locationId: f.loc.TIENDA_RANCAGUA,
       lines: [{ variantId: v, qty: 4 }],
       reason: "Factura 123",
       idempotencyKey: newKey("recepcion"),
     });
     expect(result.movements[0]).toMatchObject({ type: "RECEPCION", quantity: 4, onHandAfter: 4 });
-    expect(await stockOf(v, f.loc.TIENDA_PROVIDENCIA)).toEqual({ onHand: 4, reserved: 0 });
+    expect(await stockOf(v, f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 4, reserved: 0 });
     await expectInvariants();
   });
 
   it("ajuste positivo y negativo con motivo; queda en audit_log", async () => {
-    const v = await f.variant("PBA041-NEG-XL"); // Providencia: 5
-    await adjustStock({ actor: f.actors.belen, locationId: f.loc.TIENDA_PROVIDENCIA, variantId: v, delta: 2, reason: "Conteo", idempotencyKey: newKey() });
+    const v = await f.variant("PBA041-NEG-XL"); // Rancagua: 5
+    await adjustStock({ actor: f.actors.belen, locationId: f.loc.TIENDA_RANCAGUA, variantId: v, delta: 2, reason: "Conteo", idempotencyKey: newKey() });
     const { result } = await adjustStock({
       actor: f.actors.belen,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+      locationId: f.loc.TIENDA_RANCAGUA,
       variantId: v,
       delta: -3,
       reason: "Prenda dañada",

@@ -3,7 +3,7 @@
 > Documento de seguimiento. Se marca a medida que se avanza; si la sesión se reinicia, retomar desde la primera casilla sin marcar.
 > Rama: `feature/demo` · Todo el código vive en `big-curvas/` · Un commit por etapa (Conventional Commits) · Sin push sin pedirlo.
 
-**Objetivo:** demo presentable a Belén que muestre, con datos de ejemplo, cómo el stock se mueve entre `TIENDA_RANCAGUA`, `TIENDA_PROVIDENCIA` y `BODEGA`. Construida con el stack definitivo y las reglas de `CLAUDE.md`, para ser la base de la Fase 1.
+**Objetivo:** demo presentable a Belén que muestre, con datos de ejemplo, cómo el stock se mueve entre `TIENDA_RANCAGUA` y `BODEGA` (casa de Belén, que la opera con su rol ADMIN). El modelo sigue siendo multi-ubicación (ADR-017). Documentos en v0.4 (reunión con la clienta, 2026-10-02). Construida con el stack definitivo y las reglas de `CLAUDE.md`, para ser la base de la Fase 1.
 
 ## Checklist de etapas
 
@@ -13,7 +13,7 @@
   - [x] `docker-compose.yml`, `.env.example`, `.gitignore`
   - [x] Esquema Prisma + migración (mostrar SQL y esperar aprobación antes de aplicar)
   - [x] `src/lib/money.ts` y `src/lib/dates.ts` + tests
-  - [x] Seed (3 ubicaciones, 4 usuarios, ~20 productos, stock con `CARGA_INICIAL`, ledger cuadra)
+  - [x] Seed (ubicaciones, usuarios, ~20 productos, stock con `CARGA_INICIAL`, ledger cuadra; desde v0.4: 2 ubicaciones y 3 usuarios)
   - [x] Login demo "Entrar como…" (`DEMO_MODE`) + `getCurrentUser()` + `requireAccess()`
   - [x] Layout con menú por rol e indicador "Ubicación: X"
   - [x] lint + typecheck + tests · commit
@@ -32,26 +32,35 @@
   - [x] Apertura y cierre de caja (una por tienda), ventas del día
   - [x] Migración `pos_cash_and_payments` (índice único parcial de caja abierta, `payments.cash_received`, CHECK)
   - [x] lint + typecheck + tests · commits (`feat(ui)` y `feat(sales)`)
-- [ ] **Etapa 4 – Traspasos**
-  - [ ] Crear (escaneo/búsqueda) → Enviar → EN_TRANSITO
+- [x] **Ajuste v0.4 – 1 tienda + bodega** (commit `refactor(demo)`)
+  - [x] Seed sin Providencia ni usuario Bodega; 2.ª vendedora en Rancagua; stock redistribuido (tabla de casos abajo)
+  - [x] `max_seller_discount_bps = 0` sin marca `is_demo_value`; el POS bloquea todo descuento de la vendedora ("Requiere aprobación de Belén")
+  - [x] Caja compartida (RN-29): test de venta en la caja abierta por otra vendedora
+  - [x] Matriz de stock con columnas de las ubicaciones activas; sin referencias fijas a Providencia
+  - [x] Tests: acceso cruzado Vendedora Rancagua → BODEGA; test de N ubicaciones (tienda extra creada dentro del test)
+- [ ] **Etapa 4 – Traslados** (en el código y el modelo se llaman `transfers`)
+  - [ ] Crear (escaneo/búsqueda) → Enviar → EN_TRANSITO (Rancagua ↔ Bodega)
   - [ ] Bandeja "Por recibir" → recibir escaneando → RECIBIDO / RECIBIDO_CON_DIFERENCIAS
   - [ ] Belén resuelve diferencias
   - [ ] Test de acceso cruzado · lint + typecheck + tests · commit
-- [ ] **Etapa 5a – Pedido online desde BODEGA**
-  - [ ] Registro (cliente, líneas, despacho) con reserva en BODEGA
-  - [ ] Confirmar pago → `Sale` canal INSTAGRAM en BODEGA (sin mover stock)
-  - [ ] Bodega: "Listo para preparar" → picking escaneando → PREPARADO (`VENTA_ONLINE`) → Despachar (courier + seguimiento) → Entregado
-  - [ ] Tablero de pedidos por estado
-  - [ ] lint + typecheck + tests · commit
-- [ ] **Etapa 5b – Reserva en tienda, traspaso automático y retiro**
-  - [ ] Si bodega no tiene: mostrar tiendas con stock, Belén elige → reserva en la tienda
-  - [ ] Confirmar pago → traspaso automático tienda → bodega (ESPERANDO_TRASPASO → LISTO_PARA_PREPARAR)
-  - [ ] Retiro en tienda: PREPARADO → EN_CAMINO_A_TIENDA → LISTO_PARA_RETIRO → ENTREGADO (campo simple "quién retira")
-  - [ ] lint + typecheck + tests · commit
+- [ ] **Etapa 5 – Pedido online desde BODEGA** (une las antiguas 5a y 5b; un commit por hito)
+  - Reglas (ADR-004 v3, RN-07): **se aparta al pagar**. Al registrar el pedido no se reserva nada: solo se muestra el disponible. Al confirmar el pago se reserva en BODEGA, o en la tienda con traslado a bodega si en bodega no hay. Las reservas nacen firmes: **sin vencimientos** ni job de expiración (`expires_at` queda nulo).
+  - **Hito 1 – Pedido desde bodega**
+    - [ ] Registro (clienta, líneas, despacho) mostrando solo el disponible, sin reservar
+    - [ ] Confirmar pago → reserva en BODEGA (si falta stock, se avisa: R-17) + `Sale` canal INSTAGRAM en BODEGA (sin mover stock)
+    - [ ] Bodega (Belén con rol ADMIN): "Listo para preparar" → picking escaneando → PREPARADO (`VENTA_ONLINE`) → Despachar → Entregado
+    - [ ] Despacho **solo por courier**: Starken, Blue Express y Chilexpress como lista configurable (`settings.couriers`) + N.º de seguimiento
+    - [ ] Tablero de pedidos por estado
+    - [ ] lint + typecheck + tests · commit
+  - **Hito 2 – Apartar en la tienda y traslado automático**
+    - [ ] Si bodega no tiene: mostrar la tienda con stock y Belén la elige al confirmar el pago
+    - [ ] Confirmar pago → reserva en la tienda + traslado automático tienda → bodega (ESPERANDO_TRASPASO → LISTO_PARA_PREPARAR)
+    - [ ] lint + typecheck + tests · commit
+  - **Fuera de la demo:** el **retiro en tienda** (EN_CAMINO_A_TIENDA → LISTO_PARA_RETIRO) queda pendiente de P-11 (¿hay retiro y dónde?).
 - [ ] **Etapa 6 – Aprobación remota**
-  - [ ] Descuento sobre el límite → solicitud, caja en espera (polling ~3 s)
+  - [ ] Caso principal: **descuento de la vendedora** (límite 0 %, solo Belén da descuentos) → solicitud, caja en espera (polling ~3 s). Además, reembolsos y anulaciones
   - [ ] Vista móvil `/aprobaciones`
-  - [ ] Aprobación de uso único (tipo, ubicación, monto) + tests
+  - [ ] Aprobación de uso único (tipo, ubicación y monto) + tests
   - [ ] lint + typecheck + tests · commit
 - [ ] **Etapa 7 – Pulido para presentar**
   - [ ] Inicio "Guion de demo" (5 pasos)
@@ -94,7 +103,7 @@ Nombres de columnas y enums exactamente como `docs/04_MODELO_DE_DATOS.md` (model
 **Recortes respecto al doc** (campos que no se usan en la demo): `pos_device_id`, `sii_branch_code`, `pin_hash`/`password_hash`/`failed_pin_attempts`/`locked_until`, `images`, `price_override`/`cost_override` se mantienen como nullable pero sin uso, `is_contingency`, `tax_doc_*`, `void_*`, `picked_up_by_rut`.
 
 **Adiciones propuestas (a confirmar):**
-- `settings` (clave/valor tipado; `max_seller_discount_bps`, `approval_timeout_minutes`, `reservation_ttl_hours`), porque el límite de descuento debe ser configurable.
+- `settings` (clave/valor tipado; `max_seller_discount_bps`, `approval_timeout_minutes`; `couriers` en la Etapa 5), porque el límite de descuento debe ser configurable. `reservation_ttl_hours` se quitó en v0.4 (no hay vencimiento de reservas).
 - `audit_log` (regla 9: acciones sensibles).
 - `document_counters` (correlativos atómicos: `RGA-000001`, `TR-000001`, número de pedido).
 - Constraints en el SQL de la migración (Prisma no los soporta nativamente): `CHECK on_hand >= 0`, `reserved >= 0`, `reserved <= on_hand`, `quantity > 0`, `from_location_id <> to_location_id`, `role = 'ADMIN' OR location_id IS NOT NULL`, y un **trigger que bloquea UPDATE/DELETE en `inventory_movements`** (regla 2).
@@ -125,6 +134,8 @@ Del stack definido: `next`, `react`, `typescript`, `tailwindcss`, shadcn/ui (tra
 
 ## Respuestas del usuario a las dudas (Etapa 0 aprobada)
 
+> **Actualizado por v0.4 (2026-10-02):** el punto 1 (10 %) pasó a **0 %** confirmado; el punto 4 (retiro en tienda) queda fuera de la demo (P-11); el punto 5 ahora es regla de negocio (ADR-004 v3: se aparta al pagar, sin vencimientos). Ver "Cambios v0.4" al final.
+
 1. Límite de descuento: **10 % por línea**, guardado en `settings` y marcado como valor de demo. P-08 sigue pendiente con el cliente.
 2. Redondeo $10: 1–5 baja, 6–9 sube. **Pendiente validar con el contador.**
 3. Venta online al pagar: SÍ (RN-13). `Sale` INSTAGRAM en BODEGA al confirmar el pago, sin mover stock; el stock baja al preparar (`VENTA_ONLINE`).
@@ -149,15 +160,14 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - **Concurrencia:** la garantía real está en el UPDATE condicional + CHECK; los tests concurrentes exigen Postgres real (Docker levantado para `pnpm test`).
 - **Prisma / Next recientes:** versiones mayores pueden cambiar configuración (`prisma.config.ts`, adapters). Se usará la última estable y se documentará.
 - **Login demo sin contraseña** con cookie sin firmar: solo válido con `DEMO_MODE=true`; jamás en producción real.
-- **Alcance:** la Etapa 5 se dividió en 5a/5b por el tamaño de las reservas ligadas a traspasos.
+- **Alcance:** la Etapa 5 (pedido online) es la más grande; se mantiene en una sola etapa con dos hitos (pedido desde bodega / apartar en tienda + traslado) y un commit por hito.
 
 ## Pendientes para Fase 1
 
 - En producción, el usuario de BD de la app no debe tener permiso `TRUNCATE` sobre `inventory_movements` (el trigger de solo-INSERT no cubre TRUNCATE; en la demo se permite para reiniciar datos y para los tests).
 - Validar con el contador el redondeo de efectivo a $10 (1–5 baja, 6–9 sube).
-- P-08 (límite de descuento de la vendedora) sigue pendiente con el cliente; en la demo es 10 % (`settings`, marcado `is_demo_value`).
-- Vencimiento de reservas (job) y cancelación de pedidos online.
-- Liberar reservas vencidas de forma perezosa dentro de la misma transacción antes de vender o reservar, ya que `stock_levels.reserved` no descuenta solo las vencidas.
+- ~~P-08~~ resuelto en v0.4: solo Belén da descuentos; el límite de la vendedora es 0 % (`settings`, sin `is_demo_value`). Falta el flujo de aprobación (Etapa 6): hasta entonces, el POS bloquea todo descuento de la vendedora.
+- Cancelación de pedidos online (con liberación de la reserva). Vencimiento de reservas: **no aplica** (ADR-004 v3).
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
 - Definir el manejo de prendas no incluidas en un traspaso (pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén".
@@ -184,3 +194,32 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 5. **Efectivo esperado** = monto inicial + Σ pagos en efectivo (cada `payments.amount` ya es neto de vuelto y trae el redondeo). Vuelto = `cash_received − amount`.
 6. **Concurrencia de caja:** la venta bloquea la caja con `FOR SHARE`; el cierre con `FOR UPDATE` espera a las ventas en curso y las siguientes ya no encuentran caja abierta. El correlativo (`SALE:{prefijo}`) se toma al final de la transacción: un rollback no deja huecos.
 7. **Descuento sobre el límite:** según `02_REQUERIMIENTOS.md` §1, el ADMIN puede superarlo sin aprobación y la VENDEDORA no ("Requiere aprobación de Belén"; flujo en la Etapa 6). Cuando el ADMIN lo supera se guarda en `audit_log` (`DISCOUNT_OVERRIDE`: usuario, venta, N° de venta, límite y % por línea).
+
+## Cambios v0.4 (2026-10-02, reunión con la clienta)
+
+1. **Una tienda + bodega** (ADR-017): solo `TIENDA_RANCAGUA` y `BODEGA`. El modelo sigue siendo multi-ubicación; un test crea una tienda extra solo dentro del test.
+2. **Belén opera la bodega con su rol ADMIN.** El rol BODEGA se mantiene en el código, sin usuario en la demo (los tests crean uno propio para probar el rol).
+3. **Solo Belén da descuentos** (RN-09): `max_seller_discount_bps = 0`, valor confirmado. Todo descuento de una vendedora queda bloqueado con "Requiere aprobación de Belén" hasta la Etapa 6. El ADMIN puede darlos y, si superan el límite, quedan en `audit_log` (`DISCOUNT_OVERRIDE`).
+4. **Caja compartida** (RN-29): la abre cualquier vendedora, venden todas en ella y cada venta registra a quien la hizo (`sales.seller_id`). En la demo la vendedora se identifica con "Entrar como…" (el PIN de RN-29 llega con la autenticación real).
+5. **Se aparta al pagar, sin vencimientos** (RN-07, ADR-004 v3). Retiro en tienda fuera de la demo (P-11).
+
+### Usuarios de la demo
+
+| Usuario | Rol | Ubicación |
+|---|---|---|
+| Belén | ADMIN | Todas (elige dónde opera) |
+| Vendedora Rancagua | VENDEDORA | Tienda Rancagua |
+| Vendedora 2 Rancagua | VENDEDORA | Tienda Rancagua (comparte la caja) |
+
+### Casos de prueba de stock (seed)
+
+| Caso | SKU | Rancagua | Bodega |
+|---|---|---:|---:|
+| Última unidad en la tienda (dos ventas simultáneas) | `JMT012-AZU-48` | 1 | 8 |
+| Sin stock en la tienda, con stock en bodega (el POS muestra dónde) | `JMT012-NEG-48` | 0 | 6 |
+| Alta rotación | `PBA041-NEG-XL` | 5 | 20 |
+| Solo en la tienda (pedido online que se aparta en la tienda y se trae a bodega) | `CPU053-NEG-2XL` | 3 | 0 |
+| Solo en bodega (traslado Bodega → tienda) | `BLM022-BUR-3XL` | 0 | 5 |
+| Poco stock en ambas | `VNE033-NEG-52` | 1 | 2 |
+
+El resto de las variantes tiene stock pseudoaleatorio pero fijo (tienda 0–6, bodega 0 o 4–14).

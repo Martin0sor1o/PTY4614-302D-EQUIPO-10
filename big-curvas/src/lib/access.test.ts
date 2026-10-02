@@ -3,12 +3,13 @@ import { assertAccess, canAccess, type SessionLocation, type SessionUser } from 
 import { AppError } from "./errors";
 
 const rga: SessionLocation = { id: "loc-rga", code: "TIENDA_RANCAGUA", name: "Tienda Rancagua", type: "STORE" };
-const pro: SessionLocation = { id: "loc-pro", code: "TIENDA_PROVIDENCIA", name: "Tienda Providencia", type: "STORE" };
+// Tienda hipotética: el modelo es multi-ubicación aunque hoy solo exista Rancagua + Bodega.
+const otra: SessionLocation = { id: "loc-otra", code: "TIENDA_OTRA", name: "Tienda Otra", type: "STORE" };
 const bod: SessionLocation = { id: "loc-bod", code: "BODEGA", name: "Bodega", type: "WAREHOUSE" };
 
 const admin: SessionUser = { id: "u-admin", name: "Belén", role: "ADMIN", location: null, activeLocation: rga };
 const vendRga: SessionUser = { id: "u-rga", name: "Vendedora Rancagua", role: "VENDEDORA", location: rga, activeLocation: rga };
-const vendPro: SessionUser = { id: "u-pro", name: "Vendedora Providencia", role: "VENDEDORA", location: pro, activeLocation: pro };
+const vendOtra: SessionUser = { id: "u-otra", name: "Vendedora Otra", role: "VENDEDORA", location: otra, activeLocation: otra };
 const bodega: SessionUser = { id: "u-bod", name: "Bodega", role: "BODEGA", location: bod, activeLocation: bod };
 
 describe("assertAccess – rol", () => {
@@ -23,11 +24,11 @@ describe("assertAccess – rol", () => {
 
 describe("assertAccess – ubicación (acceso cruzado)", () => {
   it("la vendedora opera en su propia tienda", () => {
-    expect(canAccess(vendPro, { roles: ["VENDEDORA"], locationId: pro.id })).toBe(true);
+    expect(canAccess(vendOtra, { roles: ["VENDEDORA"], locationId: otra.id })).toBe(true);
   });
-  it("la vendedora de Providencia NO puede operar en Rancagua", () => {
-    expect(canAccess(vendPro, { roles: ["VENDEDORA"], locationId: rga.id })).toBe(false);
-    expect(() => assertAccess(vendPro, { roles: ["VENDEDORA"], locationId: rga.id })).toThrowError(
+  it("la vendedora de otra tienda (hipotética) NO puede operar en Rancagua", () => {
+    expect(canAccess(vendOtra, { roles: ["VENDEDORA"], locationId: rga.id })).toBe(false);
+    expect(() => assertAccess(vendOtra, { roles: ["VENDEDORA"], locationId: rga.id })).toThrowError(
       expect.objectContaining({ code: "FORBIDDEN" }),
     );
   });
@@ -36,14 +37,14 @@ describe("assertAccess – ubicación (acceso cruzado)", () => {
   });
   it("Bodega opera solo en bodega", () => {
     expect(canAccess(bodega, { roles: ["BODEGA"], locationId: bod.id })).toBe(true);
-    expect(canAccess(bodega, { roles: ["BODEGA"], locationId: pro.id })).toBe(false);
+    expect(canAccess(bodega, { roles: ["BODEGA"], locationId: otra.id })).toBe(false);
   });
   it("ADMIN opera en cualquier ubicación", () => {
-    for (const loc of [rga, pro, bod]) {
+    for (const loc of [rga, otra, bod]) {
       expect(canAccess(admin, { roles: ["ADMIN"], locationId: loc.id })).toBe(true);
     }
   });
   it("sin locationId solo se valida el rol (lectura)", () => {
-    expect(canAccess(vendPro, { roles: ["VENDEDORA"] })).toBe(true);
+    expect(canAccess(vendOtra, { roles: ["VENDEDORA"] })).toBe(true);
   });
 });

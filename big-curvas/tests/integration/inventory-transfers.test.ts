@@ -91,19 +91,19 @@ describe("traspaso Bodega → Rancagua", () => {
     const { result: t } = await createTransferCommand({
       actor: f.actors.belen,
       fromLocationId: f.loc.BODEGA,
-      toLocationId: f.loc.TIENDA_PROVIDENCIA,
+      toLocationId: f.loc.TIENDA_RANCAGUA,
       lines: [{ variantId: blusa, qty: 2 }],
       idempotencyKey: newKey(),
     });
     await sendTransferCommand({ actor: f.actors.bodega, transferId: t.id, idempotencyKey: newKey() });
     const { result } = await receiveTransferCommand({
-      actor: f.actors.vendPro,
+      actor: f.actors.vendRga,
       transferId: t.id,
       lines: [{ variantId: blusa, qty: 2 }],
       idempotencyKey: newKey(),
     });
     expect(result.transfer.status).toBe("RECIBIDO");
-    expect(await stockOf(blusa, f.loc.TIENDA_PROVIDENCIA)).toEqual({ onHand: 2, reserved: 0 });
+    expect(await stockOf(blusa, f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 2, reserved: 0 });
     await expectInvariants();
   });
 

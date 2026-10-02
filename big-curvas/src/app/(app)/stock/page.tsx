@@ -11,11 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const searchSchema = z.object({ q: z.string().trim().max(100).optional().catch(undefined) });
 
-const SHORT_NAME: Record<string, string> = {
-  TIENDA_RANCAGUA: "Rancagua",
-  TIENDA_PROVIDENCIA: "Providencia",
-  BODEGA: "Bodega",
-};
+/** Encabezado de columna: el nombre de la ubicación sin el prefijo "Tienda ". */
+const shortName = (name: string) => name.replace(/^Tienda\s+/i, "");
 
 function StockCellView({ cell, threshold }: { cell: StockCell; threshold: number | null }) {
   const low = cell.available > 0 && threshold !== null && cell.available <= threshold;
@@ -77,7 +74,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                   key={l.id}
                   className={cn("text-center", l.id === myLocationId && "bg-primary/25 text-brand-ink")}
                 >
-                  {SHORT_NAME[l.code] ?? l.name}
+                  {shortName(l.name)}
                 </TableHead>
               ))}
               <TableHead className="text-center">En tránsito</TableHead>

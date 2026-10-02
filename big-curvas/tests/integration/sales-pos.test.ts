@@ -20,18 +20,25 @@ beforeEach(async () => {
   f = await resetDemo();
 });
 
-const AZU_48 = "JMT012-AZU-48"; // $29.990 · Rancagua: 1 · Providencia: 3 · Bodega: 8
-const NEG_48 = "JMT012-NEG-48"; // Rancagua: 0 · Providencia: 4 · Bodega: 6
+const AZU_48 = "JMT012-AZU-48"; // $29.990 · Rancagua: 1 · Bodega: 8
+const NEG_48 = "JMT012-NEG-48"; // Rancagua: 0 · Bodega: 6
 const PBA_XL = "PBA041-NEG-XL"; // Rancagua: 5
+
+/** Belén sube el límite en settings (en la demo es 0 %: solo ella da descuentos, RN-09). */
+const setLimit = (valueInt: number) => db.setting.update({ where: { key: "max_seller_discount_bps" }, data: { valueInt } });
+
+/**
+ * Los tests de redondeo y de cierre de caja arman totales que terminan en cada dígito usando descuentos por línea.
+ * Con el límite de la vendedora en 0 % no podrían hacerlo, así que suben el límite en settings: lo que se prueba
+ * ahí es el redondeo y la caja, no el límite (eso está en "descuento").
+ */
+const withDiscountLimit10 = () => beforeEach(async () => void (await setLimit(1000)));
 
 const cash = (cashReceived: number) => ({ method: "EFECTIVO" as const, cashReceived });
 const card = (reference = "V-1001") => ({ method: "DEBITO" as const, reference });
 
 async function openRga(openingCash = 50_000) {
   return openCashSession({ actor: f.actors.vendRga, locationId: f.loc.TIENDA_RANCAGUA, openingCash });
-}
-async function openPro(openingCash = 30_000) {
-  return openCashSession({ actor: f.actors.vendPro, locationId: f.loc.TIENDA_PROVIDENCIA, openingCash });
 }
 
 async function saleRga(
@@ -83,20 +90,17 @@ describe("venta OK", () => {
     expect(result.lines[0]).toMatchObject({ unitPrice: 1_990, quantity: 2, lineTotal: 3_980 });
   });
 
-  it("el correlativo es por tienda: PRO-000001 aunque Rancagua ya vendió", async () => {
+  it("el correlativo de la tienda es consecutivo (RGA-000001, RGA-000002…) entre vendedoras", async () => {
     await openRga();
-    await openPro();
-    await saleRga([{ sku: PBA_XL }]);
-    const { result: pro } = await createSale({
-      actor: f.actors.vendPro,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+    const { result: first } = await saleRga([{ sku: PBA_XL }]);
+    const { result: second } = await createSale({
+      actor: f.actors.vendRga2,
+      locationId: f.loc.TIENDA_RANCAGUA,
       lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 0 }],
       payment: card(),
       idempotencyKey: newKey(),
     });
-    expect(pro.number).toBe("PRO-000001");
-    const { result: rga2 } = await saleRga([{ sku: PBA_XL }]);
-    expect(rga2.number).toBe("RGA-000002");
+    expect([first.number, second.number]).toEqual(["RGA-000001", "RGA-000002"]);
   });
 
   it("el cliente no manda montos: un total falso enviado se ignora y manda el del servidor", async () => {
@@ -190,6 +194,7 @@ describe("concurrencia: dos ventas de la última unidad", () => {
 });
 
 describe("redondeo de efectivo a $10 (RN-19)", () => {
+  withDiscountLimit10();
   it.each([1, 2, 3, 4, 5])("total que termina en %i baja a la decena inferior", async (digit) => {
     await openRga();
     const bps = bpsForEnding(await priceOf(PBA_XL), digit);
@@ -255,25 +260,46 @@ describe("validación de pago", () => {
   });
 });
 
-describe("descuento sobre el límite (settings: 10 %; la vendedora requiere aprobación, el ADMIN no)", () => {
-  it("10,01 % se rechaza en el servidor con 'Requiere aprobación de Belén' y no toca el stock", async () => {
+describe("descuento (settings: 0 %; todo descuento de la vendedora requiere aprobación de Belén, el ADMIN no)", () => {
+  it("el límite de la demo es 0 % y ya no es un valor provisional", async () => {
+    const setting = await db.setting.findUniqueOrThrow({ where: { key: "max_seller_discount_bps" } });
+    expect(setting).toMatchObject({ valueInt: 0, isDemoValue: false });
+  });
+  it("cualquier descuento de la vendedora (1 %) se rechaza en el servidor con 'Requiere aprobación de Belén' y no toca el stock", async () => {
     await openRga();
-    const error = await expectAppError(saleRga([{ sku: AZU_48, discountBps: 1001 }]), "APROBACION_REQUERIDA", /^Requiere aprobación de Belén/);
-    expect(error.details).toMatchObject({ discountBps: 1001, limitBps: 1000 });
+    const error = await expectAppError(saleRga([{ sku: AZU_48, discountBps: 100 }]), "APROBACION_REQUERIDA", /^Requiere aprobación de Belén/);
+    expect(error.details).toMatchObject({ discountBps: 100, limitBps: 0 });
     expect(await db.sale.count()).toBe(0);
     expect(await stockOf(await f.variant(AZU_48), f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 1, reserved: 0 });
   });
-  it("exactamente el 10 % pasa", async () => {
+  it("lo mismo para la segunda vendedora; sin descuento (0 %) la venta pasa", async () => {
     await openRga();
+    await expectAppError(
+      createSale({
+        actor: f.actors.vendRga2,
+        locationId: f.loc.TIENDA_RANCAGUA,
+        lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 1000 }],
+        payment: card(),
+        idempotencyKey: newKey(),
+      }),
+      "APROBACION_REQUERIDA",
+    );
+    const { result } = await saleRga([{ sku: PBA_XL, discountBps: 0 }]);
+    expect(result.discountTotal).toBe(0);
+  });
+  it("si Belén sube el límite a 10 %: exactamente el 10 % pasa y 10,01 % no", async () => {
+    await setLimit(1000);
+    await openRga();
+    await expectAppError(saleRga([{ sku: AZU_48, discountBps: 1001 }]), "APROBACION_REQUERIDA");
     const { result } = await saleRga([{ sku: AZU_48, discountBps: 1000 }]);
     expect(result).toMatchObject({ discountTotal: 2_999, total: 26_991 });
     expect(result.lines[0]).toMatchObject({ discountBps: 1000, discount: 2_999, lineTotal: 26_991 });
   });
-  it("Belén (ADMIN) sí puede superar el límite sin aprobación y queda en audit_log (DISCOUNT_OVERRIDE)", async () => {
-    await openPro();
+  it("Belén (ADMIN) sí puede dar descuentos sin aprobación y queda en audit_log (DISCOUNT_OVERRIDE) con las líneas sobre el límite", async () => {
+    await openRga();
     const { result } = await createSale({
       actor: f.actors.belen,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+      locationId: f.loc.TIENDA_RANCAGUA,
       lines: [
         { variantId: await f.variant(PBA_XL), qty: 1, discountBps: 2000 },
         { variantId: await f.variant(AZU_48), qty: 1, discountBps: 500 },
@@ -286,52 +312,53 @@ describe("descuento sobre el límite (settings: 10 %; la vendedora requiere apro
 
     const audit = await db.auditLog.findMany({ where: { action: "DISCOUNT_OVERRIDE" } });
     expect(audit).toHaveLength(1);
-    expect(audit[0]).toMatchObject({ userId: f.actors.belen.id, entity: "sale", entityId: result.id, locationId: f.loc.TIENDA_PROVIDENCIA });
+    expect(audit[0]).toMatchObject({ userId: f.actors.belen.id, entity: "sale", entityId: result.id, locationId: f.loc.TIENDA_RANCAGUA });
     expect(audit[0].after).toMatchObject({
       saleNumber: result.number,
-      limitBps: 1000,
+      limitBps: 0,
       maxDiscountBps: 2000,
-      lines: [{ sku: PBA_XL, discountBps: 2000 }], // solo la línea sobre el límite
+      lines: [
+        { sku: PBA_XL, discountBps: 2000 },
+        { sku: AZU_48, discountBps: 500 },
+      ],
     });
   });
-  it("Belén dentro del límite no genera DISCOUNT_OVERRIDE; la vendedora sigue sin poder superarlo", async () => {
-    await openPro();
+  it("Belén dentro del límite (sin descuento, o con el límite subido) no genera DISCOUNT_OVERRIDE; la vendedora sigue sin poder superarlo", async () => {
+    await openRga();
     await createSale({
       actor: f.actors.belen,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+      locationId: f.loc.TIENDA_RANCAGUA,
+      lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 0 }],
+      payment: card(),
+      idempotencyKey: newKey(),
+    });
+    await setLimit(1000);
+    await createSale({
+      actor: f.actors.belen,
+      locationId: f.loc.TIENDA_RANCAGUA,
       lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 1000 }],
       payment: card(),
       idempotencyKey: newKey(),
     });
     expect(await db.auditLog.count({ where: { action: "DISCOUNT_OVERRIDE" } })).toBe(0);
-    await expectAppError(
-      createSale({
-        actor: f.actors.vendPro,
-        locationId: f.loc.TIENDA_PROVIDENCIA,
-        lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 2000 }],
-        payment: card(),
-        idempotencyKey: newKey(),
-      }),
-      "APROBACION_REQUERIDA",
-    );
+    await expectAppError(saleRga([{ sku: PBA_XL, discountBps: 2000 }]), "APROBACION_REQUERIDA");
     expect(await db.auditLog.count({ where: { action: "DISCOUNT_OVERRIDE" } })).toBe(0);
   });
   it("el límite sale de settings (no está fijo en el código)", async () => {
     await openRga();
-    await db.setting.update({ where: { key: "max_seller_discount_bps" }, data: { valueInt: 500 } });
+    await setLimit(500);
     await expectAppError(saleRga([{ sku: AZU_48, discountBps: 1000 }]), "APROBACION_REQUERIDA");
     await saleRga([{ sku: AZU_48, discountBps: 500 }]);
   });
 });
 
 describe("acceso cruzado (regla 10)", () => {
-  it("la vendedora de Providencia no puede vender en Rancagua", async () => {
+  it("la vendedora de Rancagua no puede vender en BODEGA", async () => {
     await openRga();
-    await openPro();
     await expectAppError(
       createSale({
-        actor: f.actors.vendPro,
-        locationId: f.loc.TIENDA_RANCAGUA,
+        actor: f.actors.vendRga,
+        locationId: f.loc.BODEGA,
         lines: [{ variantId: await f.variant(AZU_48), qty: 1, discountBps: 0 }],
         payment: card(),
         idempotencyKey: newKey(),
@@ -339,17 +366,19 @@ describe("acceso cruzado (regla 10)", () => {
       "FORBIDDEN",
     );
     expect(await db.sale.count()).toBe(0);
+    expect(await stockOf(await f.variant(AZU_48), f.loc.BODEGA)).toEqual({ onHand: 8, reserved: 0 });
     expect(await stockOf(await f.variant(AZU_48), f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 1, reserved: 0 });
   });
 
-  it("no puede abrir ni cerrar la caja de otra tienda, ni leer sus ventas ni su ticket", async () => {
+  it("la vendedora no puede abrir ni cerrar caja en BODEGA, ni leer sus ventas; el rol BODEGA no ve ventas ni tickets de la tienda", async () => {
     await openRga();
     const { result: sale } = await saleRga([{ sku: PBA_XL }]);
-    await expectAppError(openCashSession({ actor: f.actors.vendPro, locationId: f.loc.TIENDA_RANCAGUA, openingCash: 0 }), "FORBIDDEN");
-    await expectAppError(closeCashSession({ actor: f.actors.vendPro, locationId: f.loc.TIENDA_RANCAGUA, countedCash: 0 }), "FORBIDDEN");
-    await expectAppError(listSalesOfDay({ actor: f.actors.vendPro, locationId: f.loc.TIENDA_RANCAGUA }), "FORBIDDEN");
-    await expectAppError(getSaleForActor(f.actors.vendPro, sale.id), "FORBIDDEN");
-    await expectAppError(searchPosItems({ actor: f.actors.vendPro, locationId: f.loc.TIENDA_RANCAGUA, query: "JMT012" }), "FORBIDDEN");
+    await expectAppError(openCashSession({ actor: f.actors.vendRga, locationId: f.loc.BODEGA, openingCash: 0 }), "FORBIDDEN");
+    await expectAppError(closeCashSession({ actor: f.actors.vendRga, locationId: f.loc.BODEGA, countedCash: 0 }), "FORBIDDEN");
+    await expectAppError(listSalesOfDay({ actor: f.actors.vendRga, locationId: f.loc.BODEGA }), "FORBIDDEN");
+    await expectAppError(searchPosItems({ actor: f.actors.vendRga, locationId: f.loc.BODEGA, query: "JMT012" }), "FORBIDDEN");
+    await expectAppError(getSaleForActor(f.actors.bodega, sale.id), "FORBIDDEN");
+    await expectAppError(listSalesOfDay({ actor: f.actors.bodega, locationId: f.loc.TIENDA_RANCAGUA }), "FORBIDDEN");
     expect((await getSaleForActor(f.actors.vendRga, sale.id)).id).toBe(sale.id);
     expect((await getSaleForActor(f.actors.belen, sale.id)).id).toBe(sale.id);
   });
@@ -365,15 +394,15 @@ describe("acceso cruzado (regla 10)", () => {
   });
 
   it("Belén (ADMIN) sí puede vender en la tienda que elige", async () => {
-    await openPro();
+    await openRga();
     const { result } = await createSale({
       actor: f.actors.belen,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
+      locationId: f.loc.TIENDA_RANCAGUA,
       lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 0 }],
       payment: card(),
       idempotencyKey: newKey(),
     });
-    expect(result.number).toBe("PRO-000001");
+    expect(result.number).toBe("RGA-000001");
     expect(result.sellerName).toBe("Belén");
   });
 });
@@ -385,9 +414,34 @@ describe("caja", () => {
     expect(await stockOf(await f.variant(AZU_48), f.loc.TIENDA_RANCAGUA)).toEqual({ onHand: 1, reserved: 0 });
   });
 
-  it("la caja abierta en otra tienda no habilita la venta", async () => {
-    await openPro();
-    await expectAppError(saleRga([{ sku: AZU_48 }]), "CONFLICT", /caja/i);
+  it("caja compartida (RN-29): una vendedora vende en la caja abierta por otra y cada venta registra a quien la hizo", async () => {
+    const session = await openRga(); // la abre la Vendedora Rancagua
+    const { result: s1 } = await saleRga([{ sku: PBA_XL }], cash(20_000));
+    const { result: s2 } = await createSale({
+      actor: f.actors.vendRga2,
+      locationId: f.loc.TIENDA_RANCAGUA,
+      lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 0 }],
+      payment: cash(20_000),
+      idempotencyKey: newKey(),
+    });
+    expect(s1.sellerName).toBe("Vendedora Rancagua");
+    expect(s2.sellerName).toBe("Vendedora 2 Rancagua");
+
+    const rows = await db.sale.findMany({ orderBy: { number: "asc" } });
+    expect(rows.map((r) => r.sellerId)).toEqual([f.actors.vendRga.id, f.actors.vendRga2.id]);
+    expect(new Set(rows.map((r) => r.cashSessionId))).toEqual(new Set([session.id])); // una sola caja
+    expect(await db.cashSession.count()).toBe(1);
+
+    // el efectivo de ambas entra en el mismo cierre, que también puede hacer la otra vendedora
+    const totals = await getCashClosingTotals(f.actors.vendRga2, session.id);
+    expect(totals.salesCount).toBe(2);
+    expect(totals.expectedCash).toBe(50_000 + s1.payments[0].amount + s2.payments[0].amount);
+    await closeCashSession({ actor: f.actors.vendRga2, locationId: f.loc.TIENDA_RANCAGUA, countedCash: totals.expectedCash });
+    expect(await db.cashSession.findUniqueOrThrow({ where: { id: session.id } })).toMatchObject({
+      status: "CERRADA",
+      openedBy: f.actors.vendRga.id,
+      closedBy: f.actors.vendRga2.id,
+    });
   });
 
   it("tras cerrar la caja ya no se puede vender", async () => {
@@ -399,7 +453,6 @@ describe("caja", () => {
   it("una sola caja abierta por tienda (también con aperturas simultáneas)", async () => {
     await openRga();
     await expectAppError(openRga(), "CONFLICT", /ya hay una caja abierta/i);
-    await openPro(); // otra tienda: sí
 
     await closeCashSession({ actor: f.actors.vendRga, locationId: f.loc.TIENDA_RANCAGUA, countedCash: 50_000 });
     const results = await Promise.allSettled(Array.from({ length: 5 }, () => openRga()));
@@ -424,6 +477,7 @@ describe("caja", () => {
 });
 
 describe("cierre de caja", () => {
+  withDiscountLimit10();
   async function scenario() {
     const session = await openRga(50_000);
     const bps6 = bpsForEnding(await priceOf(PBA_XL), 6); // efectivo: sube a la decena
@@ -502,17 +556,9 @@ describe("cierre de caja", () => {
 describe("ventas del día y búsqueda", () => {
   it("lista las ventas de la tienda del día con el total por medio de pago", async () => {
     await openRga();
-    await openPro();
     await saleRga([{ sku: PBA_XL }], card());
     await saleRga([{ sku: PBA_XL }], { method: "TRANSFERENCIA", reference: "T-1" });
     const cashSale = await saleRga([{ sku: AZU_48 }], cash(30_000));
-    await createSale({
-      actor: f.actors.vendPro,
-      locationId: f.loc.TIENDA_PROVIDENCIA,
-      lines: [{ variantId: await f.variant(PBA_XL), qty: 1, discountBps: 0 }],
-      payment: card(),
-      idempotencyKey: newKey(),
-    });
 
     const day = await listSalesOfDay({ actor: f.actors.vendRga, locationId: f.loc.TIENDA_RANCAGUA });
     expect(day.count).toBe(3);
@@ -536,7 +582,6 @@ describe("ventas del día y búsqueda", () => {
     expect(item.here).toEqual({ onHand: 0, reserved: 0, available: 0 });
     expect(item.others.map((o) => [o.name, o.available])).toEqual(
       expect.arrayContaining([
-        ["Tienda Providencia", 4],
         ["Bodega", 6],
       ]),
     );
