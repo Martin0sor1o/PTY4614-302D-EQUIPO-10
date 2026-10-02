@@ -192,7 +192,7 @@ enum DeliveryMethod {
 
 model Location {
   id                String       @id @default(cuid())
-  code              String       @unique // TIENDA_RANCAGUA | TIENDA_PROVIDENCIA | BODEGA
+  code              String       @unique // TIENDA_RANCAGUA | BODEGA
   name              String
   type              LocationType
   address           String?

@@ -44,3 +44,7 @@ next-env.d.ts
 
 # prisma client generado (pnpm db:generate / postinstall)
 /src/generated
+
+# Claude Code (configuración local)
+.claude/launch.json
+.claude/settings.local.json

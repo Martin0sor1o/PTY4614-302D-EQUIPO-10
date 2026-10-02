@@ -164,6 +164,7 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 
 ## Pendientes para Fase 1
 
+- **PIN de la vendedora (RN-29):** en la caja compartida cada venta debe identificar a la vendedora con su PIN. En la demo se identifica con "Entrar como…"; el PIN llega con la autenticación real (Fase 1).
 - En producción, el usuario de BD de la app no debe tener permiso `TRUNCATE` sobre `inventory_movements` (el trigger de solo-INSERT no cubre TRUNCATE; en la demo se permite para reiniciar datos y para los tests).
 - Validar con el contador el redondeo de efectivo a $10 (1–5 baja, 6–9 sube).
 - ~~P-08~~ resuelto en v0.4: solo Belén da descuentos; el límite de la vendedora es 0 % (`settings`, sin `is_demo_value`). Falta el flujo de aprobación (Etapa 6): hasta entonces, el POS bloquea todo descuento de la vendedora.
