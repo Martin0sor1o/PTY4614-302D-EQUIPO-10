@@ -59,7 +59,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
     if (isAppError(error) && error.code === "NOT_FOUND") notFound();
     throw error;
   }
-  const { variant, stock, inTransit, movements } = kardex;
+  const { variant, stock, inTransit, pendingResolution, movements } = kardex;
   const base = `/stock/${variant.id}/kardex`;
 
   return (
@@ -100,6 +100,15 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
             <div className="text-xs text-muted-foreground">enviado y aún no recibido</div>
           </CardContent>
         </Card>
+        {pendingResolution > 0 && (
+          <Card size="sm">
+            <CardContent>
+              <div className="text-xs text-muted-foreground">Por resolver</div>
+              <div className="text-2xl font-semibold tabular-nums text-amber-700">{pendingResolution}</div>
+              <div className="text-xs text-muted-foreground">faltantes de traslados sin resolver</div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <nav className="flex flex-wrap gap-1.5" aria-label="Filtrar por ubicación">

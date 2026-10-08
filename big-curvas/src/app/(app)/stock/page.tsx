@@ -41,6 +41,8 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
   const { q } = searchSchema.parse(await searchParams);
   const [locations, rows] = await Promise.all([listLocations(), getStockMatrix({ search: q })]);
   const myLocationId = user.location?.id ?? user.activeLocation?.id;
+  // "Por resolver" aparece solo si hay faltantes de traslados sin resolver entre las prendas mostradas.
+  const showPending = rows.some((r) => r.pendingResolution > 0);
 
   return (
     <div className="space-y-4">
@@ -78,13 +80,18 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                 </TableHead>
               ))}
               <TableHead className="text-center">En tránsito</TableHead>
+              {showPending && (
+                <TableHead className="text-center" title="Faltantes de traslados recibidos con diferencias que Belén aún no resuelve">
+                  Por resolver
+                </TableHead>
+              )}
               <TableHead className="text-center">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5 + locations.length} className="py-10 text-center text-muted-foreground">
+                <TableCell colSpan={5 + locations.length + (showPending ? 1 : 0)} className="py-10 text-center text-muted-foreground">
                   No hay prendas que coincidan con la búsqueda.
                 </TableCell>
               </TableRow>
@@ -112,6 +119,17 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                 <TableCell className="text-center tabular-nums">
                   {r.inTransit > 0 ? <span className="font-medium text-sky-700">{r.inTransit}</span> : <span className="text-muted-foreground">—</span>}
                 </TableCell>
+                {showPending && (
+                  <TableCell className="text-center tabular-nums" data-testid="pending-resolution">
+                    {r.pendingResolution > 0 ? (
+                      <Link href="/traslados?tab=con-diferencias" className="font-medium text-amber-700 underline-offset-4 hover:underline">
+                        {r.pendingResolution}
+                      </Link>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-center font-medium tabular-nums">{r.total}</TableCell>
               </TableRow>
             ))}
@@ -121,7 +139,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
 
       <p className="text-xs text-muted-foreground">
         <span className="text-amber-700">Ámbar</span>: stock bajo · <span className="text-violet-700">res.</span>: unidades
-        reservadas para pedidos online · Total = físico en todas las ubicaciones + en tránsito. Toca un SKU para ver su kardex.
+        reservadas para pedidos online · Total = físico en todas las ubicaciones + en tránsito + por resolver (faltantes de traslados que Belén aún no resuelve). Toca un SKU para ver su kardex.
       </p>
     </div>
   );

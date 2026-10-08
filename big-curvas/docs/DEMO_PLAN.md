@@ -178,7 +178,6 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - **Idempotencia de `resolveTransferDifference` con restricción única en BD.** Hoy la clave de la operación se guarda en `audit_log.after` (consulta por JSON, sin índice único) porque una MERMA no deja movimiento de stock; la garantía real contra la doble resolución es el cambio condicional de la línea (`difference_resolution IS NULL`) y del traslado (`status = RECIBIDO_CON_DIFERENCIAS`). Para Fase 1: tabla o columna con `UNIQUE (idempotency_key)`.
 - **Evaluar con Belén (P-28):** la recepción **a ciegas** (hoy la vendedora ve la cantidad enviada al recibir) y una resolución "error de recepción" para sobrantes (se escaneó de más en destino); hoy un sobrante solo admite `ERROR_ENVIO` (RN-30).
 - El traslado de `REENVIO` queda ligado al original solo por texto (`resolution_notes` del borrador y `audit_log`); no hay columna `parent_transfer_id`.
-- Un faltante pendiente de resolver no aparece en el stock ni en "En tránsito": el "Total" de la matriz baja hasta que Belén resuelve (queda visible en la bandeja "Con diferencias" y en el contador del menú).
 - Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
 - Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
 - Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
@@ -250,6 +249,7 @@ El resto de las variantes tiene stock pseudoaleatorio pero fijo (tienda 0–6, b
 5. **Borradores con líneas ligadas a pedidos** (reservas, Etapa 5) no se editan ni se anulan desde esta pantalla. Editar un borrador reescribe sus líneas (no tienen efecto en ningún saldo).
 6. **Anular** un borrador queda en `audit_log` (`TRANSFER_CANCEL`); anular o editar algo que ya no es borrador → `CONFLICT`.
 7. **Impresión:** la guía usa una página con nombre (`@page guia`, A4); el ticket pasó a `@page ticket`, con el mismo efecto que antes.
+8. **Columna "Por resolver" en la matriz de stock** (solo lectura, sin movimientos): suma los faltantes (`enviado − recibido`) de traslados `RECIBIDO_CON_DIFERENCIAS` sin resolver, de modo que Total = Rancagua + Bodega + En tránsito + Por resolver. Se muestra solo si hay algo pendiente (también en el kardex). `REENVIO` y `ERROR_ENVIO` no cambian el Total; `MERMA` lo baja, y es lo correcto. Los sobrantes no se cuentan en la columna.
 
 ## Casos de prueba para la demo (Etapa 4)
 
@@ -260,6 +260,7 @@ Usuarios: Belén (ADMIN) y Vendedora Rancagua (VENDEDORA). Reiniciar los datos c
 | 1 | **Bodega → tienda con un faltante** (caso principal) | Belén: "Operando en: Bodega" → Traslados → Nuevo traslado → escanear `BLM022-BUR-3XL` (bodega 5), cantidad 3 → Guardar borrador → Enviar → ver la guía. Vendedora Rancagua: contador "Traslados 1" → Por recibir → Recibir → escanear 2 unidades → Confirmar | `TR-000001` queda `Recibido con diferencias` (faltan 1). Stock: Bodega 2, Rancagua 2, en tránsito 0 |
 | 2 | **Resolver el faltante** | Belén: contador del menú → "Con diferencias" → TR-000001 → elegir una resolución → Resolver | `REENVIO`: Bodega 3 + borrador nuevo `TR-000002` de 1 unidad; `ERROR_ENVIO`: Bodega 3 sin borrador; `MERMA`: sin cambios (Bodega 2). En los tres, `TR-000001` queda `Cerrado` y el kardex muestra el `Ajuste` con enlace al traslado |
 | 3 | **En tránsito en la matriz** | Tras enviar el caso 1 y antes de recibir, abrir Stock y buscar `BLM022-BUR-3XL` | Rancagua 0 · Bodega 2 · En tránsito 3 · Total 5 |
+| 3b | **Por resolver en la matriz** | Tras recibir con faltante (caso 1) y antes de resolver, abrir Stock y buscar `BLM022-BUR-3XL` | Aparece la columna "Por resolver" con 1: Rancagua 2 · Bodega 2 · En tránsito — · Por resolver 1 · Total 5. Al resolver con `REENVIO`/`ERROR_ENVIO` el Total sigue en 5 y la columna desaparece; con `MERMA` el Total baja a 4 |
 | 4 | **Prenda ajena** | Al recibir, escanear `PBA041-NEG-XL` | "Esta prenda no viene en el traslado. Sepárala y avisa a Belén." y no suma |
 | 5 | **Tienda → bodega** | Vendedora Rancagua: Nuevo traslado (origen = su tienda) con `PBA041-NEG-XL` ×2 → Enviar. Belén (Operando en: Bodega) → Por recibir → Recibir | `Recibido`; Rancagua 3, Bodega 22 |
 | 6 | **Sobrante** | Enviar `BLM022-BUR-3XL` ×2 desde la bodega y escanear 3 en la tienda; Belén resuelve | Solo ofrece "Error de envío": baja 1 de la bodega y el traslado queda `Cerrado` |

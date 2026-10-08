@@ -27,7 +27,12 @@ export interface StockMatrixRow {
   byLocation: Record<string, StockCell>;
   /** Unidades enviadas y aún no recibidas (traspasos EN_TRANSITO). */
   inTransit: number;
-  /** Físico en todas las ubicaciones + en tránsito. */
+  /**
+   * Unidades faltantes de traslados RECIBIDO_CON_DIFERENCIAS que Belén aún no resuelve (enviado − recibido, solo
+   * líneas sin resolución). Es un cálculo de lectura: no es stock de ninguna ubicación ni mueve nada.
+   */
+  pendingResolution: number;
+  /** Físico en todas las ubicaciones + en tránsito + por resolver. */
   total: number;
 }
 
@@ -44,6 +49,30 @@ async function inTransitByVariant(reader: Reader, variantIds?: string[]): Promis
     _sum: { qtySent: true },
   });
   return new Map(rows.map((r) => [r.variantId, r._sum.qtySent ?? 0]));
+}
+
+/**
+ * Por resolver por variante = SUM(qty_sent − qty_received) de las líneas con faltante, sin resolución, de traslados
+ * RECIBIDO_CON_DIFERENCIAS. Esas prendas salieron del origen y no llegaron al destino: siguen contando en el Total hasta
+ * que Belén resuelve. REENVIO / ERROR_ENVIO las reingresan al origen (el Total no cambia); MERMA las da de baja
+ * (el Total baja, y es lo correcto). Los sobrantes no se cuentan aquí (el destino ya sumó lo escaneado).
+ */
+async function pendingResolutionByVariant(reader: Reader, variantIds?: string[]): Promise<Map<string, number>> {
+  const rows = await reader.transferLine.findMany({
+    where: {
+      transfer: { status: TransferStatus.RECIBIDO_CON_DIFERENCIAS },
+      differenceResolution: null,
+      qtyReceived: { not: null },
+      ...(variantIds ? { variantId: { in: variantIds } } : {}),
+    },
+    select: { variantId: true, qtySent: true, qtyReceived: true },
+  });
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const missing = r.qtySent - (r.qtyReceived ?? 0);
+    if (missing > 0) map.set(r.variantId, (map.get(r.variantId) ?? 0) + missing);
+  }
+  return map;
 }
 
 /** Matriz variante × ubicación (RF-INV-08). Búsqueda por SKU, código de barras o nombre del producto. */
@@ -75,7 +104,8 @@ export async function getStockMatrix(opts: { search?: string; limit?: number } =
     orderBy: [{ product: { modelCode: "asc" } }, { color: { code: "asc" } }, { size: { sortOrder: "asc" } }],
     take: opts.limit ?? 500,
   });
-  const transit = await inTransitByVariant(reader, q ? variants.map((v) => v.id) : undefined);
+  const ids = q ? variants.map((v) => v.id) : undefined;
+  const [transit, pending] = await Promise.all([inTransitByVariant(reader, ids), pendingResolutionByVariant(reader, ids)]);
 
   return variants.map((v) => {
     const byLocation: Record<string, StockCell> = {};
@@ -85,6 +115,7 @@ export async function getStockMatrix(opts: { search?: string; limit?: number } =
       physical += s.onHand;
     }
     const inTransit = transit.get(v.id) ?? 0;
+    const pendingResolution = pending.get(v.id) ?? 0;
     return {
       variantId: v.id,
       sku: v.sku,
@@ -96,7 +127,8 @@ export async function getStockMatrix(opts: { search?: string; limit?: number } =
       lowStockThreshold: v.product.lowStockThreshold,
       byLocation,
       inTransit,
-      total: physical + inTransit,
+      pendingResolution,
+      total: physical + inTransit + pendingResolution,
     };
   });
 }
@@ -123,6 +155,8 @@ export interface Kardex {
   variant: { id: string; sku: string; barcode: string; productName: string; size: string; color: string };
   stock: { locationId: string; onHand: number; reserved: number; available: number }[];
   inTransit: number;
+  /** Faltantes de traslados con diferencias aún sin resolver. */
+  pendingResolution: number;
   movements: KardexEntry[];
 }
 
@@ -157,11 +191,13 @@ export async function getKardex(
     take: opts.limit ?? 300,
   });
   const transit = await inTransitByVariant(reader, [v.id]);
+  const pending = await pendingResolutionByVariant(reader, [v.id]);
 
   return {
     variant: { id: v.id, sku: v.sku, barcode: v.barcode, productName: v.product.name, size: v.size.code, color: v.color.name },
     stock: v.stockLevels.map((s) => ({ ...s, available: s.onHand - s.reserved })),
     inTransit: transit.get(v.id) ?? 0,
+    pendingResolution: pending.get(v.id) ?? 0,
     movements: movements.map((m) => ({
       id: m.id,
       createdAt: m.createdAt,
