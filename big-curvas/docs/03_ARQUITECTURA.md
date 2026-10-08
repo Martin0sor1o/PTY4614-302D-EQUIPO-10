@@ -166,7 +166,7 @@ Todas las operaciones reciben un `tx`, el `userId`, la **ubicación** y una refe
 | `consumeReservation(reservationId)` (solo en BODEGA) | −qty | −qty | `VENTA_ONLINE` |
 | `sendTransfer(transferId)` | −qty en origen (valida disponible; si la línea lleva `reservationId`, consume esa reserva) | −qty si hay reserva | `TRASPASO_SALIDA` |
 | `receiveTransfer(transferId, scannedLines)` | +qty recibida en destino; si la línea está ligada a un pedido, **crea reserva firme** en destino | +qty si hay pedido | `TRASPASO_ENTRADA` |
-| `resolveTransferDifference(transferId, resolution)` | según resolución (merma en origen / reingreso / reenvío) | — | `MERMA_TRASPASO` / `AJUSTE` |
+| `resolveTransferDifference(transferId, lineId, resolution)` (solo ADMIN) | según RN-30: MERMA = sin cambio; REENVIO / ERROR_ENVIO faltante = +d en origen; ERROR_ENVIO sobrante = −d en origen | — | `AJUSTE` (MERMA no genera movimiento; `MERMA_TRASPASO` queda reservado) |
 | `applyCount(countId)` | ±diferencias en esa ubicación | — | `AJUSTE_CONTEO` |
 
 **Stock en tránsito** = suma de las líneas de traspasos `EN_TRANSITO`. Se calcula, no se guarda en `stock_levels`, y la ubicación de origen es la responsable hasta la recepción.

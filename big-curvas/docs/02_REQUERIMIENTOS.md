@@ -259,6 +259,7 @@ Nota: hoy emiten boletas con una app ("Veci"; probablemente **Vessi – Boleta F
 | RN-27 | Los pedidos online los registra solo Belén | ✅ |
 | RN-28 | La bodega no vende al público (sin POS) | ✅ |
 | RN-29 | La caja de la tienda es **compartida** por las vendedoras; cada venta registra qué vendedora la hizo (PIN) | ✅ |
+| RN-30 | Resolución de diferencias de traslado (solo Belén, por línea; d = enviado − recibido): **Faltante → MERMA** (pérdida en el camino; sin movimiento de stock, queda registrada en el traslado y en `audit_log`) · **Faltante → REENVIO** (la prenda se quedó en el origen: AJUSTE +d en origen y nuevo traslado en borrador) · **Faltante → ERROR_ENVIO** (se anotó de más: AJUSTE +d en origen) · **Sobrante → ERROR_ENVIO** (salió más de lo anotado: AJUSTE −d en origen; si el origen no tiene disponible, Belén ajusta antes) | 🟡 P-28 |
 
 ---
 

@@ -80,6 +80,7 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 | P-21 | Catálogo: cantidad de modelos y sistema de tallas | Seed, importación | F2 |
 | P-22 | ¿Quién registra las devoluciones de pedidos online que llegan por courier a la bodega? | RF-DEV-07 | F3 |
 | P-23 | Prenda que llega en un traslado sin venir en la lista: ¿qué se hace? | RF-INV-09 | Etapa 4 (demo: se rechaza) |
+| P-28 | Validar con Belén cómo se resuelven las diferencias de traslado (RN-30). ¿Hace falta registrar también "error de recepción" (se escaneó de más en destino)? | RN-30 | No (demo con propuesta) |
 | P-24 | ¿Qué reportes quiere ver Belén a diario o semanalmente? | Dashboards | Post-MVP |
 | P-25 | ¿Cuántas vendedoras hay? ¿Turnos? | Usuarios | No |
 | P-26 | Fecha deseada de puesta en marcha y meses de mayor venta | Plan | F4 |
