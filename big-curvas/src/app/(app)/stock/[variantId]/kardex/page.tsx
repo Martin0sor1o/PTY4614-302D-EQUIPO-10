@@ -23,9 +23,9 @@ const MOVEMENT_LABEL: Record<MovementType, string> = {
   AJUSTE: "Ajuste",
   AJUSTE_CONTEO: "Ajuste por conteo",
   MERMA: "Merma",
-  TRASPASO_SALIDA: "Traspaso (salida)",
-  TRASPASO_ENTRADA: "Traspaso (entrada)",
-  MERMA_TRASPASO: "Merma de traspaso",
+  TRASPASO_SALIDA: "Traslado (salida)",
+  TRASPASO_ENTRADA: "Traslado (entrada)",
+  MERMA_TRASPASO: "Merma de traslado",
   REINGRESO_PEDIDO_CANCELADO: "Reingreso pedido cancelado",
   VENTA_CONTINGENCIA: "Venta en contingencia",
 };
@@ -36,7 +36,7 @@ const REF_LABEL: Record<RefType, string> = {
   ONLINE_ORDER: "Pedido",
   GOODS_RECEIPT: "Recepción",
   STOCK_COUNT: "Conteo",
-  TRANSFER: "Traspaso",
+  TRANSFER: "Traslado",
   MANUAL: "Manual",
 };
 
@@ -157,7 +157,13 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
                 <TableCell className="text-right font-semibold tabular-nums">{m.onHandAfter}</TableCell>
                 <TableCell className="max-w-64">
                   <div className="truncate" title={m.reason ?? undefined}>
-                    {m.reason ?? REF_LABEL[m.refType]}
+                    {m.refType === "TRANSFER" && m.refId ? (
+                      <Link href={`/traslados/${m.refId}`} className="text-brand-ink underline-offset-4 hover:underline" data-testid="kardex-transfer-link">
+                        {m.reason ?? REF_LABEL[m.refType]}
+                      </Link>
+                    ) : (
+                      (m.reason ?? REF_LABEL[m.refType])
+                    )}
                   </div>
                   {m.refId && m.refType !== "TRANSFER" && (
                     <div className="font-mono text-[11px] text-muted-foreground" title={m.refId}>

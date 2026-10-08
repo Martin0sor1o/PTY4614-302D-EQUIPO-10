@@ -137,7 +137,7 @@ describe("traspaso Bodega → Rancagua", () => {
     await expectAppError(
       receiveTransferCommand({ actor: f.actors.vendRga, transferId: t.id, lines: [{ variantId: otra, qty: 1 }], idempotencyKey: newKey() }),
       "VALIDATION",
-      /Esta prenda no viene en el traspaso\. Sepárala y avisa a Belén\./,
+      /Esta prenda no viene en el traslado\. Sepárala y avisa a Belén\./,
     );
     await receiveTransferCommand({ actor: f.actors.vendRga, transferId: t.id, lines: [{ variantId: blusa, qty: 1 }], idempotencyKey: newKey() });
     await expectAppError(

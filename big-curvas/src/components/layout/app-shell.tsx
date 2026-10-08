@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { MapPin } from "lucide-react";
 import type { SessionUser } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
+import { countPendingTransfers } from "@/modules/inventory";
 import { listLocations } from "@/modules/locations";
 import { logoutAction, setActiveLocationAction } from "@/app/(app)/session-actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -14,8 +15,10 @@ import { NavLinks } from "./nav-links";
 const ROLE_LABEL = { ADMIN: "Administradora", VENDEDORA: "Vendedora", BODEGA: "Bodega" } as const;
 
 export async function AppShell({ user, children }: { user: SessionUser; children: ReactNode }) {
-  const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label }));
   const isAdmin = user.role === "ADMIN";
+  // Contador de "Traslados": por enviar + por recibir de la ubicación activa (+ diferencias por resolver si es Belén).
+  const pendingTransfers = (await countPendingTransfers({ locationId: user.activeLocation?.id, includeDifferences: isAdmin })).total;
+  const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label, badge: href === "/traslados" ? pendingTransfers : undefined }));
   const locations = isAdmin ? await listLocations() : [];
 
   return (

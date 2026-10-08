@@ -4,7 +4,16 @@
 // ── Operaciones dentro de la transacción de quien llama (sales, orders, seed): reciben `tx` ──
 export { loadInitialStock, receive, adjust, sell } from "./stock-operations";
 export { reserve, releaseReservations, consumeReservations } from "./reservations";
-export { createTransfer, sendTransfer, receiveTransfer, getTransfer, findTransferByIdempotencyKey } from "./transfers";
+export {
+  createTransfer,
+  updateTransferDraft,
+  cancelTransfer,
+  sendTransfer,
+  receiveTransfer,
+  getTransfer,
+  findTransferByIdempotencyKey,
+} from "./transfers";
+export { resolveTransferDifference } from "./transfer-resolution";
 
 // ── Comandos para la UI: transacción propia + idempotencia ──
 export {
@@ -13,6 +22,9 @@ export {
   createTransferCommand,
   sendTransferCommand,
   receiveTransferCommand,
+  updateTransferDraftCommand,
+  cancelTransferCommand,
+  resolveTransferDifferenceCommand,
 } from "./commands";
 
 // ── Consultas (solo lectura) ──
@@ -31,8 +43,24 @@ export {
   type ReservationMismatch,
 } from "./queries";
 
+export {
+  listTransfers,
+  countPendingTransfers,
+  getTransferDetail,
+  getTransitAlertDays,
+  searchTransferVariants,
+  type TransferBucket,
+  type TransferListItem,
+  type TransferDetail,
+  type TransferDetailLine,
+  type TransferVariantHit,
+  type PendingTransferCounts,
+} from "./transfer-queries";
+
 export type {
   Actor,
+  DifferenceResolution,
+  ResolveTransferResult,
   MovementRecord,
   MovementType,
   RefType,

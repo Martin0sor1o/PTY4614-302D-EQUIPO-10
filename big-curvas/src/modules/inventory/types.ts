@@ -45,6 +45,7 @@ export interface TransferLineRecord {
   qtyReceived: number | null;
   orderLineId: string | null;
   reservationId: string | null;
+  differenceResolution: DifferenceResolution | null;
 }
 
 export interface TransferRecord {
@@ -60,4 +61,11 @@ export interface TransferRecord {
 export interface TransferOperationResult {
   transfer: TransferRecord;
   movements: MovementRecord[];
+}
+
+export type DifferenceResolution = "MERMA" | "REENVIO" | "ERROR_ENVIO";
+
+export interface ResolveTransferResult extends TransferOperationResult {
+  /** Traslado nuevo en BORRADOR con lo que quedó en el origen, si alguna línea se resolvió como REENVIO. */
+  reshipTransfer: TransferRecord | null;
 }

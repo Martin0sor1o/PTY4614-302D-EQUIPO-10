@@ -136,4 +136,10 @@ export const DEMO_SETTINGS: { key: string; valueInt: number; description: string
     description: "Minutos antes de que una solicitud de aprobación venza. Valor propuesto (pendiente de validar).",
     isDemoValue: true,
   },
+  {
+    key: "transfer_transit_alert_days",
+    valueInt: 3,
+    description: "Días en tránsito a partir de los cuales un traslado se marca con alerta. Valor propuesto (pendiente de validar).",
+    isDemoValue: true,
+  },
 ];

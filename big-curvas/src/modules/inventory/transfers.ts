@@ -7,7 +7,7 @@ import { MovementType, RefType, ReservationStatus, TransferStatus } from "@/gene
 import { nextDocumentNumber } from "@/modules/numbering";
 import { assertVariantsExist, getActiveLocation, insufficientStock, recordMovement } from "./internal";
 import { normalizeLines } from "./lines";
-import { createTransferSchema, receiveTransferSchema, sendTransferSchema } from "./schemas";
+import { cancelTransferSchema, createTransferSchema, receiveTransferSchema, sendTransferSchema, updateTransferDraftSchema } from "./schemas";
 import { addOnHand, takeAvailable, takeReserved } from "./stock-sql";
 import type { Actor, MovementRecord, TransferOperationResult, TransferRecord } from "./types";
 
@@ -17,7 +17,7 @@ import type { Actor, MovementRecord, TransferOperationResult, TransferRecord } f
 
 const ANY_ROLE: readonly Role[] = ["ADMIN", "VENDEDORA", "BODEGA"];
 
-const STATUS_LABEL: Record<TransferStatus, string> = {
+export const STATUS_LABEL: Record<TransferStatus, string> = {
   BORRADOR: "borrador",
   EN_TRANSITO: "en tránsito",
   RECIBIDO: "recibido",
@@ -34,22 +34,22 @@ const transferSelect = {
   status: true,
   reason: true,
   lines: {
-    select: { id: true, variantId: true, qtySent: true, qtyReceived: true, orderLineId: true, reservationId: true },
+    select: { id: true, variantId: true, qtySent: true, qtyReceived: true, orderLineId: true, reservationId: true, differenceResolution: true },
     orderBy: { variantId: "asc" },
   },
 } as const;
 
 export async function getTransfer(tx: Pick<Tx, "transfer">, transferId: string): Promise<TransferRecord> {
   const t = await tx.transfer.findUnique({ where: { id: transferId }, select: transferSelect });
-  if (!t) throw new AppError("NOT_FOUND", "El traspaso no existe.", { transferId });
+  if (!t) throw new AppError("NOT_FOUND", "El traslado no existe.", { transferId });
   return t;
 }
 
-function byVariant<T extends { variantId: string }>(a: T, b: T): number {
+export function byVariant<T extends { variantId: string }>(a: T, b: T): number {
   return a.variantId < b.variantId ? -1 : a.variantId > b.variantId ? 1 : 0;
 }
 
-/** Crea el traspaso en BORRADOR (no mueve stock). Lo crea alguien de la ubicación de ORIGEN (o ADMIN). */
+/** Crea el traslado en BORRADOR (no mueve stock). Lo crea alguien de la ubicación de ORIGEN (o ADMIN). */
 export async function createTransfer(
   tx: Tx,
   input: {
@@ -74,7 +74,7 @@ export async function createTransfer(
   const plain: Line[] = normalizeLines(data.lines.filter((l) => !l.orderLineId && !l.reservationId));
   const lines = [...plain, ...linked].sort(byVariant);
   if (new Set(lines.map((l) => l.variantId)).size !== lines.length) {
-    throw new AppError("VALIDATION", "Una prenda ligada a un pedido no puede repetirse en el mismo traspaso.");
+    throw new AppError("VALIDATION", "Una prenda ligada a un pedido no puede repetirse en el mismo traslado.");
   }
 
   for (const l of linked) {
@@ -117,7 +117,76 @@ export async function createTransfer(
   });
 }
 
-/** Busca un traspaso por la idempotencyKey con que se CREÓ (para reintentos de createTransfer). */
+/** Borrador editable desde la UI: sin líneas ligadas a pedidos o reservas (esas se manejan desde el pedido, Etapa 5). */
+function assertPlainDraft(transfer: TransferRecord): void {
+  if (transfer.lines.some((l) => l.orderLineId || l.reservationId)) {
+    throw new AppError("VALIDATION", `El traslado ${transfer.number} está ligado a un pedido online; se gestiona desde el pedido.`);
+  }
+}
+
+/**
+ * Reemplaza las prendas de un BORRADOR (no mueve stock; las líneas de un borrador no tienen efecto en ningún
+ * saldo, por eso se reescriben). El cambio de estado condicional (WHERE status = BORRADOR) bloquea el
+ * traslado: si otro usuario lo envía o anula al mismo tiempo, uno de los dos recibe CONFLICT.
+ */
+export async function updateTransferDraft(
+  tx: Tx,
+  input: { actor: Actor; transferId: string; lines: { variantId: string; qty: number }[] },
+): Promise<TransferRecord> {
+  const { transferId, lines } = parseInput(updateTransferDraftSchema, input);
+  const transfer = await getTransfer(tx, transferId);
+  assertAccess(input.actor, { roles: ANY_ROLE, locationId: transfer.fromLocationId });
+  assertPlainDraft(transfer);
+  await assertVariantsExist(tx, lines.map((l) => l.variantId));
+
+  const { count } = await tx.transfer.updateMany({
+    where: { id: transferId, status: TransferStatus.BORRADOR },
+    data: { updatedAt: new Date() },
+  });
+  if (count === 0) {
+    const current = await getTransfer(tx, transferId);
+    throw new AppError("CONFLICT", `El traslado ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede editar.`);
+  }
+  await tx.transferLine.deleteMany({ where: { transferId } });
+  await tx.transferLine.createMany({
+    data: normalizeLines(lines).map((l) => ({ transferId, variantId: l.variantId, qtySent: l.qty })),
+  });
+  return getTransfer(tx, transferId);
+}
+
+/** Anula un BORRADOR (BORRADOR → ANULADO). No hay stock que revertir. Queda en audit_log. */
+export async function cancelTransfer(
+  tx: Tx,
+  input: { actor: Actor; transferId: string; reason?: string },
+): Promise<TransferRecord> {
+  const { transferId, reason } = parseInput(cancelTransferSchema, input);
+  const transfer = await getTransfer(tx, transferId);
+  assertAccess(input.actor, { roles: ANY_ROLE, locationId: transfer.fromLocationId });
+  assertPlainDraft(transfer);
+
+  const { count } = await tx.transfer.updateMany({
+    where: { id: transferId, status: TransferStatus.BORRADOR },
+    data: { status: TransferStatus.ANULADO },
+  });
+  if (count === 0) {
+    const current = await getTransfer(tx, transferId);
+    throw new AppError("CONFLICT", `El traslado ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede anular.`);
+  }
+  await tx.auditLog.create({
+    data: {
+      userId: input.actor.id,
+      locationId: transfer.fromLocationId,
+      action: "TRANSFER_CANCEL",
+      entity: "transfer",
+      entityId: transferId,
+      before: { status: TransferStatus.BORRADOR },
+      after: { status: TransferStatus.ANULADO, number: transfer.number, reason: reason ?? null },
+    },
+  });
+  return getTransfer(tx, transferId);
+}
+
+/** Busca un traslado por la idempotencyKey con que se CREÓ (para reintentos de createTransfer). */
 export async function findTransferByIdempotencyKey(tx: Pick<Tx, "transfer">, idempotencyKey: string): Promise<TransferRecord | null> {
   return tx.transfer.findUnique({ where: { idempotencyKey }, select: transferSelect });
 }
@@ -125,7 +194,7 @@ export async function findTransferByIdempotencyKey(tx: Pick<Tx, "transfer">, ide
 /**
  * ENVIAR: BORRADOR → EN_TRANSITO y baja el stock del origen. Si la línea trae reserva (pedido online), la
  * reserva pasa a TRASPASADA y se descuenta de lo reservado; si no, se descuenta del disponible.
- * Orden de bloqueo: traspaso → reservas (por variante) → stock (por variante).
+ * Orden de bloqueo: traslado → reservas (por variante) → stock (por variante).
  */
 export async function sendTransfer(
   tx: Tx,
@@ -141,7 +210,7 @@ export async function sendTransfer(
   });
   if (count === 0) {
     const current = await getTransfer(tx, transferId);
-    throw new AppError("CONFLICT", `El traspaso ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede enviar.`);
+    throw new AppError("CONFLICT", `El traslado ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede enviar.`);
   }
 
   const lines = [...transfer.lines].sort(byVariant);
@@ -157,7 +226,7 @@ export async function sendTransfer(
       },
       data: { status: ReservationStatus.TRASPASADA, closedAt: new Date(), transferLineId: line.id },
     });
-    if (closed === 0) throw new AppError("CONFLICT", "La reserva de una prenda del traspaso ya no está activa.", { lineId: line.id });
+    if (closed === 0) throw new AppError("CONFLICT", "La reserva de una prenda del traslado ya no está activa.", { lineId: line.id });
   }
 
   const movements: MovementRecord[] = [];
@@ -176,7 +245,7 @@ export async function sendTransfer(
         at: row.at,
         refType: RefType.TRANSFER,
         refId: transfer.id,
-        reason: `Traspaso ${transfer.number}`,
+        reason: `Traslado ${transfer.number}`,
         userId: input.actor.id,
         idempotencyKey: lineKey(idempotencyKey, n),
       }),
@@ -204,7 +273,7 @@ export async function receiveTransfer(
   for (const variantId of scanned.keys()) {
     if (!inTransfer.has(variantId)) {
       // DEMO: regla pendiente de confirmar con el cliente (ver docs/DEMO_PLAN.md, Pendientes para Fase 1).
-      throw new AppError("VALIDATION", "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén.", { variantId });
+      throw new AppError("VALIDATION", "Esta prenda no viene en el traslado. Sepárala y avisa a Belén.", { variantId });
     }
   }
 
@@ -221,7 +290,7 @@ export async function receiveTransfer(
   });
   if (count === 0) {
     const current = await getTransfer(tx, transferId);
-    throw new AppError("CONFLICT", `El traspaso ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede recibir.`);
+    throw new AppError("CONFLICT", `El traslado ${current.number} ya está ${STATUS_LABEL[current.status]}; no se puede recibir.`);
   }
 
   const movements: MovementRecord[] = [];
@@ -241,7 +310,7 @@ export async function receiveTransfer(
         at: row.at,
         refType: RefType.TRANSFER,
         refId: transfer.id,
-        reason: `Traspaso ${transfer.number}`,
+        reason: `Traslado ${transfer.number}`,
         userId: input.actor.id,
         idempotencyKey: lineKey(idempotencyKey, n),
       }),

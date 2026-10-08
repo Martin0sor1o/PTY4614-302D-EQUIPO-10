@@ -69,7 +69,7 @@ export const createTransferSchema = z
     onlineOrderId: id.optional(),
     lines: z
       .array(z.object({ variantId: id, qty, orderLineId: id.optional(), reservationId: id.optional() }))
-      .min(1, "El traspaso debe tener al menos una prenda"),
+      .min(1, "El traslado debe tener al menos una prenda"),
     idempotencyKey,
   })
   .refine((t) => t.fromLocationId !== t.toLocationId, "El origen y el destino deben ser distintos");
@@ -80,5 +80,25 @@ export const receiveTransferSchema = z.object({
   transferId: id,
   /** Lo efectivamente escaneado en destino. Las prendas del traspaso que no aparecen cuentan como 0. */
   lines: z.array(z.object({ variantId: id, qty: z.number().int().min(0).max(MAX_QTY) })),
+  idempotencyKey,
+});
+
+export const updateTransferDraftSchema = z.object({
+  transferId: id,
+  lines: z.array(z.object({ variantId: id, qty })).min(1, "El traslado debe tener al menos una prenda"),
+});
+
+export const cancelTransferSchema = z.object({
+  transferId: id,
+  reason: z.string().trim().max(200).optional(),
+});
+
+export const difference = z.enum(["MERMA", "REENVIO", "ERROR_ENVIO"]);
+
+export const resolveTransferSchema = z.object({
+  transferId: id,
+  /** Una resolución por línea con diferencia. Se pueden resolver algunas líneas ahora y otras después. */
+  resolutions: z.array(z.object({ lineId: id, resolution: difference })).min(1, "Elige la resolución de al menos una línea"),
+  notes: z.string().trim().max(500).optional(),
   idempotencyKey,
 });

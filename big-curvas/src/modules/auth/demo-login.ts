@@ -44,7 +44,7 @@ export async function demoLogout(): Promise<void> {
   store.delete(ACTIVE_LOCATION_COOKIE);
 }
 
-/** Solo ADMIN: elige la ubicación en la que opera (POS, traspasos, recepciones). */
+/** Solo ADMIN: elige la ubicación en la que opera (POS, traslados, recepciones). */
 export async function setActiveLocation(locationId: string): Promise<void> {
   assertDemoMode();
   const user = await getCurrentUser();

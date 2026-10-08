@@ -38,11 +38,14 @@
   - [x] Caja compartida (RN-29): test de venta en la caja abierta por otra vendedora
   - [x] Matriz de stock con columnas de las ubicaciones activas; sin referencias fijas a Providencia
   - [x] Tests: acceso cruzado Vendedora Rancagua → BODEGA; test de N ubicaciones (tienda extra creada dentro del test)
-- [ ] **Etapa 4 – Traslados** (en el código y el modelo se llaman `transfers`)
-  - [ ] Crear (escaneo/búsqueda) → Enviar → EN_TRANSITO (Rancagua ↔ Bodega)
-  - [ ] Bandeja "Por recibir" → recibir escaneando → RECIBIDO / RECIBIDO_CON_DIFERENCIAS
-  - [ ] Belén resuelve diferencias
-  - [ ] Test de acceso cruzado · lint + typecheck + tests · commit
+- [x] **Etapa 4 – Traslados** (en la UI se llaman "Traslados"; en el código y el modelo, `transfers`)
+  - [x] `InventoryService`: `updateTransferDraft`, `cancelTransfer` y `resolveTransferDifference` (RN-30) + comandos idempotentes; consultas de bandejas, detalle, contadores y búsqueda
+  - [x] Crear (escaneo/búsqueda, sin validar stock al agregar) → editar/anular borrador → Enviar → EN_TRANSITO (Rancagua ↔ Bodega) + guía imprimible A4
+  - [x] Bandejas "Por enviar", "Por recibir", "Con diferencias" (solo Belén) e "Historial"; alerta de tránsito (`transfer_transit_alert_days`, calculada al mostrar, sin job); contador en el menú
+  - [x] Recibir escaneando (guía a la vista) → RECIBIDO / RECIBIDO_CON_DIFERENCIAS; prenda ajena rechazada
+  - [x] Belén resuelve diferencias por línea (MERMA / REENVIO / ERROR_ENVIO) → CERRADO
+  - [x] Matriz de stock "En tránsito" verificada (total = físico + tránsito se mantiene al enviar y recibir) y kardex con enlace al traslado
+  - [x] Sin migración de esquema (solo la fila `transfer_transit_alert_days` en el seed) · tests de acceso cruzado · lint + typecheck + tests · commit
 - [ ] **Etapa 5 – Pedido online desde BODEGA** (une las antiguas 5a y 5b; un commit por hito)
   - Reglas (ADR-004 v3, RN-07): **se aparta al pagar**. Al registrar el pedido no se reserva nada: solo se muestra el disponible. Al confirmar el pago se reserva en BODEGA, o en la tienda con traslado a bodega si en bodega no hay. Las reservas nacen firmes: **sin vencimientos** ni job de expiración (`expires_at` queda nulo).
   - **Hito 1 – Pedido desde bodega**
@@ -125,7 +128,7 @@ Del stack definido: `next`, `react`, `typescript`, `tailwindcss`, shadcn/ui (tra
 - `getCurrentUser()` en `src/modules/auth` lee una cookie `// DEMO:`; devuelve `{ id, name, role, locationId }`. El ADMIN elige "tienda activa" con un selector (cookie) para operar POS/traspasos.
 - `requireAccess({ roles, locationId })` en `src/lib/access.ts`; toda Server Action lo usa. Consultas de stock de otras ubicaciones son lectura, sin `locationId`.
 - Idempotencia: la operación (venta, traspaso, pedido) lleva `idempotencyKey` único; cada movimiento deriva `"{key}:{n}"` único.
-- El InventoryService se amplía con operaciones auxiliares que el contrato implica pero no lista: `createTransfer`, `cancelTransfer`, `resolveTransferDifference` (el §5 sí la define), consultas de stock/tránsito.
+- El InventoryService se amplía con operaciones auxiliares que el contrato implica pero no lista: `createTransfer`, `updateTransferDraft`, `cancelTransfer`, `resolveTransferDifference` (el §5 sí la define; recibe un arreglo de `{lineId, resolution}` para poder crear un solo borrador de reenvío), consultas de stock/tránsito.
 - Pruebas contra una BD `big_curvas_test` en el mismo contenedor Docker (migrada por el `globalSetup` de Vitest).
 - **Concurrencia (Etapa 2, aprobado):** cada cambio de stock es un UPDATE/UPSERT condicional con `RETURNING` (`src/modules/inventory/stock-sql.ts`, único archivo que escribe `stock_levels`), en READ COMMITTED. Orden global de bloqueo: traspaso → reservas → `stock_levels`, siempre por `(location_id, variant_id)`. Los cambios de estado de reservas y traspasos también son condicionales (`WHERE status = …`).
 - **Idempotencia (Etapa 2):** `runIdempotent` (`src/lib/idempotency.ts`) busca por clave → ejecuta la `$transaction` → ante cualquier error (P2002 incluido) relee FUERA de la transacción. Movimientos `{clave}:{n}` con n = índice de la línea ya ordenada. Comandos de UI con transacción propia: `receiveStock`, `adjustStock`, `createTransferCommand`, `sendTransferCommand`, `receiveTransferCommand`; `sell`/`reserve`/`consumeReservations` los llama sales/orders con su `tx`.
@@ -171,7 +174,11 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Cancelación de pedidos online (con liberación de la reserva). Vencimiento de reservas: **no aplica** (ADR-004 v3).
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
-- Definir el manejo de prendas no incluidas en un traspaso (pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén".
+- Definir el manejo de prendas no incluidas en un traslado (P-23, pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traslado. Sepárala y avisa a Belén".
+- **Idempotencia de `resolveTransferDifference` con restricción única en BD.** Hoy la clave de la operación se guarda en `audit_log.after` (consulta por JSON, sin índice único) porque una MERMA no deja movimiento de stock; la garantía real contra la doble resolución es el cambio condicional de la línea (`difference_resolution IS NULL`) y del traslado (`status = RECIBIDO_CON_DIFERENCIAS`). Para Fase 1: tabla o columna con `UNIQUE (idempotency_key)`.
+- **Evaluar con Belén (P-28):** la recepción **a ciegas** (hoy la vendedora ve la cantidad enviada al recibir) y una resolución "error de recepción" para sobrantes (se escaneó de más en destino); hoy un sobrante solo admite `ERROR_ENVIO` (RN-30).
+- El traslado de `REENVIO` queda ligado al original solo por texto (`resolution_notes` del borrador y `audit_log`); no hay columna `parent_transfer_id`.
+- Un faltante pendiente de resolver no aparece en el stock ni en "En tránsito": el "Total" de la matriz baja hasta que Belén resuelve (queda visible en la bandeja "Con diferencias" y en el contador del menú).
 - Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
 - Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
 - Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
@@ -179,7 +186,7 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 
 ## Decisiones del usuario (Etapa 2)
 
-1. Prenda que no viene en el traspaso: en la demo se **rechaza** al recibir con el mensaje "Esta prenda no viene en el traspaso. Sepárala y avisa a Belén". Regla pendiente de confirmar con el cliente. Si llegan más unidades de una prenda que sí venía, se aceptan y quedan como diferencia.
+1. Prenda que no viene en el traslado: en la demo se **rechaza** al recibir con el mensaje "Esta prenda no viene en el traslado. Sepárala y avisa a Belén" (desde la Etapa 4 el texto dice "traslado"). Regla pendiente de confirmar con el cliente. Si llegan más unidades de una prenda que sí venía, se aceptan y quedan como diferencia.
 2. Confirmado: `sell` solo en ubicaciones con POS (`sells_pos`). La bodega descuenta únicamente vía `consumeReservations`.
 
 ## Advertencia técnica: índice parcial de caja
@@ -224,3 +231,38 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 | Poco stock en ambas | `VNE033-NEG-52` | 1 | 2 |
 
 El resto de las variantes tiene stock pseudoaleatorio pero fijo (tienda 0–6, bodega 0 o 4–14).
+
+## Decisiones del usuario (Etapa 4)
+
+1. **Resolución de diferencias (RN-30, propuesta pendiente de validar con Belén: P-28).** Con `d = enviado − recibido`, por línea y solo ADMIN. El destino nunca se toca (ya sumó lo escaneado); todos los reingresos y descuentos son movimientos `AJUSTE` en el **origen** con `ref_type = TRANSFER`.
+
+   | Caso | Resolución | Efecto en stock | Movimiento |
+   |---|---|---|---|
+   | Faltante (`d > 0`) | `MERMA` | Ninguno (se asume pérdida en el camino) | Ninguno: `inventory_movements` exige `quantity <> 0`. Queda en la línea y en `audit_log`. `MERMA_TRASPASO` queda reservado |
+   | Faltante | `REENVIO` | **+d en el origen** (la prenda se quedó) y un **traslado nuevo en BORRADOR** origen → destino con esas prendas | `AJUSTE` +d |
+   | Faltante | `ERROR_ENVIO` | **+d en el origen** (la guía anotó de más); sin traslado nuevo | `AJUSTE` +d |
+   | Sobrante (`d < 0`) | `ERROR_ENVIO` (la única permitida) | **−\|d\| en el origen** (salió más de lo anotado). Solo del disponible: si no alcanza → `STOCK_INSUFICIENTE` y Belén ajusta antes | `AJUSTE` −\|d\| |
+
+   `MERMA` y `REENVIO` sobre un sobrante → `VALIDATION`. Se puede resolver por partes; el traslado pasa a `CERRADO` cuando todas las líneas con diferencia tienen resolución. Resolver una línea ya resuelta → `CONFLICT`.
+2. **Mensajes con "traslado"** (UI y errores); el mensaje de la prenda ajena queda igual salvo esa palabra. Un test existente (`inventory-transfers.test.ts`) se actualizó solo por este cambio de texto.
+3. **Recepción con la guía a la vista** (no a ciegas): ver pendientes (P-28).
+4. **Belén elige la ubicación en "Operando en"** para ver las bandejas y crear traslados; el destino es siempre "la otra" ubicación. Sin ubicación elegida ve las bandejas de todas.
+5. **Borradores con líneas ligadas a pedidos** (reservas, Etapa 5) no se editan ni se anulan desde esta pantalla. Editar un borrador reescribe sus líneas (no tienen efecto en ningún saldo).
+6. **Anular** un borrador queda en `audit_log` (`TRANSFER_CANCEL`); anular o editar algo que ya no es borrador → `CONFLICT`.
+7. **Impresión:** la guía usa una página con nombre (`@page guia`, A4); el ticket pasó a `@page ticket`, con el mismo efecto que antes.
+
+## Casos de prueba para la demo (Etapa 4)
+
+Usuarios: Belén (ADMIN) y Vendedora Rancagua (VENDEDORA). Reiniciar los datos con `pnpm db:seed` antes de presentar.
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| 1 | **Bodega → tienda con un faltante** (caso principal) | Belén: "Operando en: Bodega" → Traslados → Nuevo traslado → escanear `BLM022-BUR-3XL` (bodega 5), cantidad 3 → Guardar borrador → Enviar → ver la guía. Vendedora Rancagua: contador "Traslados 1" → Por recibir → Recibir → escanear 2 unidades → Confirmar | `TR-000001` queda `Recibido con diferencias` (faltan 1). Stock: Bodega 2, Rancagua 2, en tránsito 0 |
+| 2 | **Resolver el faltante** | Belén: contador del menú → "Con diferencias" → TR-000001 → elegir una resolución → Resolver | `REENVIO`: Bodega 3 + borrador nuevo `TR-000002` de 1 unidad; `ERROR_ENVIO`: Bodega 3 sin borrador; `MERMA`: sin cambios (Bodega 2). En los tres, `TR-000001` queda `Cerrado` y el kardex muestra el `Ajuste` con enlace al traslado |
+| 3 | **En tránsito en la matriz** | Tras enviar el caso 1 y antes de recibir, abrir Stock y buscar `BLM022-BUR-3XL` | Rancagua 0 · Bodega 2 · En tránsito 3 · Total 5 |
+| 4 | **Prenda ajena** | Al recibir, escanear `PBA041-NEG-XL` | "Esta prenda no viene en el traslado. Sepárala y avisa a Belén." y no suma |
+| 5 | **Tienda → bodega** | Vendedora Rancagua: Nuevo traslado (origen = su tienda) con `PBA041-NEG-XL` ×2 → Enviar. Belén (Operando en: Bodega) → Por recibir → Recibir | `Recibido`; Rancagua 3, Bodega 22 |
+| 6 | **Sobrante** | Enviar `BLM022-BUR-3XL` ×2 desde la bodega y escanear 3 en la tienda; Belén resuelve | Solo ofrece "Error de envío": baja 1 de la bodega y el traslado queda `Cerrado` |
+| 7 | **Sin disponible** | Con 3 unidades de `BLM022-BUR-3XL` reservadas en bodega (pedido online, Etapa 5), enviar 3 | "Stock insuficiente… disponible 2 (3 reservadas…)"; el borrador sigue como borrador |
+| 8 | **Permisos** | La vendedora intenta editar un borrador de la bodega y entra a "Con diferencias" | El servidor rechaza (`FORBIDDEN` / `/sin-acceso`); la pestaña y el panel de resolución no existen para ella |
+| 9 | **Alerta de tránsito** | Con un traslado en tránsito, bajar `transfer_transit_alert_days` en la tabla `settings` (o esperar más de 3 días) | Marca roja "N días en tránsito" en la bandeja y en el detalle |

@@ -112,18 +112,27 @@
   }
 }
 /*
- * Ticket de venta (Etapa 3.1): al imprimir sale solo el ticket, en papel térmico de 80 mm.
- * En pantalla el ticket se ve como una tira; los controles llevan `print:hidden`.
+ * Impresión. Dos documentos con papel distinto, cada uno con su página con nombre:
+ *  - Ticket de venta (Etapa 3.1): térmico de 80 mm; solo sale el ticket. Los controles llevan `print:hidden`.
+ *  - Guía de traslado (Etapa 4): A4 con márgenes; sale solo la guía.
  */
+@page ticket {
+  size: 80mm auto;
+  margin: 0;
+}
+@page guia {
+  size: A4;
+  margin: 15mm;
+}
 @media print {
-  @page {
-    size: 80mm auto;
-    margin: 0;
-  }
-  html,
-  body {
+  html:has(.ticket),
+  body:has(.ticket) {
     background: #fff !important;
     width: 80mm;
+  }
+  html:has(.guia),
+  body:has(.guia) {
+    background: #fff !important;
   }
   .no-print {
     display: none !important;
@@ -133,9 +142,19 @@
     padding: 0 !important;
   }
   .ticket {
+    page: ticket;
     width: 80mm !important;
     margin: 0 !important;
     padding: 3mm !important;
+    box-shadow: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+  .guia {
+    page: guia;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
     box-shadow: none !important;
     --tw-ring-shadow: 0 0 #0000 !important;
   }
