@@ -247,6 +247,8 @@ model User {
   ordersPrepared       OnlineOrder[]       @relation("OrderPreparedBy")
   ordersDelivered      OnlineOrder[]       @relation("OrderDeliveredBy")
   ordersReceivedAtShop OnlineOrder[]       @relation("OrderStoreReceivedBy")
+  ordersCancelled      OnlineOrder[]       @relation("OrderCancelledBy")
+  orderEvents          OnlineOrderEvent[]
   auditLogs            AuditLog[]
 
   @@map("users")
@@ -500,7 +502,8 @@ model Sale {
   status             SaleStatus  @default(COMPLETADA)
   subtotal           Int
   discountTotal      Int         @default(0) @map("discount_total")
-  total              Int
+  shippingCost       Int         @default(0) @map("shipping_cost") // 0 en POS; en pedidos online, el envío cobrado (forma parte del total)
+  total              Int // = subtotal − discount_total + shipping_cost (CHECK en la migración)
   roundingAdjustment Int         @default(0) @map("rounding_adjustment")
   idempotencyKey     String      @unique @map("idempotency_key")
   createdAt          DateTime    @default(now()) @map("created_at")
@@ -588,6 +591,8 @@ model Customer {
   phone           String?
   email           String?
   rut             String?
+  address         String? // dirección simple en la demo (customer_addresses queda para después)
+  commune         String?
   notes           String?
   active          Boolean @default(true)
 
@@ -623,6 +628,9 @@ model OnlineOrder {
   storeReceivedBy       String?        @map("store_received_by")
   deliveredAt           DateTime?      @map("delivered_at")
   deliveredBy           String?        @map("delivered_by")
+  cancelledAt           DateTime?      @map("cancelled_at")
+  cancelledBy           String?        @map("cancelled_by")
+  cancelReason          String?        @map("cancel_reason")
   pickedUpByName        String?        @map("picked_up_by_name") // quién retira (campo simple)
   createdBy             String         @map("created_by")
   idempotencyKey        String         @unique @map("idempotency_key")
@@ -630,14 +638,16 @@ model OnlineOrder {
   createdAt             DateTime       @default(now()) @map("created_at")
   updatedAt             DateTime       @updatedAt @map("updated_at")
 
-  customer            Customer          @relation(fields: [customerId], references: [id])
-  fulfillmentLocation Location          @relation("OrderFulfillment", fields: [fulfillmentLocationId], references: [id])
-  pickupLocation      Location?         @relation("OrderPickup", fields: [pickupLocationId], references: [id])
-  creator             User              @relation("OrderCreatedBy", fields: [createdBy], references: [id])
-  preparer            User?             @relation("OrderPreparedBy", fields: [preparedBy], references: [id])
-  deliverer           User?             @relation("OrderDeliveredBy", fields: [deliveredBy], references: [id])
-  storeReceiver       User?             @relation("OrderStoreReceivedBy", fields: [storeReceivedBy], references: [id])
+  customer            Customer           @relation(fields: [customerId], references: [id])
+  fulfillmentLocation Location           @relation("OrderFulfillment", fields: [fulfillmentLocationId], references: [id])
+  pickupLocation      Location?          @relation("OrderPickup", fields: [pickupLocationId], references: [id])
+  creator             User               @relation("OrderCreatedBy", fields: [createdBy], references: [id])
+  preparer            User?              @relation("OrderPreparedBy", fields: [preparedBy], references: [id])
+  deliverer           User?              @relation("OrderDeliveredBy", fields: [deliveredBy], references: [id])
+  storeReceiver       User?              @relation("OrderStoreReceivedBy", fields: [storeReceivedBy], references: [id])
+  canceller           User?              @relation("OrderCancelledBy", fields: [cancelledBy], references: [id])
   lines               OnlineOrderLine[]
+  events              OnlineOrderEvent[]
   sale                Sale?
   transfers           Transfer[]
 
@@ -652,6 +662,7 @@ model OnlineOrderLine {
   variantId        String @map("variant_id")
   quantity         Int
   unitPrice        Int    @map("unit_price")
+  discountBps      Int    @default(0) @map("discount_bps") // % en puntos básicos (CHECK 0–10000 en la migración)
   discountAmount   Int    @default(0) @map("discount_amount")
   lineTotal        Int    @map("line_total")
   sourceLocationId String @map("source_location_id") // BODEGA o la tienda de donde se trae
@@ -663,15 +674,35 @@ model OnlineOrderLine {
   reservations   Reservation[]
   transferLines  TransferLine[]
 
+  // Una variante aparece una sola vez por pedido (transfer_lines ya exige lo mismo por traslado).
+  @@unique([orderId, variantId])
   @@index([orderId])
   @@map("online_order_lines")
+}
+
+/// Historial de estados del pedido y huella de idempotencia de sus transiciones. Solo INSERT.
+model OnlineOrderEvent {
+  id             String      @id @default(cuid())
+  orderId        String      @map("order_id")
+  status         OrderStatus
+  userId         String      @map("user_id")
+  note           String?
+  idempotencyKey String?     @unique @map("idempotency_key")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  order OnlineOrder @relation(fields: [orderId], references: [id])
+  user  User        @relation(fields: [userId], references: [id])
+
+  @@index([orderId, createdAt])
+  @@map("online_order_events")
 }
 
 // ─────────────── Configuración, auditoría y correlativos ───────────────
 
 model Setting {
   key         String   @id
-  valueInt    Int      @map("value_int")
+  valueInt    Int?     @map("value_int") // CHECK: value_int o value_text (al menos uno) → en la migración
+  valueText   String?  @map("value_text") // ej. couriers = "Starken,Blue Express,Chilexpress"
   description String?
   isDemoValue Boolean  @default(false) @map("is_demo_value") // valor provisional de la demo (pendiente de validar con el cliente)
   updatedAt   DateTime @updatedAt @map("updated_at")

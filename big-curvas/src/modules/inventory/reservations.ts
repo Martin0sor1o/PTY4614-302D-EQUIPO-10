@@ -155,3 +155,16 @@ export async function consumeReservations(
   }
   return { movements };
 }
+
+/** Reservas ACTIVAS ligadas a líneas de pedido (lectura; la usa orders para liberar o consumir). */
+export async function listActiveOrderReservations(
+  tx: Pick<Tx, "reservation">,
+  orderLineIds: readonly string[],
+): Promise<ReservationRecord[]> {
+  if (orderLineIds.length === 0) return [];
+  return tx.reservation.findMany({
+    where: { orderLineId: { in: [...orderLineIds] }, status: ReservationStatus.ACTIVA },
+    select: reservationSelect,
+    orderBy: [{ locationId: "asc" }, { variantId: "asc" }, { id: "asc" }],
+  });
+}

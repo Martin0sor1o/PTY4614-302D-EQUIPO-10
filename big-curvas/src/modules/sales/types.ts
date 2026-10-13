@@ -76,6 +76,8 @@ export interface PosItem {
   size: string;
   unitPrice: number;
   here: PosItemStock;
+  /** Pedidos online que tienen unidades reservadas de esta prenda en ESTA tienda (RF-POS-03: el aviso nombra el pedido). */
+  reservedFor: { orderNumber: string; qty: number }[];
   /** Otras ubicaciones con unidades físicas (solo consulta). */
   others: { locationId: string; name: string; onHand: number; reserved: number; available: number }[];
 }

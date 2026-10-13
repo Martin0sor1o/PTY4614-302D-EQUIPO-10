@@ -49,12 +49,14 @@
 - [ ] **Etapa 5 – Pedido online desde BODEGA** (une las antiguas 5a y 5b; un commit por hito)
   - Reglas (ADR-004 v3, RN-07): **se aparta al pagar**. Al registrar el pedido no se reserva nada: solo se muestra el disponible. Al confirmar el pago se reserva en BODEGA, o en la tienda con traslado a bodega si en bodega no hay. Las reservas nacen firmes: **sin vencimientos** ni job de expiración (`expires_at` queda nulo).
   - **Hito 1 – Pedido desde bodega**
-    - [ ] Registro (clienta, líneas, despacho) mostrando solo el disponible, sin reservar
-    - [ ] Confirmar pago → reserva en BODEGA (si falta stock, se avisa: R-17) + `Sale` canal INSTAGRAM en BODEGA (sin mover stock)
-    - [ ] Bodega (Belén con rol ADMIN): "Listo para preparar" → picking escaneando → PREPARADO (`VENTA_ONLINE`) → Despachar → Entregado
-    - [ ] Despacho **solo por courier**: Starken, Blue Express y Chilexpress como lista configurable (`settings.couriers`) + N.º de seguimiento
-    - [ ] Tablero de pedidos por estado
-    - [ ] lint + typecheck + tests · commit
+    - [x] Registro (clienta, líneas, despacho) mostrando solo el disponible, sin reservar
+    - [x] Confirmar pago → reserva en BODEGA (si falta stock, se avisa: R-17) + `Sale` canal INSTAGRAM en BODEGA (sin mover stock)
+    - [x] Bodega (Belén con rol ADMIN): "Listo para preparar" → picking escaneando → PREPARADO (`VENTA_ONLINE`) → Despachar → Entregado
+    - [x] Despacho **solo por courier**: Starken, Blue Express y Chilexpress como lista configurable (`settings.couriers`) + N.º de seguimiento
+    - [x] Tablero de pedidos por estado
+    - [x] Cancelar (PENDIENTE_PAGO, LISTO_PARA_PREPARAR, PREPARADO) con motivo; la `Sale` queda intacta con "reembolso pendiente"
+    - [x] POS: el aviso de unidad reservada nombra el pedido
+    - [x] Migración `online_orders` (ver "Decisiones del usuario (Etapa 5)") · lint + typecheck + tests · commit
   - **Hito 2 – Apartar en la tienda y traslado automático**
     - [ ] Si bodega no tiene: mostrar la tienda con stock y Belén la elige al confirmar el pago
     - [ ] Confirmar pago → reserva en la tienda + traslado automático tienda → bodega (ESPERANDO_TRASPASO → LISTO_PARA_PREPARAR)
@@ -86,7 +88,7 @@ big-curvas/
       stock/  stock/[variantId]/kardex/
       pos/  pos/ticket/[saleId]/  pos/caja/
       traspasos/
-      pedidos/  bodega/
+      pedidos/                 # tablero, nuevo/editar, detalle, pagar, preparar, despachar
       aprobaciones/            # vista móvil
     modules/
       auth/  locations/  catalog/  inventory/ (⭐)  sales/  approvals/  orders/  customers/
@@ -171,7 +173,7 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - En producción, el usuario de BD de la app no debe tener permiso `TRUNCATE` sobre `inventory_movements` (el trigger de solo-INSERT no cubre TRUNCATE; en la demo se permite para reiniciar datos y para los tests).
 - Validar con el contador el redondeo de efectivo a $10 (1–5 baja, 6–9 sube).
 - ~~P-08~~ resuelto en v0.4: solo Belén da descuentos; el límite de la vendedora es 0 % (`settings`, sin `is_demo_value`). Falta el flujo de aprobación (Etapa 6): hasta entonces, el POS bloquea todo descuento de la vendedora.
-- Cancelación de pedidos online (con liberación de la reserva). Vencimiento de reservas: **no aplica** (ADR-004 v3).
+- ~~Cancelación de pedidos online~~ hecha en la Etapa 5 (la `Sale` queda con "reembolso pendiente" hasta el reembolso formal de la Etapa 6). Vencimiento de reservas: **no aplica** (ADR-004 v3).
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
 - Definir el manejo de prendas no incluidas en un traslado (P-23, pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traslado. Sepárala y avisa a Belén".
@@ -267,3 +269,31 @@ Usuarios: Belén (ADMIN) y Vendedora Rancagua (VENDEDORA). Reiniciar los datos c
 | 7 | **Sin disponible** | Con 3 unidades de `BLM022-BUR-3XL` reservadas en bodega (pedido online, Etapa 5), enviar 3 | "Stock insuficiente… disponible 2 (3 reservadas…)"; el borrador sigue como borrador |
 | 8 | **Permisos** | La vendedora intenta editar un borrador de la bodega y entra a "Con diferencias" | El servidor rechaza (`FORBIDDEN` / `/sin-acceso`); la pestaña y el panel de resolución no existen para ella |
 | 9 | **Alerta de tránsito** | Con un traslado en tránsito, bajar `transfer_transit_alert_days` en la tabla `settings` (o esperar más de 3 días) | Marca roja "N días en tránsito" en la bandeja y en el detalle |
+
+## Decisiones del usuario (Etapa 5)
+
+1. **Envío en la venta (P-11 / P-29).** `sales.shipping_cost` (Int ≥ 0; 0 en POS) y `total = subtotal − descuento + envío` (CHECK en `sales` y `online_orders`). El pago es `total` (+ `rounding_adjustment` si es efectivo): `SUM(payments) = total + rounding_adjustment` se mantiene. El envío se ingresa a mano. El IVA del envío queda pendiente con el contador (**P-29**). `priceOrder` vive en `sales/pricing.ts`.
+2. **Cancelar un pedido pagado.** Libera las reservas (o reingresa a bodega si ya estaba `PREPARADO`, `REINGRESO_PEDIDO_CANCELADO`). La `Sale` **no se toca** (regla 10b: anular exige aprobación, Etapa 6); el detalle muestra "reembolso pendiente" (pedido cancelado con venta `COMPLETADA`). `DESPACHADO` y `ENTREGADO` no se cancelan (se gestionan como devolución).
+3. **Esquema (migración `20261013120000_online_orders`).** `customers.address/commune`; `settings.value_text` (con `value_int` nulable y CHECK de que haya uno); `online_order_lines.discount_bps` y `UNIQUE (order_id, variant_id)` (la UI suma la cantidad si se agrega la misma variante); `online_orders.cancelled_at/cancelled_by/cancel_reason`; `sales.shipping_cost`; tabla `online_order_events` (historial de estados + `idempotency_key` UNIQUE, solo INSERT con trigger). `cash_sessions_one_open_per_location_idx` se verificó intacto.
+4. **Estados.** `PAGADO` no se persiste (solo vive dentro de la transacción de confirmar). Cada cambio de estado es `UPDATE … WHERE status IN (…)`; si no afecta filas → `CONFLICT`. La idempotencia de confirmar, preparar, despachar, entregar y cancelar es el evento del historial con `idempotency_key` UNIQUE.
+5. **Orden de bloqueo global:** pedido → traslados → reservas → stock.
+6. **Picking.** Se escanea en el navegador (rechazo inmediato de prenda ajena o de más) y se confirma una vez; el servidor exige que lo escaneado coincida exacto con el pedido. Belén debe tener "Operando en: Bodega" para preparar y despachar.
+7. **Menú.** "Bodega" desapareció; queda "Pedidos" con el contador de pedidos por preparar. Preparar y despachar viven en `/pedidos/[id]/preparar` y `/despachar`.
+8. **Descuentos de Belén en pedidos** sobre el límite de la vendedora quedan en `audit_log` (`DISCOUNT_OVERRIDE`, entidad `online_order`), igual que en el POS.
+9. **InventoryService:** nuevas `returnOrderToStock` (reingreso de un pedido preparado y cancelado) y `listActiveOrderReservations` (lectura). `reserve`, `releaseReservations` y `consumeReservations` ya existían.
+
+## Casos de prueba para la demo (Etapa 5 – Hito 1)
+
+Usuarios: Belén (ADMIN). Reiniciar los datos con `pnpm db:seed` antes de presentar. Para preparar y despachar, Belén elige "Operando en: Bodega".
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| 1 | **Pedido desde bodega** (caso principal) | Pedidos → Nuevo pedido → Nueva clienta → escanear `PBA041-NEG-XL` → envío $3.990 → Registrar. Confirmar pago (transferencia + referencia). Preparar (escanear la prenda). Despachar (courier + seguimiento). Marcar entregado | `PED-000001` pasa por Pendiente de pago → Listo para preparar → Preparado → Despachado → Entregado. Al registrar nada se aparta; al pagar Bodega queda 20 (1 reservada) y aparece la venta `BOD-000001`; al preparar Bodega baja a 19 con un movimiento `VENTA_ONLINE`. El historial muestra cada paso |
+| 2 | **Registrar no aparta** | Registrar un pedido y mirar Stock | Disponible intacto; el detalle dice "Nada (se aparta al pagar)" |
+| 3 | **Sin stock al pagar** | Registrar `CPU053-NEG-2XL` (bodega 0) y confirmar el pago | El pago no se registra: "Stock insuficiente de CPU053-NEG-2XL en Bodega…". El pedido sigue pendiente. (El Hito 2 permite apartarlo en la tienda) |
+| 4 | **Prenda ajena en el picking** | Preparar y escanear una prenda que no es del pedido | "Esa prenda no es del pedido PED-… Sepárala y no la incluyas." y no suma |
+| 5 | **Cancelar pagado** | Cancelar un pedido en Listo para preparar, con motivo | Reservas liberadas; el detalle muestra "Reembolso pendiente" con la venta `BOD-…`. Cancelado después de preparar: Bodega recupera la prenda (`Reingreso pedido cancelado`) |
+| 6 | **Despachado no se cancela** | Intentar cancelar un pedido despachado (por la UI el botón no aparece; el servidor responde `CONFLICT`) | "…ya salió de la bodega y no se cancela (se gestiona como devolución)." |
+| 7 | **Aviso del POS** | Con una unidad de la tienda reservada para un pedido (Hito 2), la vendedora escanea esa prenda | "…1 unidad reservada para el pedido PED-…" |
+| 8 | **Permisos** | La vendedora entra a `/pedidos` | `/sin-acceso`; el servidor rechaza registrar, confirmar, preparar, despachar y cancelar |
+

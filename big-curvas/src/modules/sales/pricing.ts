@@ -48,6 +48,25 @@ export function priceSale(lines: readonly { unitPrice: number; quantity: number;
   return { lines: priced, subtotal, discountTotal, total: subtotal - discountTotal };
 }
 
+export interface PricedOrder extends PricedSale {
+  /** Envío cobrado a la clienta (CLP, ingresado a mano; P-11 pendiente). Va en el total, no en subtotal ni descuento. */
+  shippingCost: number;
+}
+
+/**
+ * Pedido online: ropa con descuento por línea + envío. `total` = subtotal − descuentos + envío, igual que
+ * `sales.total` y `online_orders.total` (CHECK en BD). El IVA del envío queda pendiente con el contador (P-29).
+ */
+export function priceOrder(
+  lines: readonly { unitPrice: number; quantity: number; discountBps: number }[],
+  shippingCost: number,
+): PricedOrder {
+  assertClp(shippingCost, "costo de envío");
+  if (shippingCost < 0) throw new RangeError(`costo de envío inválido: ${shippingCost}`);
+  const sale = priceSale(lines);
+  return { ...sale, shippingCost, total: sale.total + shippingCost };
+}
+
 /** Un descuento por línea sobre el límite de la vendedora requiere aprobación (llega en la Etapa 6). */
 export function isDiscountOverLimit(discountBps: number, limitBps: number): boolean {
   return discountBps > limitBps;

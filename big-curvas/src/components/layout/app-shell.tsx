@@ -3,6 +3,7 @@ import { MapPin } from "lucide-react";
 import type { SessionUser } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
 import { countPendingTransfers } from "@/modules/inventory";
+import { countOrdersToPrepare } from "@/modules/orders";
 import { listLocations } from "@/modules/locations";
 import { logoutAction, setActiveLocationAction } from "@/app/(app)/session-actions";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -18,7 +19,10 @@ export async function AppShell({ user, children }: { user: SessionUser; children
   const isAdmin = user.role === "ADMIN";
   // Contador de "Traslados": por enviar + por recibir de la ubicación activa (+ diferencias por resolver si es Belén).
   const pendingTransfers = (await countPendingTransfers({ locationId: user.activeLocation?.id, includeDifferences: isAdmin })).total;
-  const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label, badge: href === "/traslados" ? pendingTransfers : undefined }));
+  // Contador de "Pedidos": pedidos pagados que Belén debe preparar en la bodega.
+  const ordersToPrepare = isAdmin ? await countOrdersToPrepare() : 0;
+  const badgeOf = (href: string) => (href === "/traslados" ? pendingTransfers : href === "/pedidos" ? ordersToPrepare : undefined);
+  const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label, badge: badgeOf(href) }));
   const locations = isAdmin ? await listLocations() : [];
 
   return (

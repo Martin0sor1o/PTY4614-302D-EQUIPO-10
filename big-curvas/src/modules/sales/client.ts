@@ -6,6 +6,7 @@ export {
   effectivePrice,
   priceLine,
   priceSale,
+  priceOrder,
   quotePayment,
   changeFor,
   expectedCash,
@@ -14,6 +15,7 @@ export {
   assertDiscountWithinLimit,
   type PricedLine,
   type PricedSale,
+  type PricedOrder,
   type PaymentMethodCode,
   type PaymentQuote,
 } from "./pricing";

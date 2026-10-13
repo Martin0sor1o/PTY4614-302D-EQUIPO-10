@@ -16,8 +16,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/stock", label: "Stock", roles: ALL, stage: "2", description: "Matriz de stock por ubicación y kardex" },
   { href: "/pos", label: "POS", roles: ["ADMIN", "VENDEDORA"], stage: "3", description: "Venta en tienda con lector de códigos" },
   { href: "/traslados", label: "Traslados", roles: ALL, stage: "4", description: "Enviar y recibir mercadería entre la tienda y la bodega" },
-  { href: "/pedidos", label: "Pedidos online", roles: ["ADMIN"], stage: "5", description: "Pedidos de Instagram y su tablero" },
-  { href: "/bodega", label: "Bodega", roles: ["ADMIN", "BODEGA"], stage: "5", description: "Preparar y despachar pedidos" },
+  { href: "/pedidos", label: "Pedidos", roles: ["ADMIN"], stage: "5", description: "Pedidos online: registrar, preparar y despachar (con contador de pedidos por preparar)" },
   { href: "/aprobaciones", label: "Aprobaciones", roles: ["ADMIN"], stage: "6", description: "Aprobar descuentos desde el celular" },
 ];
 

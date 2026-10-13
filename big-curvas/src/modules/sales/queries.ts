@@ -29,6 +29,11 @@ type ItemRow = Prisma.ProductVariantGetPayload<{ select: typeof itemSelect }>;
 async function toPosItems(rows: ItemRow[], locationId: string): Promise<PosItem[]> {
   const locations = await db.location.findMany({ where: { active: true }, select: { id: true, name: true } });
   const nameOf = new Map(locations.map((l) => [l.id, l.name]));
+  // Lectura de las reservas ACTIVAS de pedidos en esta tienda, para nombrar el pedido en el aviso del POS.
+  const reservations = await db.reservation.findMany({
+    where: { locationId, variantId: { in: rows.map((v) => v.id) }, status: "ACTIVA", orderLineId: { not: null } },
+    select: { variantId: true, quantity: true, orderLine: { select: { order: { select: { number: true } } } } },
+  });
   return rows.map((v) => {
     const mine = v.stockLevels.find((s) => s.locationId === locationId);
     const onHand = mine?.onHand ?? 0;
@@ -42,6 +47,9 @@ async function toPosItems(rows: ItemRow[], locationId: string): Promise<PosItem[
       size: v.size.code,
       unitPrice: effectivePrice({ priceOverride: v.priceOverride, basePrice: v.product.basePrice }),
       here: { onHand, reserved, available: onHand - reserved },
+      reservedFor: reservations
+        .filter((r) => r.variantId === v.id && r.orderLine)
+        .map((r) => ({ orderNumber: r.orderLine!.order.number, qty: r.quantity })),
       others: v.stockLevels
         .filter((s) => s.locationId !== locationId && s.onHand > 0)
         .map((s) => ({

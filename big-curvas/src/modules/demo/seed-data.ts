@@ -123,7 +123,7 @@ export const STOCK_OVERRIDES: Record<string, StockByLocation> = {
   "VNE033-NEG-52": { TIENDA_RANCAGUA: 1, BODEGA: 2 },
 };
 
-export const DEMO_SETTINGS: { key: string; valueInt: number; description: string; isDemoValue: boolean }[] = [
+export const DEMO_SETTINGS: { key: string; valueInt?: number; valueText?: string; description: string; isDemoValue: boolean }[] = [
   {
     key: "max_seller_discount_bps",
     valueInt: 0,
@@ -141,5 +141,11 @@ export const DEMO_SETTINGS: { key: string; valueInt: number; description: string
     valueInt: 3,
     description: "Días en tránsito a partir de los cuales un traslado se marca con alerta. Valor propuesto (pendiente de validar).",
     isDemoValue: true,
+  },
+  {
+    key: "couriers",
+    valueText: "Starken,Blue Express,Chilexpress",
+    description: "Couriers disponibles al despachar un pedido online (separados por coma). Lista de la clienta; cómo se cobra el envío sigue pendiente (P-11).",
+    isDemoValue: false,
   },
 ];

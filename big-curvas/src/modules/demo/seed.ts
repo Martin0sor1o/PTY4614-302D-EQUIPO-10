@@ -30,6 +30,7 @@ const ALL_TABLES = [
   "transfer_lines",
   "transfers",
   "reservations",
+  "online_order_events",
   "online_order_lines",
   "online_orders",
   "customers",

@@ -6,7 +6,7 @@ import { parseInput } from "@/lib/validation";
 import { MovementType, RefType } from "@/generated/prisma/client";
 import { assertVariantsExist, getActiveLocation, insufficientStock, recordMovement } from "./internal";
 import { normalizeLines } from "./lines";
-import { adjustSchema, loadInitialStockSchema, receiveSchema, sellSchema } from "./schemas";
+import { adjustSchema, loadInitialStockSchema, receiveSchema, returnOrderSchema, sellSchema } from "./schemas";
 import { addOnHand, takeAvailable } from "./stock-sql";
 import type { Actor, MovementRecord, StockOperationResult } from "./types";
 
@@ -161,6 +161,51 @@ export async function sell(
         at: row.at,
         refType: RefType.SALE,
         refId: saleId,
+        userId: input.actor.id,
+        idempotencyKey: lineKey(idempotencyKey, n),
+      }),
+    );
+  }
+  return { movements };
+}
+
+/**
+ * Reingreso de un pedido online cancelado que ya estaba PREPARADO (RF-PED-09): la prenda ya salió del stock con
+ * VENTA_ONLINE y vuelve a la bodega con REINGRESO_PEDIDO_CANCELADO. Solo ADMIN y solo donde se despacha online.
+ */
+export async function returnOrderToStock(
+  tx: Tx,
+  input: WithActor<{
+    locationId: string;
+    onlineOrderId: string;
+    lines: { variantId: string; qty: number }[];
+    reason: string;
+    idempotencyKey: string;
+  }>,
+): Promise<StockOperationResult> {
+  const { locationId, onlineOrderId, lines, reason, idempotencyKey } = parseInput(returnOrderSchema, input);
+  assertAccess(input.actor, { roles: ["ADMIN"], locationId });
+  const location = await getActiveLocation(tx, locationId);
+  if (!location.fulfillsOnline) {
+    throw new AppError("VALIDATION", `Los pedidos online solo se reingresan en bodega (${location.name} no despacha online).`);
+  }
+  const sorted = normalizeLines(lines);
+  await assertVariantsExist(tx, sorted.map((l) => l.variantId));
+
+  const movements: MovementRecord[] = [];
+  for (const [n, line] of sorted.entries()) {
+    const row = await addOnHand(tx, line.variantId, locationId, line.qty);
+    movements.push(
+      await recordMovement(tx, {
+        variantId: line.variantId,
+        locationId,
+        type: MovementType.REINGRESO_PEDIDO_CANCELADO,
+        quantity: line.qty,
+        onHandAfter: row.onHand,
+        at: row.at,
+        refType: RefType.ONLINE_ORDER,
+        refId: onlineOrderId,
+        reason,
         userId: input.actor.id,
         idempotencyKey: lineKey(idempotencyKey, n),
       }),

@@ -61,6 +61,14 @@ export const consumeSchema = z.object({
   idempotencyKey,
 });
 
+export const returnOrderSchema = z.object({
+  locationId: id,
+  onlineOrderId: id,
+  lines,
+  reason: z.string().trim().min(3, "El motivo es obligatorio").max(200),
+  idempotencyKey,
+});
+
 export const createTransferSchema = z
   .object({
     fromLocationId: id,

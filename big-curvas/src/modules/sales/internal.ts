@@ -28,6 +28,7 @@ export async function getPosLocation(tx: Pick<Tx, "location">, locationId: strin
 export async function getDiscountLimitBps(tx: Pick<Tx, "setting">): Promise<number> {
   const s = await tx.setting.findUnique({ where: { key: SETTING_MAX_DISCOUNT } });
   if (!s) throw new AppError("VALIDATION", "Falta la configuración del descuento máximo (max_seller_discount_bps).");
+  if (s.valueInt === null) throw new AppError("VALIDATION", "La configuración max_seller_discount_bps no tiene un valor numérico.");
   return s.valueInt;
 }
 

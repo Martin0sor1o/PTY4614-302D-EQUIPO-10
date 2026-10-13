@@ -288,7 +288,11 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
               <span>
                 {blocked.productName} · {blocked.color} · talla {blocked.size} ({blocked.sku}): no hay disponible en {locationName}
                 {blocked.here.reserved > 0 &&
-                  ` (${blocked.here.reserved} unidad${blocked.here.reserved === 1 ? "" : "es"} reservada${blocked.here.reserved === 1 ? "" : "s"} para pedidos)`}
+                  ` (${blocked.here.reserved} unidad${blocked.here.reserved === 1 ? "" : "es"} reservada${blocked.here.reserved === 1 ? "" : "s"} para ${
+                    blocked.reservedFor.length > 0
+                      ? `${blocked.reservedFor.length === 1 ? "el pedido" : "los pedidos"} ${blocked.reservedFor.map((r) => r.orderNumber).join(", ")}`
+                      : "pedidos"
+                  })`}
                 .
               </span>
             </p>

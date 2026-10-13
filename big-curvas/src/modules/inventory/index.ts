@@ -2,8 +2,8 @@
 // inventory_movements, reservations, transfers y transfer_lines. Contrato: docs/03_ARQUITECTURA.md §5.
 
 // ── Operaciones dentro de la transacción de quien llama (sales, orders, seed): reciben `tx` ──
-export { loadInitialStock, receive, adjust, sell } from "./stock-operations";
-export { reserve, releaseReservations, consumeReservations } from "./reservations";
+export { loadInitialStock, receive, adjust, sell, returnOrderToStock } from "./stock-operations";
+export { reserve, releaseReservations, consumeReservations, listActiveOrderReservations } from "./reservations";
 export {
   createTransfer,
   updateTransferDraft,
