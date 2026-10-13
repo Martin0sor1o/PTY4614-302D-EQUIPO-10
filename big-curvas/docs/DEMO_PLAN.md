@@ -183,6 +183,7 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - **Idempotencia de `resolveTransferDifference` con restricción única en BD.** Hoy la clave de la operación se guarda en `audit_log.after` (consulta por JSON, sin índice único) porque una MERMA no deja movimiento de stock; la garantía real contra la doble resolución es el cambio condicional de la línea (`difference_resolution IS NULL`) y del traslado (`status = RECIBIDO_CON_DIFERENCIAS`). Para Fase 1: tabla o columna con `UNIQUE (idempotency_key)`.
 - **Evaluar con Belén (P-28):** la recepción **a ciegas** (hoy la vendedora ve la cantidad enviada al recibir) y una resolución "error de recepción" para sobrantes (se escaneó de más en destino); hoy un sobrante solo admite `ERROR_ENVIO` (RN-30).
 - El traslado de `REENVIO` queda ligado al original solo por texto (`resolution_notes` del borrador y `audit_log`); no hay columna `parent_transfer_id`.
+- Tras completar faltante, una línea puede quedar repartida entre ubicaciones y su `source_location_id` queda con la primera; en Fase 1, registrar el origen por reserva y no por línea.
 - Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
 - Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
 - Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
