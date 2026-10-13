@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import type { IdempotentResult } from "@/lib/idempotency";
 import { parseInput } from "@/lib/validation";
 import { OrderStatus } from "@/generated/prisma/client";
-import { listActiveOrderReservations, releaseReservations, returnOrderToStock } from "@/modules/inventory";
+import { cancelOrderTransfers, listActiveOrderReservations, releaseReservations, returnOrderToStock } from "@/modules/inventory";
 import { orderCommand, recordEvent, STATUS_LABEL, transition } from "./internal";
 import { cancelOrderSchema } from "./schemas";
 import type { OrderDetail } from "./types";
@@ -14,6 +14,7 @@ export type CancelOrderInput = { actor: Actor } & z.input<typeof cancelOrderSche
 /** Estados desde los que Belén puede cancelar. DESPACHADO y ENTREGADO NO se cancelan: se gestionan como devolución. */
 const CANCELLABLE: readonly OrderStatus[] = [
   OrderStatus.PENDIENTE_PAGO,
+  OrderStatus.ESPERANDO_TRASPASO,
   OrderStatus.LISTO_PARA_PREPARAR,
   OrderStatus.PREPARADO,
 ];
@@ -22,6 +23,9 @@ const CANCELLABLE: readonly OrderStatus[] = [
  * CANCELAR (solo ADMIN, con motivo; RF-PED-09). Una transacción:
  *   · PENDIENTE_PAGO       → sin efectos de stock.
  *   · LISTO_PARA_PREPARAR  → libera las reservas activas.
+ *   · ESPERANDO_TRASPASO   → anula el traslado si sigue en borrador; si ya viaja (o llegó con diferencias) desliga sus
+ *                            líneas del pedido: al llegar a bodega la prenda queda como stock libre. Libera las reservas
+ *                            activas (tienda y/o bodega).
  *   · PREPARADO            → reingresa a bodega lo consumido (REINGRESO_PEDIDO_CANCELADO).
  * La `Sale` NO se toca: si el pedido estaba pagado queda con aviso de "reembolso pendiente" hasta el reembolso
  * formal con aprobación de la Etapa 6 (regla 10b). Todo queda en el historial y en audit_log.
@@ -33,11 +37,13 @@ export async function cancelOrder(input: CancelOrderInput): Promise<IdempotentRe
     orderId: data.orderId,
     idempotencyKey: data.idempotencyKey,
     execute: async (tx) => {
-      const order = await tx.onlineOrder.findUnique({
-        where: { id: data.orderId },
-        select: { id: true, number: true, status: true, fulfillmentLocationId: true, total: true },
-      });
-      if (!order) throw new AppError("NOT_FOUND", "El pedido no existe.", { orderId: data.orderId });
+      // Primero se BLOQUEA el pedido y recién entonces se lee su estado: lo que hay que deshacer (reservas, traslados o
+      // reingreso) depende del estado, y una operación simultánea (p. ej. recibir el traslado) no debe cambiárselo
+      // entre la lectura y la cancelación. Es el primer bloqueo del orden global: pedido → traslados → reservas → stock.
+      const [locked] = await tx.$queryRaw<{ id: string; number: string; status: OrderStatus; fulfillment_location_id: string }[]>`
+        SELECT id, number, status, fulfillment_location_id FROM online_orders WHERE id = ${data.orderId} FOR UPDATE`;
+      if (!locked) throw new AppError("NOT_FOUND", "El pedido no existe.", { orderId: data.orderId });
+      const order = { id: locked.id, number: locked.number, status: locked.status, fulfillmentLocationId: locked.fulfillment_location_id };
       assertAccess(input.actor, { roles: ["ADMIN"], locationId: order.fulfillmentLocationId });
       if (!CANCELLABLE.includes(order.status)) {
         throw new AppError(
@@ -64,7 +70,9 @@ export async function cancelOrder(input: CancelOrderInput): Promise<IdempotentRe
         select: { id: true, variantId: true, quantity: true },
         orderBy: { variantId: "asc" },
       });
-      if (order.status === OrderStatus.LISTO_PARA_PREPARAR) {
+      if (order.status === OrderStatus.LISTO_PARA_PREPARAR || order.status === OrderStatus.ESPERANDO_TRASPASO) {
+        // Orden de bloqueo: pedido (ya bloqueado arriba) → traslados → reservas → stock.
+        await cancelOrderTransfers(tx, { actor: input.actor, onlineOrderId: order.id, reason: data.reason });
         const reservations = await listActiveOrderReservations(tx, lines.map((l) => l.id));
         if (reservations.length > 0) {
           await releaseReservations(tx, {

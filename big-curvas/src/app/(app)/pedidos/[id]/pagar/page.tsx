@@ -35,7 +35,8 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             {short.length === 1 ? "Una prenda no alcanza" : `${short.length} prendas no alcanzan`} hoy en {o.fulfillmentLocation.name}:{" "}
-            {short.map((l) => l.sku).join(", ")}. Si no hay stock al confirmar, el pago no se registra y se indica la prenda.
+            {short.map((l) => l.sku).join(", ")}. Puedes apartarlas en la tienda si tiene disponible (se trae a bodega con un traslado). Si no hay stock al
+            confirmar, el pago no se registra y se indica la prenda.
           </span>
         </div>
       )}
@@ -78,7 +79,19 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
         </Table>
       </div>
 
-      <PayForm orderId={o.id} number={o.number} total={o.total} />
+      <PayForm
+        orderId={o.id}
+        number={o.number}
+        total={o.total}
+        fulfillmentLocationId={o.fulfillmentLocation.id}
+        lines={o.lines.map((l) => ({
+          lineId: l.id,
+          sku: l.sku,
+          description: `${l.productName} · ${l.color} · T${l.size}`,
+          qty: l.quantity,
+          availability: l.availability,
+        }))}
+      />
     </div>
   );
 }

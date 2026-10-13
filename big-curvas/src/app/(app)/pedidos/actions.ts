@@ -9,6 +9,7 @@ import {
   cancelOrder,
   confirmPayment,
   dispatchOrder,
+  fillShortage,
   getOrderDetail,
   getVariantAvailability,
   markDelivered,
@@ -150,27 +151,49 @@ export async function saveOrderAction(payload: {
 
 // ───────────────────────── Transiciones ─────────────────────────
 
+const lineSourcesSchema = z.array(z.object({ lineId: idSchema, locationId: idSchema })).max(100).default([]);
+
 export async function confirmPaymentAction(payload: {
   orderId: string;
   method: string;
   reference?: string;
+  /** Líneas que Belén aparta en una tienda (solo si la bodega no alcanza para la línea completa). */
+  lineSources?: { lineId: string; locationId: string }[];
   idempotencyKey: string;
-}): Promise<ActionResult<{ saleNumber: string | null }>> {
+}): Promise<ActionResult<{ saleNumber: string | null; waitingTransfer: boolean }>> {
   const parsed = z
     .object({
       orderId: idSchema,
       method: z.enum(["TRANSFERENCIA", "DEBITO", "CREDITO", "EFECTIVO"]),
       reference: z.string().trim().max(60).optional(),
+      lineSources: lineSourcesSchema,
       idempotencyKey: keySchema,
     })
     .safeParse(payload);
   if (!parsed.success) return invalid(parsed.error);
   try {
     const user = await requireAccess({ roles: ["ADMIN"] });
-    const { orderId, method, reference, idempotencyKey } = parsed.data;
-    const { result } = await confirmPayment({ actor: user, orderId, payment: { method, reference: reference || undefined }, idempotencyKey });
+    const { orderId, method, reference, lineSources, idempotencyKey } = parsed.data;
+    const { result } = await confirmPayment({ actor: user, orderId, payment: { method, reference: reference || undefined }, lineSources, idempotencyKey });
     refresh(orderId);
-    return { ok: true, saleNumber: result.sale?.number ?? null };
+    return { ok: true, saleNumber: result.sale?.number ?? null, waitingTransfer: result.status === "ESPERANDO_TRASPASO" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function fillShortageAction(payload: {
+  orderId: string;
+  lineSources?: { lineId: string; locationId: string }[];
+  idempotencyKey: string;
+}): Promise<ActionResult<{ status: string }>> {
+  const parsed = z.object({ orderId: idSchema, lineSources: lineSourcesSchema, idempotencyKey: keySchema }).safeParse(payload);
+  if (!parsed.success) return invalid(parsed.error);
+  try {
+    const user = await requireAccess({ roles: ["ADMIN"] });
+    const { result } = await fillShortage({ actor: user, ...parsed.data });
+    refresh(parsed.data.orderId);
+    return { ok: true, status: result.status };
   } catch (error) {
     return failure(error);
   }

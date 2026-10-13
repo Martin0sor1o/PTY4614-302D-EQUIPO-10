@@ -55,6 +55,8 @@ export interface TransferRecord {
   toLocationId: string;
   status: TransferStatus;
   reason: TransferReason;
+  /** Pedido online al que sirve el traslado (motivo PEDIDO_ONLINE), si lo hay. */
+  onlineOrderId: string | null;
   lines: TransferLineRecord[];
 }
 

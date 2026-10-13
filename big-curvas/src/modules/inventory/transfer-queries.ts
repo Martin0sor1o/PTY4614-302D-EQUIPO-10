@@ -158,6 +158,8 @@ export interface TransferDetail {
   resolvedAt: Date | null;
   resolvedByName: string | null;
   resolutionNotes: string | null;
+  /** Pedido online al que sirve el traslado (motivo PEDIDO_ONLINE), si lo hay. */
+  onlineOrder: { id: string; number: string } | null;
   lines: TransferDetailLine[];
   daysInTransit: number | null;
   overdue: boolean;
@@ -178,6 +180,7 @@ export async function getTransferDetail(transferId: string, now = new Date()): P
         receivedAt: true,
         resolvedAt: true,
         resolutionNotes: true,
+        onlineOrder: { select: { id: true, number: true } },
         fromLocation: { select: { id: true, name: true } },
         toLocation: { select: { id: true, name: true } },
         creator: { select: { name: true } },
@@ -228,6 +231,7 @@ export async function getTransferDetail(transferId: string, now = new Date()): P
     resolvedAt: t.resolvedAt,
     resolvedByName: t.resolver?.name ?? null,
     resolutionNotes: t.resolutionNotes,
+    onlineOrder: t.onlineOrder,
     lines: t.lines
       .sort((a, b) => a.variant.sku.localeCompare(b.variant.sku))
       .map((l) => ({

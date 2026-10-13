@@ -48,6 +48,42 @@ async function availabilityByVariant(reader: Reader, variantIds: string[]): Prom
   return map;
 }
 
+export interface LineCoverage {
+  lineId: string;
+  quantity: number;
+  /** Reserva ACTIVA en la ubicación de despacho (bodega). */
+  inFulfillment: number;
+  /** Reserva ACTIVA en otras ubicaciones (la tienda, esperando el envío del traslado). */
+  inStores: number;
+  /** En un traslado EN_TRANSITO. */
+  inTransit: number;
+  /** quantity − lo cubierto (≥ 0). */
+  shortage: number;
+}
+
+type CoverageReader = Pick<Reader, "onlineOrderLine" | "reservation" | "transferLine">;
+
+/** Cuánto de cada línea del pedido está apartado (en bodega, en la tienda o viajando) y cuánto falta. */
+export async function loadCoverage(reader: CoverageReader, orderId: string, fulfillmentLocationId: string): Promise<LineCoverage[]> {
+  const lines = await reader.onlineOrderLine.findMany({ where: { orderId }, select: { id: true, quantity: true }, orderBy: { id: "asc" } });
+  const ids = lines.map((l) => l.id);
+  const reservations = await reader.reservation.findMany({
+    where: { orderLineId: { in: ids }, status: ReservationStatus.ACTIVA },
+    select: { orderLineId: true, locationId: true, quantity: true },
+  });
+  const moving = await reader.transferLine.findMany({
+    where: { orderLineId: { in: ids }, transfer: { status: TransferStatus.EN_TRANSITO } },
+    select: { orderLineId: true, qtySent: true },
+  });
+  return lines.map((l) => {
+    const mine = reservations.filter((r) => r.orderLineId === l.id);
+    const inFulfillment = mine.filter((r) => r.locationId === fulfillmentLocationId).reduce((a, r) => a + r.quantity, 0);
+    const inStores = mine.filter((r) => r.locationId !== fulfillmentLocationId).reduce((a, r) => a + r.quantity, 0);
+    const inTransit = moving.filter((m) => m.orderLineId === l.id).reduce((a, m) => a + m.qtySent, 0);
+    return { lineId: l.id, quantity: l.quantity, inFulfillment, inStores, inTransit, shortage: Math.max(0, l.quantity - inFulfillment - inStores - inTransit) };
+  });
+}
+
 /** Pedido completo para mostrar (detalle, confirmar pago, preparar, despachar). */
 export async function loadOrderDetail(reader: Reader, orderId: string): Promise<OrderDetail> {
   const o = await reader.onlineOrder.findUnique({
@@ -86,6 +122,8 @@ export async function loadOrderDetail(reader: Reader, orderId: string): Promise<
     select: { id: true, number: true, status: true, fromLocation: { select: { name: true } }, toLocation: { select: { name: true } } },
   });
 
+  const coverage = await loadCoverage(reader, orderId, o.fulfillmentLocationId);
+  const blocked = o.status === OrderStatus.ESPERANDO_TRASPASO && transfers.some((t) => t.status === TransferStatus.RECIBIDO_CON_DIFERENCIAS);
   const last = events[events.length - 1];
   return {
     id: o.id,
@@ -126,6 +164,8 @@ export async function loadOrderDetail(reader: Reader, orderId: string): Promise<
       sourceLocationId: l.sourceLocationId,
       sourceLocationName: l.sourceLocation.name,
       pickedQty: l.pickedQty,
+      inTransit: coverage.find((c) => c.lineId === l.id)?.inTransit ?? 0,
+      shortage: coverage.find((c) => c.lineId === l.id)?.shortage ?? 0,
       reserved: reservations
         .filter((r) => r.orderLineId === l.id)
         .map((r) => ({ locationId: r.locationId, name: r.location.name, qty: r.quantity })),
@@ -141,8 +181,8 @@ export async function loadOrderDetail(reader: Reader, orderId: string): Promise<
       toLocationName: t.toLocation.name,
     })),
     refundPending: o.status === OrderStatus.CANCELADO && sale !== null && sale.status === "COMPLETADA",
-    blockedByTransferDifference:
-      o.status === OrderStatus.ESPERANDO_TRASPASO && transfers.some((t) => t.status === TransferStatus.RECIBIDO_CON_DIFERENCIAS),
+    blockedByTransferDifference: blocked,
+    canFillShortage: o.status === OrderStatus.ESPERANDO_TRASPASO && !blocked && coverage.some((c) => c.shortage > 0),
   };
 }
 

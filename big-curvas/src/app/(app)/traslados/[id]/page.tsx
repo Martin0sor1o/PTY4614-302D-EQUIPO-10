@@ -87,13 +87,29 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
         )}
       </dl>
 
+      {t.onlineOrder && (
+        <p className="rounded-lg border bg-card px-3 py-2 text-sm" data-testid="order-link">
+          Traslado del pedido online{" "}
+          {isAdmin ? (
+            <Link href={`/pedidos/${t.onlineOrder.id}`} className="font-mono font-medium text-brand-ink underline-offset-4 hover:underline">
+              {t.onlineOrder.number}
+            </Link>
+          ) : (
+            <span className="font-mono font-medium">{t.onlineOrder.number}</span>
+          )}
+          . {t.status === "BORRADOR" ? "No se edita ni se anula desde aquí: solo se envía. Si el pedido se cancela, Belén lo anula." : null}
+        </p>
+      )}
+
       <div className="flex flex-wrap items-start gap-3">
-        {t.status === "BORRADOR" && canSend && !linked && (
+        {t.status === "BORRADOR" && canSend && (
           <>
             <SendTransferButton transferId={t.id} number={t.number} fromName={t.fromLocation.name} units={units} />
-            <Link href={`/traslados/${t.id}/editar`} className={buttonVariants({ variant: "outline", size: "lg", className: "h-11 px-4" })}>
-              <Pencil /> Editar o anular
-            </Link>
+            {!linked && (
+              <Link href={`/traslados/${t.id}/editar`} className={buttonVariants({ variant: "outline", size: "lg", className: "h-11 px-4" })}>
+                <Pencil /> Editar o anular
+              </Link>
+            )}
           </>
         )}
         {t.status === "BORRADOR" && !canSend && (

@@ -46,7 +46,7 @@
   - [x] Belén resuelve diferencias por línea (MERMA / REENVIO / ERROR_ENVIO) → CERRADO
   - [x] Matriz de stock "En tránsito" verificada (total = físico + tránsito se mantiene al enviar y recibir) y kardex con enlace al traslado
   - [x] Sin migración de esquema (solo la fila `transfer_transit_alert_days` en el seed) · tests de acceso cruzado · lint + typecheck + tests · commit
-- [ ] **Etapa 5 – Pedido online desde BODEGA** (une las antiguas 5a y 5b; un commit por hito)
+- [x] **Etapa 5 – Pedido online desde BODEGA** (une las antiguas 5a y 5b; un commit por hito)
   - Reglas (ADR-004 v3, RN-07): **se aparta al pagar**. Al registrar el pedido no se reserva nada: solo se muestra el disponible. Al confirmar el pago se reserva en BODEGA, o en la tienda con traslado a bodega si en bodega no hay. Las reservas nacen firmes: **sin vencimientos** ni job de expiración (`expires_at` queda nulo).
   - **Hito 1 – Pedido desde bodega**
     - [x] Registro (clienta, líneas, despacho) mostrando solo el disponible, sin reservar
@@ -58,9 +58,12 @@
     - [x] POS: el aviso de unidad reservada nombra el pedido
     - [x] Migración `online_orders` (ver "Decisiones del usuario (Etapa 5)") · lint + typecheck + tests · commit
   - **Hito 2 – Apartar en la tienda y traslado automático**
-    - [ ] Si bodega no tiene: mostrar la tienda con stock y Belén la elige al confirmar el pago
-    - [ ] Confirmar pago → reserva en la tienda + traslado automático tienda → bodega (ESPERANDO_TRASPASO → LISTO_PARA_PREPARAR)
-    - [ ] lint + typecheck + tests · commit
+    - [x] Si bodega no tiene para la línea completa: mostrar la tienda con stock y Belén la elige al confirmar el pago
+    - [x] Confirmar pago → reserva en la tienda + traslado automático tienda → bodega (ESPERANDO_TRASPASO → LISTO_PARA_PREPARAR)
+    - [x] El traslado del pedido aparece en "Por enviar" de la tienda (se envía, no se edita); recibirlo en bodega crea la reserva firme y avanza el pedido solo
+    - [x] Traslado con diferencia: el pedido queda bloqueado hasta que Belén resuelve (MERMA / REENVIO / ERROR_ENVIO) · "Completar faltante"
+    - [x] Cancelar en `ESPERANDO_TRASPASO` (traslado en borrador, en tránsito o recibido con diferencias)
+    - [x] lint + typecheck + tests · commit
   - **Fuera de la demo:** el **retiro en tienda** (EN_CAMINO_A_TIENDA → LISTO_PARA_RETIRO) queda pendiente de P-11 (¿hay retiro y dónde?).
 - [ ] **Etapa 6 – Aprobación remota**
   - [ ] Caso principal: **descuento de la vendedora** (límite 0 %, solo Belén da descuentos) → solicitud, caja en espera (polling ~3 s). Además, reembolsos y anulaciones
@@ -296,4 +299,35 @@ Usuarios: Belén (ADMIN). Reiniciar los datos con `pnpm db:seed` antes de presen
 | 6 | **Despachado no se cancela** | Intentar cancelar un pedido despachado (por la UI el botón no aparece; el servidor responde `CONFLICT`) | "…ya salió de la bodega y no se cancela (se gestiona como devolución)." |
 | 7 | **Aviso del POS** | Con una unidad de la tienda reservada para un pedido (Hito 2), la vendedora escanea esa prenda | "…1 unidad reservada para el pedido PED-…" |
 | 8 | **Permisos** | La vendedora entra a `/pedidos` | `/sin-acceso`; el servidor rechaza registrar, confirmar, preparar, despachar y cancelar |
+
+### Decisiones del Hito 2 (Etapa 5)
+
+1. **La tienda solo se acepta si la bodega no tiene disponible para la línea COMPLETA** (una línea sale de una sola ubicación, sin dividir unidades). Se valida en el servidor (`VALIDATION` si la bodega alcanza) y la pantalla solo ofrece la tienda cuando la bodega no alcanza. Cada línea guarda `source_location_id`.
+2. **Traslado automático.** Al confirmar el pago, las líneas apartadas en una tienda generan un traslado tienda → bodega (`PEDIDO_ONLINE`, ligado al pedido, a las líneas y a sus reservas) en `BORRADOR`, y el pedido queda `ESPERANDO_TRASPASO`. Aparece en "Por enviar" de la tienda; **se envía** (vendedora o Belén) pero no se edita ni se anula desde Traslados. La pantalla del traslado muestra a qué pedido pertenece.
+3. **Recibir y resolver pasan por `orders`** (`receiveTransferAndSync`, `resolveTransferAndSync`): bloquean el pedido primero y llaman a InventoryService con el mismo `tx`. Si el traslado no es de un pedido, son exactamente los comandos de inventario de siempre. **Orden de bloqueo global: pedido → traslados → reservas → stock** (cancelar bloquea todos los traslados del pedido con `FOR UPDATE` antes de tocar reservas).
+4. **Diferencias de traslado de un pedido (RN-30).** El pedido queda en `ESPERANDO_TRASPASO` bloqueado (aviso) hasta que Belén resuelve todo, incluso si es sobrante. Después:
+
+   | Resolución | Stock | Pedido |
+   |---|---|---|
+   | Faltante + `REENVIO` | +d en la tienda | Esas d unidades se vuelven a apartar para el pedido y el borrador de reenvío nace ligado a él (`PEDIDO_ONLINE`). Sigue en `ESPERANDO_TRASPASO`, sin bloqueo; al recibir el reenvío → `LISTO_PARA_PREPARAR` |
+   | Faltante + `MERMA` | Ninguno | Queda con faltante: "Completar faltante" o cancelar |
+   | Faltante + `ERROR_ENVIO` | +d en la tienda (libres) | Igual que MERMA, con las unidades libres en la tienda |
+   | Sobrante + `ERROR_ENVIO` | −\|d\| en la tienda | Se desbloquea y, con todo reservado en bodega, pasa a `LISTO_PARA_PREPARAR` |
+
+5. **Completar faltante** (solo ADMIN, `ESPERANDO_TRASPASO` sin diferencias por resolver): aparta lo que falta con las mismas reglas de confirmar pago (bodega, o tienda si la bodega no alcanza para lo que falta, con un traslado nuevo). Si todo queda en bodega → `LISTO_PARA_PREPARAR`. Tras completar desde la tienda, una línea puede quedar repartida entre bodega y tienda (su `source_location_id` no se actualiza; el detalle muestra las reservas por ubicación).
+6. **Cancelar en `ESPERANDO_TRASPASO`** (InventoryService `cancelOrderTransfers`): traslado en `BORRADOR` → `ANULADO` y reserva liberada; `EN_TRANSITO` o recibido con diferencias → las líneas se **desligan** del pedido, así que al llegar a bodega la prenda queda libre (y una resolución posterior ya no toca el pedido). Las reservas activas (tienda y bodega) se liberan. La `Sale` queda con "reembolso pendiente".
+7. **Pedido en tránsito.** El detalle muestra "En camino a bodega: N" (calculado) y "Faltan N" cuando una línea no está cubierta por reservas ni traslados.
+
+## Casos de prueba para la demo (Etapa 5 – Hito 2)
+
+Usuarios: Belén (ADMIN) y Vendedora Rancagua. Reiniciar los datos con `pnpm db:seed` antes de presentar.
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| 1 | **Pedido que sale de la tienda** (caso principal) | Belén: Nuevo pedido con `CPU053-NEG-2XL` (bodega 0, tienda 3) → Confirmar pago: en el aviso "La bodega no alcanza", elegir **Apartar en Tienda Rancagua** → transferencia con referencia. Vendedora Rancagua: Traslados → Por enviar → `TR-000001` → **Enviar traslado**. Belén: Traslados → Por recibir → Recibir escaneando la prenda → Confirmar. Belén: Pedidos → Preparar | Al pagar: pedido `Esperando traslado`, tienda con 1 reservada (el POS solo vende las no reservadas y el aviso dice "reservada para el pedido PED-…"). Al enviar: la tienda baja su físico. Al recibir: bodega 1 con 1 reservada y el pedido pasa solo a `Listo para preparar`. Al preparar: bodega 0 con movimiento `VENTA_ONLINE` |
+| 2 | **La bodega alcanza, no se usa la tienda** | Pedido de `PBA041-NEG-XL` (bodega 20) | El selector de tienda no aparece; el servidor rechaza apartar en la tienda si se fuerza |
+| 3 | **Traslado del pedido con faltante** | Pedido de 3 × `CPU053-NEG-2XL` desde la tienda; enviar; recibir escaneando solo 2 | Traslado `Recibido con diferencias`; el pedido sigue en `Esperando traslado` con aviso "Pedido bloqueado". Belén: Traslados → Con diferencias → resolver (`Reenvío`: el pedido espera el reenvío ligado `TR-…`; `Merma`/`Error de envío`: el pedido muestra "Faltan 1" y el panel **Completar faltante**) |
+| 4 | **Completar faltante** | Tras una merma, con stock en la tienda: Completar faltante → Apartar en Tienda Rancagua | Nuevo traslado ligado al pedido; al recibirlo, `Listo para preparar` |
+| 5 | **Cancelar esperando traslado** | Cancelar el pedido con el traslado en borrador / en tránsito | Borrador: traslado anulado y reserva liberada. En tránsito: al recibirlo en bodega la prenda queda libre (sin reserva). El pedido muestra "Reembolso pendiente" |
+| 6 | **Permisos** | La vendedora abre el traslado del pedido | Puede enviarlo; no tiene "Editar o anular"; no recibe en bodega ni resuelve diferencias (`FORBIDDEN`) |
 

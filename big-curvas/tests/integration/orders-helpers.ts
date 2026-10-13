@@ -28,9 +28,18 @@ export async function confirmTestPayment(
   orderId: string,
   payment: { method: "TRANSFERENCIA" | "DEBITO" | "CREDITO" | "EFECTIVO"; reference?: string } = { method: "TRANSFERENCIA", reference: "TRF-1001" },
   key = newKey("pago"),
+  lineSources: { lineId: string; locationId: string }[] = [],
 ) {
-  return confirmPayment({ actor: f.actors.belen, orderId, payment, idempotencyKey: key });
+  return confirmPayment({ actor: f.actors.belen, orderId, payment, lineSources, idempotencyKey: key });
 }
+
+/** Todas las líneas del pedido apartadas en la tienda (solo válido si la bodega no cubre la línea completa). */
+export const allInStore = (f: Fixtures, order: OrderDetail, skus?: string[]) =>
+  order.lines.filter((l) => !skus || skus.includes(l.sku)).map((l) => ({ lineId: l.id, locationId: f.loc.TIENDA_RANCAGUA }));
+
+/** Traslados ligados al pedido, del más antiguo al más nuevo (con sus líneas). */
+export const orderTransfers = (orderId: string) =>
+  db.transfer.findMany({ where: { onlineOrderId: orderId }, orderBy: { createdAt: "asc" }, include: { lines: true } });
 
 /** Escanea exactamente lo que pide el pedido. */
 export async function prepareTestOrder(f: Fixtures, order: OrderDetail, key = newKey("picking"), actor = f.actors.belen) {

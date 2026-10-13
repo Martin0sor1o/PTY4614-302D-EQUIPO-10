@@ -5,6 +5,7 @@ import { lineKey } from "@/lib/idempotency";
 import { parseInput } from "@/lib/validation";
 import { MovementType, RefType, TransferStatus } from "@/generated/prisma/client";
 import { insufficientStock, recordMovement } from "./internal";
+import { reserve } from "./reservations";
 import { resolveTransferSchema } from "./schemas";
 import { addOnHand, takeAvailable } from "./stock-sql";
 import { createTransfer, getTransfer, STATUS_LABEL } from "./transfers";
@@ -104,7 +105,7 @@ export async function resolveTransferDifference(
 
   // 2) Marca cada línea (condicional: solo si aún no tiene resolución) y aplica su efecto en el stock.
   const movements: MovementRecord[] = [];
-  const reship: { variantId: string; qty: number }[] = [];
+  const reship: { variantId: string; qty: number; orderLineId?: string; reservationId?: string }[] = [];
   let n = 0;
   for (const { line, sku, resolution, d } of plan) {
     const { count } = await tx.transferLine.updateMany({
@@ -142,17 +143,31 @@ export async function resolveTransferDifference(
         idempotencyKey: lineKey(idempotencyKey, n++),
       }),
     );
-    if (resolution === "REENVIO") reship.push({ variantId: line.variantId, qty: d });
+    if (resolution === "REENVIO") {
+      // Línea de un pedido online: lo que se quedó en el origen vuelve a apartarse para ese pedido y el borrador de
+      // reenvío nace ligado a él (la reserva viaja con el reenvío). Así el pedido sigue esperando, sin bloqueo.
+      let reservationId: string | undefined;
+      if (line.orderLineId) {
+        const [held] = await reserve(tx, {
+          actor: input.actor,
+          lines: [{ variantId: line.variantId, locationId: transfer.fromLocationId, qty: d, orderLineId: line.orderLineId }],
+        });
+        reservationId = held.id;
+      }
+      reship.push({ variantId: line.variantId, qty: d, orderLineId: line.orderLineId ?? undefined, reservationId });
+    }
   }
 
   // 3) REENVIO: un único traslado nuevo en BORRADOR con todas las prendas que quedaron en el origen.
   let reshipTransfer: TransferRecord | null = null;
   if (reship.length > 0) {
+    const orderLinked = reship.some((l) => l.orderLineId !== undefined);
     reshipTransfer = await createTransfer(tx, {
       actor: input.actor,
       fromLocationId: transfer.fromLocationId,
       toLocationId: transfer.toLocationId,
-      reason: "OTRO",
+      reason: orderLinked ? "PEDIDO_ONLINE" : "OTRO",
+      onlineOrderId: orderLinked ? (transfer.onlineOrderId ?? undefined) : undefined,
       lines: reship,
       idempotencyKey: reshipKey(idempotencyKey),
     });

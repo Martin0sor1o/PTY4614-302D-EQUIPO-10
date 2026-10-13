@@ -25,6 +25,10 @@ export interface OrderLineView {
   sourceLocationId: string;
   sourceLocationName: string;
   pickedQty: number;
+  /** Unidades en un traslado EN_TRANSITO ligado a esta línea (su reserva en la tienda ya se consumió al enviar). */
+  inTransit: number;
+  /** Unidades que ninguna reserva ni traslado cubre (p. ej. tras una MERMA): se completan con "Completar faltante". */
+  shortage: number;
   /** Unidades con reserva ACTIVA, por ubicación. */
   reserved: { locationId: string; name: string; qty: number }[];
   /** Disponible actual por ubicación (bodega primero). */
@@ -78,6 +82,8 @@ export interface OrderDetail {
   refundPending: boolean;
   /** Pedido en ESPERANDO_TRASPASO con un traslado recibido con diferencias sin resolver. */
   blockedByTransferDifference: boolean;
+  /** ESPERANDO_TRASPASO, sin diferencias por resolver y con unidades sin cubrir: Belén puede completar el faltante. */
+  canFillShortage: boolean;
 }
 
 export interface OrderBoardItem {

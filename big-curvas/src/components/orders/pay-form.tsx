@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/money";
 import { quotePayment } from "@/modules/sales/client";
 import { cn } from "@/lib/utils";
+import { LineSourcePicker, needsStore, type PickerLine } from "./source-picker";
 
 const METHODS = [
   { value: "TRANSFERENCIA", label: "Transferencia", referenceLabel: "N° de transferencia" },
@@ -23,8 +24,22 @@ type Method = (typeof METHODS)[number]["value"];
  * Confirmar pago: medio + referencia. Al confirmar se aparta el stock en bodega y se registra la venta.
  * Si una prenda ya no tiene disponible, el servidor lo informa y la página recarga la disponibilidad por línea.
  */
-export function PayForm({ orderId, number, total }: { orderId: string; number: string; total: number }) {
+export function PayForm({
+  orderId,
+  number,
+  total,
+  fulfillmentLocationId,
+  lines,
+}: {
+  orderId: string;
+  number: string;
+  total: number;
+  fulfillmentLocationId: string;
+  lines: PickerLine[];
+}) {
   const router = useRouter();
+  // lineId → tienda elegida para las líneas que la bodega no cubre completas. Sin entrada = bodega.
+  const [sources, setSources] = useState<Record<string, string>>({});
   const [method, setMethod] = useState<Method>("TRANSFERENCIA");
   const [reference, setReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -38,9 +53,21 @@ export function PayForm({ orderId, number, total }: { orderId: string; number: s
   function confirm() {
     setMessage(null);
     if (method !== "EFECTIVO" && !reference.trim()) return setMessage(`Ingresa el ${current.referenceLabel.toLowerCase()}.`);
-    if (!window.confirm(`¿Confirmar el pago de ${formatCLP(quote.amount)} del pedido ${number}? Se apartará el stock en bodega y se registrará la venta.`)) return;
+    const unresolved = lines.filter((l) => needsStore(l, fulfillmentLocationId) && !sources[l.lineId]);
+    if (unresolved.length > 0) {
+      return setMessage(`La bodega no alcanza para ${unresolved.map((l) => l.sku).join(", ")}: elige apartarla en la tienda o edita el pedido.`);
+    }
+    const viaStore = Object.keys(sources).length;
+    const what = viaStore > 0 ? "Se apartará el stock (bodega y tienda), se generará el traslado tienda → bodega" : "Se apartará el stock en bodega";
+    if (!window.confirm(`¿Confirmar el pago de ${formatCLP(quote.amount)} del pedido ${number}? ${what} y se registrará la venta.`)) return;
     startTransition(async () => {
-      const res = await confirmPaymentAction({ orderId, method, reference: reference.trim() || undefined, idempotencyKey: key.current });
+      const res = await confirmPaymentAction({
+        orderId,
+        method,
+        reference: reference.trim() || undefined,
+        lineSources: Object.entries(sources).map(([lineId, locationId]) => ({ lineId, locationId })),
+        idempotencyKey: key.current,
+      });
       if (!res.ok) {
         // STOCK_INSUFICIENTE y compañía: nueva clave para el próximo intento y recarga de la disponibilidad mostrada.
         key.current = crypto.randomUUID();
@@ -65,6 +92,8 @@ export function PayForm({ orderId, number, total }: { orderId: string; number: s
           ))}
         </div>
       </fieldset>
+
+      <LineSourcePicker lines={lines} fulfillmentLocationId={fulfillmentLocationId} value={sources} onChange={setSources} />
 
       {method !== "EFECTIVO" && (
         <div className="max-w-sm space-y-1">

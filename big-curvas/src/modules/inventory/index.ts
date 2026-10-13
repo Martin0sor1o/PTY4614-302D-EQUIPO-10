@@ -10,6 +10,7 @@ export {
   cancelTransfer,
   sendTransfer,
   receiveTransfer,
+  cancelOrderTransfers,
   getTransfer,
   findTransferByIdempotencyKey,
 } from "./transfers";
@@ -25,6 +26,8 @@ export {
   updateTransferDraftCommand,
   cancelTransferCommand,
   resolveTransferDifferenceCommand,
+  findTransferOperation,
+  findTransferResolution,
 } from "./commands";
 
 // ── Consultas (solo lectura) ──

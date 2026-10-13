@@ -5,8 +5,8 @@ import { AppError } from "@/lib/errors";
 import type { IdempotentResult } from "@/lib/idempotency";
 import { parseInput } from "@/lib/validation";
 import { OrderStatus, PaymentMethod } from "@/generated/prisma/client";
-import { reserve } from "@/modules/inventory";
 import { createOnlineSale, priceOrder } from "@/modules/sales";
+import { allocateLines } from "./allocate";
 import { orderCommand, recordEvent, transition } from "./internal";
 import { confirmPaymentSchema } from "./schemas";
 import type { OrderDetail } from "./types";
@@ -16,10 +16,12 @@ export type ConfirmPaymentInput = { actor: Actor } & z.input<typeof confirmPayme
 /**
  * CONFIRMAR PAGO (docs/03 §6.2 paso 2): UNA transacción.
  *   1. PENDIENTE_PAGO → PAGADO (cambio condicional: bloquea el pedido; PAGADO solo existe dentro de esta transacción).
- *   2. `reserve()` en BODEGA por cada línea. Si alguna ya no tiene disponible → STOCK_INSUFICIENTE nombrando la prenda
- *      y se revierte todo (el pedido sigue pendiente de pago).
+ *   2. `reserve()` por cada línea: en BODEGA, o en la tienda que Belén eligió para una línea que la bodega no puede
+ *      cubrir completa. Si alguna ya no tiene disponible → STOCK_INSUFICIENTE nombrando la prenda y se revierte todo
+ *      (el pedido sigue pendiente de pago).
  *   3. `Sale` canal del pedido en BODEGA (correlativo BOD-…, líneas y pago), SIN movimientos de stock (RN-08, RN-13).
- *   4. → LISTO_PARA_PREPARAR.
+ *   4. Por las líneas apartadas en la tienda se crea un traslado tienda → bodega ligado al pedido → ESPERANDO_TRASPASO;
+ *      si todo quedó en bodega → LISTO_PARA_PREPARAR.
  * Idempotente: repetir la clave devuelve el pedido sin volver a reservar ni crear otra venta.
  */
 export async function confirmPayment(input: ConfirmPaymentInput): Promise<IdempotentResult<OrderDetail>> {
@@ -33,7 +35,7 @@ export async function confirmPayment(input: ConfirmPaymentInput): Promise<Idempo
 }
 
 async function executeConfirm(tx: Tx, actor: Actor, data: ReturnType<typeof confirmPaymentSchema.parse>): Promise<void> {
-  const { orderId, payment, idempotencyKey } = data;
+  const { orderId, payment, lineSources, idempotencyKey } = data;
   const order = await tx.onlineOrder.findUnique({
     where: { id: orderId },
     select: { id: true, number: true, channel: true, customerId: true, fulfillmentLocationId: true, shippingCost: true, subtotal: true, discountTotal: true, total: true },
@@ -63,10 +65,14 @@ async function executeConfirm(tx: Tx, actor: Actor, data: ReturnType<typeof conf
     throw new AppError("CONFLICT", `Los totales del pedido ${order.number} no cuadran con sus líneas. Edítalo antes de confirmar el pago.`);
   }
 
-  // Se aparta recién ahora (RN-07), en BODEGA. Hito 2: las líneas sin disponible en bodega podrán apartarse en la tienda.
-  await reserve(tx, {
+  // Se aparta recién ahora (RN-07). Orden de bloqueo: pedido (arriba) → traslados → reservas → stock.
+  const { transfers } = await allocateLines(tx, {
     actor,
-    lines: lines.map((l) => ({ variantId: l.variantId, locationId: order.fulfillmentLocationId, qty: l.quantity, orderLineId: l.id })),
+    order: { id: order.id, number: order.number, fulfillmentLocationId: order.fulfillmentLocationId },
+    items: lines.map((l) => ({ lineId: l.id, variantId: l.variantId, qty: l.quantity })),
+    storeSources: new Map(lineSources.map((s) => [s.lineId, s.locationId])),
+    keyBase: idempotencyKey,
+    setLineSource: true,
   });
 
   const sale = await createOnlineSale(tx, {
@@ -81,12 +87,15 @@ async function executeConfirm(tx: Tx, actor: Actor, data: ReturnType<typeof conf
     idempotencyKey: `${idempotencyKey}:sale`,
   });
 
-  await transition(tx, orderId, OrderStatus.PAGADO, OrderStatus.LISTO_PARA_PREPARAR, {}, "confirmar el pago");
+  const next = transfers.length > 0 ? OrderStatus.ESPERANDO_TRASPASO : OrderStatus.LISTO_PARA_PREPARAR;
+  await transition(tx, orderId, OrderStatus.PAGADO, next, {}, "confirmar el pago");
   await recordEvent(tx, {
     orderId,
-    status: OrderStatus.LISTO_PARA_PREPARAR,
+    status: next,
     userId: actor.id,
-    note: `Pago confirmado (${payment.method}${payment.reference ? ` ${payment.reference}` : ""}) · venta ${sale.number}`,
+    note:
+      `Pago confirmado (${payment.method}${payment.reference ? ` ${payment.reference}` : ""}) · venta ${sale.number}` +
+      (transfers.length > 0 ? ` · traslado ${transfers.map((t) => t.number).join(", ")} desde la tienda` : ""),
     idempotencyKey,
   });
 }

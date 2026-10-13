@@ -8,14 +8,15 @@ import {
   cancelTransferCommand,
   createTransferCommand,
   getTransferDetail,
-  receiveTransferCommand,
-  resolveTransferDifferenceCommand,
   searchTransferVariants,
   sendTransferCommand,
   updateTransferDraftCommand,
   type TransferVariantHit,
 } from "@/modules/inventory";
 import { listLocations } from "@/modules/locations";
+// Recibir y resolver pasan por orders: si el traslado es de un pedido online, el pedido reacciona en la MISMA
+// transacción (LISTO_PARA_PREPARAR, bloqueo por diferencia…). Si no lo es, es el comando de inventario de siempre.
+import { receiveTransferAndSync, resolveTransferAndSync } from "@/modules/orders";
 
 // Adaptadores de los traslados: validan con Zod, toman la ubicación DESDE LA SESIÓN (nunca del navegador) y
 // delegan en InventoryService, que vuelve a validar rol y ubicación (regla 10). Los errores vuelven como datos.
@@ -39,6 +40,7 @@ const linesSchema = z
 function refresh(transferId?: string) {
   revalidatePath("/traslados");
   revalidatePath("/stock");
+  revalidatePath("/pedidos"); // los traslados de pedidos online mueven el estado del pedido
   if (transferId) revalidatePath(`/traslados/${transferId}`);
 }
 
@@ -146,7 +148,7 @@ export async function receiveTransferAction(payload: {
     const user = await requireAccess({ roles: ALL_ROLES });
     const transfer = await getTransferDetail(parsed.data.transferId);
     await requireAccess({ roles: ALL_ROLES, locationId: transfer.toLocation.id });
-    const { result } = await receiveTransferCommand({ actor: user, ...parsed.data });
+    const { result } = await receiveTransferAndSync({ actor: user, ...parsed.data });
     refresh(parsed.data.transferId);
     return { ok: true, withDifferences: result.transfer.status === "RECIBIDO_CON_DIFERENCIAS" };
   } catch (error) {
@@ -173,7 +175,7 @@ export async function resolveDifferencesAction(payload: {
   if (!parsed.success) return invalid(parsed.error);
   try {
     const user = await requireAccess({ roles: ["ADMIN"] });
-    const { result } = await resolveTransferDifferenceCommand({ actor: user, ...parsed.data, notes: parsed.data.notes || undefined });
+    const { result } = await resolveTransferAndSync({ actor: user, ...parsed.data, notes: parsed.data.notes || undefined });
     refresh(parsed.data.transferId);
     return {
       ok: true,

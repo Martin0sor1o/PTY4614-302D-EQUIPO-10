@@ -45,16 +45,38 @@ async function stockCommand(
   });
 }
 
+/** Resultado ya guardado de enviar/recibir un traslado con esa clave (o null). La usa orders para sus envolturas. */
+export async function findTransferOperation(idempotencyKey: string, transferId: string): Promise<TransferOperationResult | null> {
+  const movements = await findOperationMovements(idempotencyKey);
+  return movements ? { transfer: await getTransfer(db, transferId), movements } : null;
+}
+
+/** Resultado ya guardado de resolver diferencias con esa clave (huella: fila de audit_log), o null. */
+export async function findTransferResolution(idempotencyKey: string, transferId: string): Promise<ResolveTransferResult | null> {
+  const done = await db.auditLog.findFirst({
+    where: {
+      action: RESOLVE_ACTION,
+      entity: "transfer",
+      entityId: transferId,
+      after: { path: ["idempotencyKey"], equals: idempotencyKey },
+    },
+    select: { id: true },
+  });
+  if (!done) return null;
+  return {
+    transfer: await getTransfer(db, transferId),
+    movements: (await findOperationMovements(idempotencyKey)) ?? [],
+    reshipTransfer: await findTransferByIdempotencyKey(db, reshipKey(idempotencyKey)),
+  };
+}
+
 async function transferCommand(
   idempotencyKey: string,
   transferId: string,
   fn: (tx: Tx) => Promise<TransferOperationResult>,
 ): Promise<IdempotentResult<TransferOperationResult>> {
   return runIdempotent({
-    find: async () => {
-      const movements = await findOperationMovements(idempotencyKey);
-      return movements ? { transfer: await getTransfer(db, transferId), movements } : null;
-    },
+    find: () => findTransferOperation(idempotencyKey, transferId),
     execute: () => inTransaction(fn),
   });
 }
@@ -97,23 +119,7 @@ export function resolveTransferDifferenceCommand(
   input: Parameters<typeof resolveTransferDifference>[1],
 ): Promise<IdempotentResult<ResolveTransferResult>> {
   return runIdempotent({
-    find: async () => {
-      const done = await db.auditLog.findFirst({
-        where: {
-          action: RESOLVE_ACTION,
-          entity: "transfer",
-          entityId: input.transferId,
-          after: { path: ["idempotencyKey"], equals: input.idempotencyKey },
-        },
-        select: { id: true },
-      });
-      if (!done) return null;
-      return {
-        transfer: await getTransfer(db, input.transferId),
-        movements: (await findOperationMovements(input.idempotencyKey)) ?? [],
-        reshipTransfer: await findTransferByIdempotencyKey(db, reshipKey(input.idempotencyKey)),
-      };
-    },
+    find: () => findTransferResolution(input.idempotencyKey, input.transferId),
     execute: () => inTransaction((tx) => resolveTransferDifference(tx, input)),
   });
 }

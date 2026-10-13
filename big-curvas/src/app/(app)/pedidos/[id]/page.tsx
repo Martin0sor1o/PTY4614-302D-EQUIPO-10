@@ -4,6 +4,7 @@ import { requirePageAccess } from "@/modules/auth";
 import { formatCLP } from "@/lib/money";
 import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
+import { FillShortage } from "@/components/orders/fill-shortage";
 import { CancelOrder, DeliverOrder } from "@/components/orders/order-actions";
 import { ageLabel, CHANNEL_LABEL, ORDER_STATUS_LABEL, OrderStatusBadge, PAYMENT_LABEL } from "@/components/orders/status-badge";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
@@ -29,6 +30,8 @@ function cancelConsequence(o: OrderDetail): string {
   switch (o.status) {
     case "PENDIENTE_PAGO":
       return "No hay nada apartado: no se mueve stock.";
+    case "ESPERANDO_TRASPASO":
+      return `Se liberan las reservas (tienda y bodega). El traslado en borrador se anula; si ya viaja, al llegar a bodega la prenda queda como stock libre.${sale}`;
     case "LISTO_PARA_PREPARAR":
       return `Se liberan las reservas en la bodega.${sale}`;
     case "PREPARADO":
@@ -42,7 +45,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
   const user = await requirePageAccess(["ADMIN"]);
   const o = await loadOrder(params, user);
   const now = new Date();
-  const cancellable = ["PENDIENTE_PAGO", "LISTO_PARA_PREPARAR", "PREPARADO"].includes(o.status);
+  const cancellable = ["PENDIENTE_PAGO", "ESPERANDO_TRASPASO", "LISTO_PARA_PREPARAR", "PREPARADO"].includes(o.status);
+  const shortLines = o.lines.filter((l) => l.shortage > 0);
 
   return (
     <div className="space-y-5">
@@ -109,6 +113,21 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
             <strong>Pedido bloqueado.</strong> El traslado de este pedido llegó con diferencias. Se desbloquea cuando Belén las resuelve en Traslados → Con diferencias.
           </span>
         </div>
+      )}
+
+      {o.canFillShortage && (
+        <FillShortage
+          orderId={o.id}
+          number={o.number}
+          fulfillmentLocationId={o.fulfillmentLocation.id}
+          lines={shortLines.map((l) => ({
+            lineId: l.id,
+            sku: l.sku,
+            description: `${l.productName} · ${l.color} · T${l.size}`,
+            qty: l.shortage,
+            availability: l.availability,
+          }))}
+        />
       )}
 
       <dl className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -182,6 +201,8 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
                       </div>
                     ))
                   )}
+                  {l.inTransit > 0 && <div className="text-violet-700">En camino a bodega: {l.inTransit}</div>}
+                  {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && <div className="font-medium text-amber-700">Faltan {l.shortage}</div>}
                   {l.pickedQty > 0 && <div className="text-emerald-700">Preparadas: {l.pickedQty}</div>}
                 </TableCell>
                 <TableCell className="text-xs">

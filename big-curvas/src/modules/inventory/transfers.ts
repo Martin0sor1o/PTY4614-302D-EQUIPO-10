@@ -33,6 +33,7 @@ const transferSelect = {
   toLocationId: true,
   status: true,
   reason: true,
+  onlineOrderId: true,
   lines: {
     select: { id: true, variantId: true, qtySent: true, qtyReceived: true, orderLineId: true, reservationId: true, differenceResolution: true },
     orderBy: { variantId: "asc" },
@@ -330,4 +331,52 @@ export async function receiveTransfer(
     }
   }
   return { transfer: await getTransfer(tx, transferId), movements };
+}
+
+/**
+ * Cancelación de un pedido online (RF-PED-09): qué pasa con sus traslados. SOLO ADMIN, llamada por orders dentro de
+ * la transacción de cancelar, con el pedido ya bloqueado (orden de bloqueo: pedido → traslados → reservas → stock).
+ *   · BORRADOR  → ANULADO (la reserva de la tienda la libera orders con `releaseReservations`).
+ *   · EN_TRANSITO / RECIBIDO_CON_DIFERENCIAS → las líneas se DESLIGAN del pedido: al llegar a bodega (o al resolver la
+ *     diferencia) la prenda queda como stock libre, sin reserva.
+ * Los traslados ya recibidos o cerrados no se tocan.
+ */
+export async function cancelOrderTransfers(
+  tx: Tx,
+  input: { actor: Actor; onlineOrderId: string; reason: string },
+): Promise<{ cancelledIds: string[]; detachedIds: string[] }> {
+  assertAccess(input.actor, { roles: ["ADMIN"] });
+  // Bloquea todos los traslados del pedido de una vez, en orden de id, antes de tocar reservas o stock.
+  const rows = await tx.$queryRaw<{ id: string; number: string; status: TransferStatus; from_location_id: string }[]>`
+    SELECT id, number, status, from_location_id FROM transfers WHERE online_order_id = ${input.onlineOrderId} ORDER BY id FOR UPDATE`;
+
+  const cancelledIds: string[] = [];
+  const detachedIds: string[] = [];
+  for (const t of rows) {
+    if (t.status === TransferStatus.BORRADOR) {
+      const { count } = await tx.transfer.updateMany({
+        where: { id: t.id, status: TransferStatus.BORRADOR },
+        data: { status: TransferStatus.ANULADO },
+      });
+      if (count === 0) throw new AppError("CONFLICT", `El traslado ${t.number} cambió de estado: reintenta la cancelación.`);
+      cancelledIds.push(t.id);
+    } else if (t.status === TransferStatus.EN_TRANSITO || t.status === TransferStatus.RECIBIDO_CON_DIFERENCIAS) {
+      await tx.transferLine.updateMany({ where: { transferId: t.id, orderLineId: { not: null } }, data: { orderLineId: null } });
+      detachedIds.push(t.id);
+    } else {
+      continue;
+    }
+    await tx.auditLog.create({
+      data: {
+        userId: input.actor.id,
+        locationId: t.from_location_id,
+        action: t.status === TransferStatus.BORRADOR ? "TRANSFER_CANCEL" : "TRANSFER_UNLINK_ORDER",
+        entity: "transfer",
+        entityId: t.id,
+        before: { status: t.status },
+        after: { number: t.number, onlineOrderId: input.onlineOrderId, reason: input.reason },
+      },
+    });
+  }
+  return { cancelledIds, detachedIds };
 }

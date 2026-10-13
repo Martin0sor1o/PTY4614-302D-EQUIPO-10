@@ -106,15 +106,21 @@ describe("cancelar pedido", () => {
     expect(await db.reservation.count({ where: { status: "LIBERADA" } })).toBe(1);
   });
 
-  it("cancelar y preparar al mismo tiempo: solo uno gana y el stock cuadra", async () => {
+  it("cancelar y preparar al mismo tiempo: el pedido queda cancelado y el stock cuadra, gane quien gane", async () => {
+    // Cancelar bloquea el pedido ANTES de leer su estado, así que decide con el estado real:
+    //   · si cancela primero → preparar recibe CONFLICT (el pedido ya está cancelado) y las reservas se liberan;
+    //   · si prepara primero → cancelar ve PREPARADO y reingresa lo consumido (REINGRESO_PEDIDO_CANCELADO).
+    // (Antes de bloquear primero, cancelar podía recibir un CONFLICT espurio por leer el estado sin bloqueo.)
+    const pba = await f.variant(PBA_XL);
     const order = await registerTestOrder(f, [{ sku: PBA_XL, qty: 2 }]);
     const { result: paid } = await confirmTestPayment(f, order.id);
 
-    const results = await Promise.allSettled([cancel(order.id), prepareTestOrder(f, paid)]);
+    const [cancelled, prepared] = await Promise.allSettled([cancel(order.id), prepareTestOrder(f, paid)]);
 
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    const final = (await getOrderDetail({ actor: f.actors.belen, orderId: order.id })).status;
-    expect(["CANCELADO", "PREPARADO"]).toContain(final);
+    expect(cancelled.status).toBe("fulfilled");
+    if (prepared.status === "rejected") expect(prepared.reason).toMatchObject({ code: "CONFLICT" });
+    expect((await getOrderDetail({ actor: f.actors.belen, orderId: order.id })).status).toBe("CANCELADO");
+    expect(await stockOf(pba, f.loc.BODEGA)).toEqual({ onHand: 20, reserved: 0 });
     await expectInvariants();
   });
 });

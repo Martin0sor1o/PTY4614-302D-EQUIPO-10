@@ -48,13 +48,18 @@ export const paymentSchema = z.object({
   reference: z.string().trim().max(60).optional(),
 });
 
+/** Líneas que Belén aparta en una tienda (solo si la bodega no tiene para la línea completa). El resto va a bodega. */
+const lineSources = z.array(z.object({ lineId: id, locationId: id })).max(100).default([]);
+
 export const confirmPaymentSchema = z
-  .object({ orderId: id, payment: paymentSchema, idempotencyKey })
+  .object({ orderId: id, payment: paymentSchema, lineSources, idempotencyKey })
   .superRefine((d, ctx) => {
     if (d.payment.method !== "EFECTIVO" && !d.payment.reference) {
       ctx.addIssue({ code: "custom", message: "La referencia del pago es obligatoria (N° de transferencia o voucher).", path: ["payment", "reference"] });
     }
   });
+
+export const fillShortageSchema = z.object({ orderId: id, lineSources, idempotencyKey });
 
 export const prepareOrderSchema = z.object({
   orderId: id,

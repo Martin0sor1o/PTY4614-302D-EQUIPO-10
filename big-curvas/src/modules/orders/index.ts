@@ -12,6 +12,14 @@ export {
   type DeliverOrderInput,
 } from "./fulfillment";
 export { cancelOrder, type CancelOrderInput } from "./cancel";
+export {
+  receiveTransferAndSync,
+  resolveTransferAndSync,
+  fillShortage,
+  type ReceiveTransferInput,
+  type ResolveTransferInput,
+  type FillShortageInput,
+} from "./order-transfers";
 
 export {
   getOrderDetail,
