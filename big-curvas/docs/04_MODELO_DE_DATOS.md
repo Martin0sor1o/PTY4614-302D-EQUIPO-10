@@ -98,7 +98,7 @@ erDiagram
 
 **cash_movements** (D): `id`, `cash_session_id`, `type`, `amount`, `reason`, `user_id`.
 
-**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `total`, `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_approval_id`.
+**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `shipping_cost` (Int ≥ 0; 0 en POS), `total` (= subtotal − discount_total + shipping_cost, con CHECK), `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_approval_id`.
 
 **sale_lines**: `id`, `sale_id`, `variant_id`, `quantity`, `unit_price`, `unit_cost`, `promotion_id`, `promotion_discount`, `manual_discount`, `discount_approval_id` (nullable), `line_total`.
 
@@ -117,12 +117,14 @@ erDiagram
 
 ### 2.6 Pedidos online
 
-**customers**: `id`, `name`, `instagram_handle`, `phone`, `email`, `rut` (nullable), `notes`, `active`.
+**customers**: `id`, `name`, `instagram_handle`, `phone`, `email`, `rut` (nullable), `address`, `commune` (dirección simple en la demo; `customer_addresses` queda para después), `notes`, `active`.
 **customer_addresses**: `id`, `customer_id`, `street`, `number`, `apartment`, `commune`, `region`, `reference`.
 
-**online_orders**: `id`, `number`, `channel`, `customer_id`, `status` (`PENDIENTE_PAGO` | `PAGADO` | `ESPERANDO_TRASPASO` | `LISTO_PARA_PREPARAR` | `PREPARADO` | `DESPACHADO` | `EN_CAMINO_A_TIENDA` | `LISTO_PARA_RETIRO` | `ENTREGADO` | `CANCELADO`), `fulfillment_location_id` (= BODEGA), `delivery_method` (`DESPACHO` | `RETIRO_TIENDA`), `pickup_location_id` (tienda de retiro, nullable), `shipping_address`, `shipping_cost`, `free_shipping_applied`, `subtotal`, `discount_total`, `total`, `payment_method`, `payment_reference`, `paid_at`, `prepared_at`, `prepared_by`, `courier`, `tracking_number`, `shipped_at`, `arrived_at_store_at`, `store_received_by`, `delivered_at`, `delivered_by`, `picked_up_by_name` / `picked_up_by_rut`, `cancelled_at`, `cancel_reason`, `sale_id`, `created_by` (ADMIN), `idempotency_key`, `notes`.
+**online_orders**: `id`, `number`, `channel`, `customer_id`, `status` (`PENDIENTE_PAGO` | `PAGADO` | `ESPERANDO_TRASPASO` | `LISTO_PARA_PREPARAR` | `PREPARADO` | `DESPACHADO` | `EN_CAMINO_A_TIENDA` | `LISTO_PARA_RETIRO` | `ENTREGADO` | `CANCELADO`), `fulfillment_location_id` (= BODEGA), `delivery_method` (`DESPACHO` | `RETIRO_TIENDA`), `pickup_location_id` (tienda de retiro, nullable), `shipping_address`, `shipping_cost`, `free_shipping_applied`, `subtotal`, `discount_total`, `total`, `payment_method`, `payment_reference`, `paid_at`, `prepared_at`, `prepared_by`, `courier`, `tracking_number`, `shipped_at`, `arrived_at_store_at`, `store_received_by`, `delivered_at`, `delivered_by`, `picked_up_by_name` / `picked_up_by_rut`, `cancelled_at`, `cancel_reason`, `sale_id`, `created_by` (ADMIN), `idempotency_key`, `notes`. El estado `PAGADO` no se persiste (solo existe dentro de la transacción de confirmar). `DESPACHADO` y `ENTREGADO` no se cancelan: se gestionan como devolución.
 
-**online_order_lines**: `id`, `order_id`, `variant_id`, `quantity`, `unit_price`, `promotion_id`, `discount_amount`, `line_total`, `source_location_id` (BODEGA o la tienda de donde se trae), `picked_qty`.
+**online_order_lines**: `id`, `order_id`, `variant_id`, `quantity`, `unit_price`, `promotion_id`, `discount_amount`, `line_total`, `source_location_id` (BODEGA o la tienda de donde se trae), `picked_qty`. En la demo: `discount_bps` (0–10000) y UNIQUE (`order_id`, `variant_id`): una variante aparece una vez por pedido.
+
+**online_order_events** (solo INSERT): `id`, `order_id`, `status`, `user_id`, `note`, `idempotency_key` (UNIQUE), `created_at`. Historial de estados del pedido y huella de idempotencia de las transiciones que no mueven stock.
 
 ### 2.7 Proveedores
 
@@ -132,7 +134,7 @@ erDiagram
 
 **audit_log**: `id`, `user_id`, `location_id`, `action`, `entity`, `entity_id`, `before`, `after`, `created_at`.
 
-**settings** (editables por Belén): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡).
+**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡).
 
 **stock_min_levels** (post-MVP): `variant_id`, `location_id`, `min_qty`, `target_qty` → sugerencias de reposición.
 

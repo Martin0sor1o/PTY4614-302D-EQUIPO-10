@@ -157,8 +157,8 @@ stateDiagram-v2
 | RF-PED-05 | Cuando todas las unidades están en bodega → "Listo para preparar". Belén escanea cada prenda y se consume el stock | M |
 | RF-PED-06 | **Despacho** por courier (lista configurable: Starken, Blue Express, Chilexpress ❓ P-11) con N° de seguimiento | M |
 | RF-PED-07 | Retiro (en tienda o en bodega) ❓ P-11 | D |
-| RF-PED-08 | Costo de envío y envío gratis sobre un monto ❓ P-11 (configurable) | M |
-| RF-PED-09 | Cancelar: libera las reservas; si hay traslado en curso, al llegar a bodega queda como stock libre; si ya estaba preparado, se reingresa a bodega | M |
+| RF-PED-08 | Costo de envío ingresado a mano (envío gratis sobre un monto ❓ P-11). El envío forma parte del total de la venta (`sales.shipping_cost`) | M |
+| RF-PED-09 | Cancelar (solo Belén, con motivo): libera las reservas; si hay traslado en curso, al llegar a bodega queda como stock libre; si ya estaba preparado, se reingresa a bodega. **Despachado o entregado no se cancela** (se gestiona como devolución). Si el pedido estaba pagado, la venta queda intacta con aviso de **"reembolso pendiente"** hasta el flujo de reembolso con aprobación (Etapa 6) | M |
 | RF-PED-10 | Tablero por estado con antigüedad (ej. "esperando traslado", "listo para preparar") | M |
 | RF-PED-11 | Guía/etiqueta de despacho imprimible | D |
 | RF-PED-12 | Plantilla de mensaje para la clienta | D |
