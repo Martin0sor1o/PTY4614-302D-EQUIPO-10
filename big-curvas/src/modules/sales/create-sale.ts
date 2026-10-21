@@ -6,8 +6,10 @@ import { runIdempotent, type IdempotentResult } from "@/lib/idempotency";
 import { formatCLP } from "@/lib/money";
 import { parseInput } from "@/lib/validation";
 import { SaleChannel } from "@/generated/prisma/client";
+import { consumeApproval } from "@/modules/approvals";
 import { sell } from "@/modules/inventory";
 import { nextDocumentNumber } from "@/modules/numbering";
+import { cartBinding } from "./approvals";
 import { getDiscountLimitBps, getPosLocation, loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
 import { assertDiscountWithinLimit, effectivePrice, isDiscountOverLimit, priceSale, quotePayment } from "./pricing";
 import { createSaleSchema } from "./schemas";
@@ -22,6 +24,8 @@ export interface CreateSaleInput {
   payment:
     | { method: "EFECTIVO"; cashReceived: number }
     | { method: "DEBITO" | "CREDITO" | "TRANSFERENCIA"; reference: string };
+  /** Aprobación de Belén para los descuentos de una VENDEDORA que superan su límite (uso único, ligada a este carrito). */
+  approvalId?: string;
   idempotencyKey: string;
 }
 
@@ -80,10 +84,12 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
   //    el ADMIN sí puede (02_REQUERIMIENTOS §1) y queda en audit_log (DISCOUNT_OVERRIDE, más abajo).
   const limitBps = await getDiscountLimitBps(tx);
   const isAdmin = actor.role === "ADMIN";
-  if (!isAdmin) {
+  const overLimit = lines.filter((l) => isDiscountOverLimit(l.discountBps, limitBps));
+  // Una VENDEDORA con descuentos sobre su límite necesita la aprobación de Belén (regla 10b); sin ella, se bloquea.
+  const needsApproval = !isAdmin && overLimit.length > 0;
+  if (needsApproval && !data.approvalId) {
     for (const line of lines) assertDiscountWithinLimit(line.discountBps, limitBps, variantById.get(line.variantId)!.sku);
   }
-  const overLimit = lines.filter((l) => isDiscountOverLimit(l.discountBps, limitBps));
 
   // 4. Montos: todo calculado aquí con las funciones puras.
   const priced = priceSale(
@@ -102,8 +108,23 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
     );
   }
 
-  // 5. Stock: si una línea no alcanza, sell lanza STOCK_INSUFICIENTE nombrando la prenda y se revierte todo.
+  // 4b. Aprobación de Belén: uso único, del mismo tipo, ubicación, MONTO de descuento y CARRITO (huella). Se consume en esta
+  //     misma transacción: si la venta falla, la aprobación sigue disponible.
   const saleId = randomUUID();
+  if (needsApproval) {
+    await consumeApproval(tx, {
+      actor,
+      approvalId: data.approvalId!,
+      type: "DESCUENTO_SOBRE_LIMITE",
+      locationId,
+      amount: priced.discountTotal,
+      binding: cartBinding(lines),
+      usedRefType: "SALE",
+      usedRefId: saleId,
+    });
+  }
+
+  // 5. Stock: si una línea no alcanza, sell lanza STOCK_INSUFICIENTE nombrando la prenda y se revierte todo.
   await sell(tx, {
     actor,
     locationId,
@@ -140,6 +161,7 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
       unitPrice: priced.lines[i].unitPrice,
       manualDiscountBps: l.discountBps,
       manualDiscount: priced.lines[i].discount,
+      discountApprovalId: needsApproval && isDiscountOverLimit(l.discountBps, limitBps) ? data.approvalId : null,
       lineTotal: priced.lines[i].lineTotal,
     })),
   });
@@ -152,6 +174,24 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
       cashReceived: payment.method === "EFECTIVO" ? payment.cashReceived : null,
     },
   });
+
+  if (needsApproval) {
+    await tx.auditLog.create({
+      data: {
+        userId: actor.id,
+        locationId,
+        action: "DISCOUNT_APPROVED",
+        entity: "sale",
+        entityId: saleId,
+        after: {
+          saleNumber: number,
+          approvalId: data.approvalId,
+          discountTotal: priced.discountTotal,
+          lines: overLimit.map((l) => ({ sku: variantById.get(l.variantId)!.sku, discountBps: l.discountBps })),
+        },
+      },
+    });
+  }
 
   if (isAdmin && overLimit.length > 0) {
     await tx.auditLog.create({

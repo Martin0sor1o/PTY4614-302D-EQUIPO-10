@@ -3,6 +3,7 @@ import { MapPin } from "lucide-react";
 import type { SessionUser } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
 import { countPendingTransfers } from "@/modules/inventory";
+import { countPendingApprovals } from "@/modules/approvals";
 import { countOrdersToPrepare } from "@/modules/orders";
 import { listLocations } from "@/modules/locations";
 import { logoutAction, setActiveLocationAction } from "@/app/(app)/session-actions";
@@ -21,7 +22,10 @@ export async function AppShell({ user, children }: { user: SessionUser; children
   const pendingTransfers = (await countPendingTransfers({ locationId: user.activeLocation?.id, includeDifferences: isAdmin })).total;
   // Contador de "Pedidos": pedidos pagados que Belén debe preparar en la bodega.
   const ordersToPrepare = isAdmin ? await countOrdersToPrepare() : 0;
-  const badgeOf = (href: string) => (href === "/traslados" ? pendingTransfers : href === "/pedidos" ? ordersToPrepare : undefined);
+  // Contador de "Aprobaciones": solicitudes de las vendedoras que Belén aún no decide.
+  const pendingApprovals = isAdmin ? await countPendingApprovals() : 0;
+  const badgeOf = (href: string) =>
+    href === "/traslados" ? pendingTransfers : href === "/pedidos" ? ordersToPrepare : href === "/aprobaciones" ? pendingApprovals : undefined;
   const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label, badge: badgeOf(href) }));
   const locations = isAdmin ? await listLocations() : [];
 

@@ -77,6 +77,14 @@ export const dispatchOrderSchema = z.object({
 
 export const deliverOrderSchema = z.object({ orderId: id, idempotencyKey });
 
+export const refundOrderSchema = z.object({
+  orderId: id,
+  /** Medio del reembolso: texto libre mientras P-17 siga pendiente (transferencia, efectivo, anulación en la máquina…). */
+  method: z.string().trim().min(2, "Indica el medio del reembolso").max(60),
+  reference: z.string().trim().max(60).optional(),
+  idempotencyKey,
+});
+
 export const cancelOrderSchema = z.object({
   orderId: id,
   reason: z.string().trim().min(3, "El motivo de la cancelación es obligatorio").max(200),

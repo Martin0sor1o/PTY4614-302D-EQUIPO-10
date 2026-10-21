@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { formatTime } from "@/lib/dates";
 import { formatCLP } from "@/lib/money";
+import { demoPinHint } from "@/modules/demo";
 import { listSalesOfDay } from "@/modules/sales";
 import { METHOD_LABEL } from "@/components/pos/ticket";
+import { DaySalesTable, type DaySaleRow } from "@/components/pos/day-sales-table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { posPageContext } from "../context";
 
 export const dynamic = "force-dynamic";
@@ -16,12 +16,26 @@ export default async function DaySalesPage() {
   if (problem || !location) return problem;
 
   const day = await listSalesOfDay({ actor: user, locationId: location.id });
+  const rows: DaySaleRow[] = day.sales.map((s) => ({
+    id: s.id,
+    number: s.number,
+    time: formatTime(s.createdAt),
+    sellerName: s.sellerName,
+    units: s.lines.reduce((a, l) => a + l.quantity, 0),
+    methods: s.payments.map((p) => METHOD_LABEL[p.method]).join(" + "),
+    total: s.total,
+    collected: s.payments.reduce((a, p) => a + p.amount, 0),
+    voided: s.voided ? { reason: s.voided.reason, byName: s.voided.byName, time: formatTime(s.voided.at) } : null,
+  }));
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Ventas del día · {location.name}</h1>
-        <p className="text-sm text-muted-foreground">Día calendario en hora de Chile. Los totales por medio de pago son lo cobrado (efectivo ya con redondeo y sin vuelto).</p>
+        <p className="text-sm text-muted-foreground">
+          Día calendario en hora de Chile. Los totales por medio de pago son lo cobrado (efectivo ya con redondeo y sin vuelto); las ventas anuladas no suman. Solo se
+          anulan ventas del mismo día, con aprobación de Belén.
+        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -45,45 +59,7 @@ export default async function DaySalesPage() {
         </Card>
       </div>
 
-      <div className="rounded-xl border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>N° venta</TableHead>
-              <TableHead>Hora</TableHead>
-              <TableHead>Vendedora</TableHead>
-              <TableHead className="text-center">Prendas</TableHead>
-              <TableHead>Medio de pago</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead className="text-right">Cobrado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {day.sales.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  Aún no hay ventas hoy.
-                </TableCell>
-              </TableRow>
-            )}
-            {day.sales.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell className="font-mono">
-                  <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline">
-                    {s.number}
-                  </Link>
-                </TableCell>
-                <TableCell className="tabular-nums">{formatTime(s.createdAt)}</TableCell>
-                <TableCell>{s.sellerName}</TableCell>
-                <TableCell className="text-center tabular-nums">{s.lines.reduce((a, l) => a + l.quantity, 0)}</TableCell>
-                <TableCell>{s.payments.map((p) => METHOD_LABEL[p.method]).join(" + ")}</TableCell>
-                <TableCell className="text-right tabular-nums">{formatCLP(s.total)}</TableCell>
-                <TableCell className="text-right font-medium tabular-nums">{formatCLP(s.payments.reduce((a, p) => a + p.amount, 0))}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DaySalesTable rows={rows} isAdmin={user.role === "ADMIN"} demoPinHint={demoPinHint()} />
     </div>
   );
 }

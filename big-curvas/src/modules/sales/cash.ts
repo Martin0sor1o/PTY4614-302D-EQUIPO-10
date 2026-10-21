@@ -25,11 +25,24 @@ export async function cashTotals(reader: Reader, sessionId: string, openingCash:
     _sum: { amount: true },
   });
   const salesCount = await reader.sale.count({ where: { cashSessionId: sessionId, status: "COMPLETADA" } });
+  // Una venta de otra caja (ya cerrada) anulada con ESTA caja abierta: el efectivo sale de aquí. Una venta anulada en su
+  // propia caja simplemente no cuenta (no es COMPLETADA).
+  const refunded = await reader.payment.aggregate({
+    where: { method: PaymentMethod.EFECTIVO, sale: { voidCashSessionId: sessionId, NOT: { cashSessionId: sessionId } } },
+    _sum: { amount: true },
+  });
   const byMethod = emptyByMethod();
   for (const r of rows) {
     if (r.method !== PaymentMethod.VALE) byMethod[r.method] += r._sum.amount ?? 0;
   }
-  return { salesCount, byMethod, cashCollected: byMethod.EFECTIVO, expectedCash: expectedCash(openingCash, [byMethod.EFECTIVO]) };
+  const cashRefunded = refunded._sum.amount ?? 0;
+  return {
+    salesCount,
+    byMethod,
+    cashCollected: byMethod.EFECTIVO,
+    cashRefunded,
+    expectedCash: expectedCash(openingCash, [byMethod.EFECTIVO, -cashRefunded]),
+  };
 }
 
 const sessionInclude = { opener: { select: { name: true } }, closer: { select: { name: true } } } as const;

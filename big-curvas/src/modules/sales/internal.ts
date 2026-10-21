@@ -53,7 +53,11 @@ export async function loadSaleView(
 ): Promise<SaleView | null> {
   const s = await reader.sale.findUnique({
     where,
-    include: { location: { select: { id: true, name: true, address: true } }, seller: { select: { name: true } } },
+    include: {
+      location: { select: { id: true, name: true, address: true } },
+      seller: { select: { name: true } },
+      voider: { select: { name: true } },
+    },
   });
   if (!s) return null;
   const lines = await reader.saleLine.findMany({ where: { saleId: s.id }, orderBy: { id: "asc" }, include: lineInclude });
@@ -69,6 +73,7 @@ export async function loadSaleView(
     discountTotal: s.discountTotal,
     total: s.total,
     roundingAdjustment: s.roundingAdjustment,
+    voided: s.voidedAt ? { at: s.voidedAt, reason: s.voidReason, byName: s.voider?.name ?? null, approved: s.voidApprovalId !== null } : null,
     lines: lines.map((l) => ({
       variantId: l.variantId,
       sku: l.variant.sku,

@@ -16,16 +16,22 @@ export const LOCATIONS: LocationDef[] = [
   { code: "BODEGA", name: "Bodega", type: "WAREHOUSE", sellsPos: false, fulfillsOnline: true, salePrefix: "BOD" },
 ];
 
+/** DEMO: PIN de la administradora para la aprobación presencial. La pantalla lo muestra como pista solo con DEMO_MODE. */
+export const DEMO_ADMIN_PIN = "2468";
+
 export interface UserDef {
   key: string;
   name: string;
   email: string;
   role: "ADMIN" | "VENDEDORA" | "BODEGA";
   locationCode: LocationDef["code"] | null;
+  /** DEMO: PIN de aprobación presencial (RF-AUT-05). Se guarda hasheado (scrypt); nunca en claro en la BD. */
+  pin?: string;
 }
 
 export const USERS: UserDef[] = [
-  { key: "belen", name: "Belén", email: "belen@bigcurvas.demo", role: "ADMIN", locationCode: null },
+  // DEMO: PIN de Belén 2468 (solo para la demo; en producción cada administradora define el suyo).
+  { key: "belen", name: "Belén", email: "belen@bigcurvas.demo", role: "ADMIN", locationCode: null, pin: DEMO_ADMIN_PIN },
   { key: "vend-rga", name: "Vendedora Rancagua", email: "rancagua@bigcurvas.demo", role: "VENDEDORA", locationCode: "TIENDA_RANCAGUA" },
   { key: "vend-rga-2", name: "Vendedora 2 Rancagua", email: "rancagua2@bigcurvas.demo", role: "VENDEDORA", locationCode: "TIENDA_RANCAGUA" },
 ];
@@ -140,6 +146,18 @@ export const DEMO_SETTINGS: { key: string; valueInt?: number; valueText?: string
     key: "transfer_transit_alert_days",
     valueInt: 3,
     description: "Días en tránsito a partir de los cuales un traslado se marca con alerta. Valor propuesto (pendiente de validar).",
+    isDemoValue: true,
+  },
+  {
+    key: "pin_max_attempts",
+    valueInt: 5,
+    description: "Intentos fallidos de PIN antes de bloquear a la administradora. Valor de demo (pendiente de validar).",
+    isDemoValue: true,
+  },
+  {
+    key: "pin_lock_minutes",
+    valueInt: 15,
+    description: "Minutos de bloqueo del PIN tras superar los intentos fallidos. Valor de demo (pendiente de validar).",
     isDemoValue: true,
   },
   {

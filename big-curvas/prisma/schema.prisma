@@ -221,14 +221,18 @@ model Location {
 }
 
 model User {
-  id         String   @id @default(cuid())
-  name       String
-  email      String?  @unique
-  role       UserRole
-  locationId String?  @map("location_id") // obligatorio para VENDEDORA y BODEGA (CHECK en la migración)
-  active     Boolean  @default(true)
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                String    @id @default(cuid())
+  name              String
+  email             String?   @unique
+  role              UserRole
+  locationId        String?   @map("location_id") // obligatorio para VENDEDORA y BODEGA (CHECK en la migración)
+  // PIN de aprobación presencial (RF-AUT-05). scrypt: "scrypt$N$salt$hash". Bloqueo tras pin_max_attempts fallos.
+  pinHash           String?   @map("pin_hash")
+  failedPinAttempts Int       @default(0) @map("failed_pin_attempts")
+  pinLockedUntil    DateTime? @map("pin_locked_until")
+  active            Boolean   @default(true)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
   location Location? @relation(fields: [locationId], references: [id])
 
@@ -248,6 +252,8 @@ model User {
   ordersDelivered      OnlineOrder[]       @relation("OrderDeliveredBy")
   ordersReceivedAtShop OnlineOrder[]       @relation("OrderStoreReceivedBy")
   ordersCancelled      OnlineOrder[]       @relation("OrderCancelledBy")
+  ordersRefunded       OnlineOrder[]       @relation("OrderRefundedBy")
+  salesVoided          Sale[]              @relation("SaleVoidedBy")
   orderEvents          OnlineOrderEvent[]
   auditLogs            AuditLog[]
 
@@ -481,10 +487,11 @@ model CashSession {
   notes        String?
   status       CashSessionStatus @default(ABIERTA)
 
-  location Location @relation(fields: [locationId], references: [id])
-  opener   User     @relation("CashOpenedBy", fields: [openedBy], references: [id])
-  closer   User?    @relation("CashClosedBy", fields: [closedBy], references: [id])
-  sales    Sale[]
+  location    Location @relation(fields: [locationId], references: [id])
+  opener      User     @relation("CashOpenedBy", fields: [openedBy], references: [id])
+  closer      User?    @relation("CashClosedBy", fields: [closedBy], references: [id])
+  sales       Sale[]
+  voidedSales Sale[]   @relation("SaleVoidCashSession")
 
   @@index([locationId, status])
   @@map("cash_sessions")
@@ -507,14 +514,24 @@ model Sale {
   roundingAdjustment Int         @default(0) @map("rounding_adjustment")
   idempotencyKey     String      @unique @map("idempotency_key")
   createdAt          DateTime    @default(now()) @map("created_at")
+  // Anulación (RN-12). CHECK en la migración: status = ANULADA ⇔ voided_at no nulo.
+  voidedAt           DateTime?   @map("voided_at")
+  voidedBy           String?     @map("voided_by")
+  voidReason         String?     @map("void_reason")
+  voidApprovalId     String?     @unique @map("void_approval_id") // aprobación de Belén (anulación pedida por una vendedora)
+  /// Caja abierta de la que salió el efectivo al anular (null si no hubo efectivo o fue un reembolso de pedido online).
+  voidCashSessionId  String?     @map("void_cash_session_id")
 
-  location    Location     @relation(fields: [locationId], references: [id])
-  cashSession CashSession? @relation(fields: [cashSessionId], references: [id])
-  seller      User         @relation(fields: [sellerId], references: [id])
-  customer    Customer?    @relation(fields: [customerId], references: [id])
-  onlineOrder OnlineOrder? @relation(fields: [onlineOrderId], references: [id])
-  lines       SaleLine[]
-  payments    Payment[]
+  location        Location         @relation(fields: [locationId], references: [id])
+  cashSession     CashSession?     @relation(fields: [cashSessionId], references: [id])
+  seller          User             @relation(fields: [sellerId], references: [id])
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  onlineOrder     OnlineOrder?     @relation(fields: [onlineOrderId], references: [id])
+  voider          User?            @relation("SaleVoidedBy", fields: [voidedBy], references: [id])
+  voidApproval    ApprovalRequest? @relation("SaleVoidApproval", fields: [voidApprovalId], references: [id])
+  voidCashSession CashSession?     @relation("SaleVoidCashSession", fields: [voidCashSessionId], references: [id])
+  lines           SaleLine[]
+  payments        Payment[]
 
   @@index([locationId, createdAt])
   @@index([channel, createdAt])
@@ -573,10 +590,11 @@ model ApprovalRequest {
   idempotencyKey  String?        @unique @map("idempotency_key")
   createdAt       DateTime       @default(now()) @map("created_at")
 
-  location  Location   @relation(fields: [locationId], references: [id])
-  requester User       @relation("ApprovalRequestedBy", fields: [requestedBy], references: [id])
-  decider   User?      @relation("ApprovalDecidedBy", fields: [decidedBy], references: [id])
-  saleLines SaleLine[]
+  location   Location   @relation(fields: [locationId], references: [id])
+  requester  User       @relation("ApprovalRequestedBy", fields: [requestedBy], references: [id])
+  decider    User?      @relation("ApprovalDecidedBy", fields: [decidedBy], references: [id])
+  saleLines  SaleLine[]
+  voidedSale Sale?      @relation("SaleVoidApproval")
 
   @@index([status, createdAt])
   @@map("approval_requests")
@@ -631,6 +649,11 @@ model OnlineOrder {
   cancelledAt           DateTime?      @map("cancelled_at")
   cancelledBy           String?        @map("cancelled_by")
   cancelReason          String?        @map("cancel_reason")
+  // Reembolso de un pedido cancelado y pagado (P-17 pendiente: medio y referencia son texto libre en la demo).
+  refundedAt            DateTime?      @map("refunded_at")
+  refundedBy            String?        @map("refunded_by")
+  refundMethod          String?        @map("refund_method")
+  refundReference       String?        @map("refund_reference")
   pickedUpByName        String?        @map("picked_up_by_name") // quién retira (campo simple)
   createdBy             String         @map("created_by")
   idempotencyKey        String         @unique @map("idempotency_key")
@@ -646,6 +669,7 @@ model OnlineOrder {
   deliverer           User?              @relation("OrderDeliveredBy", fields: [deliveredBy], references: [id])
   storeReceiver       User?              @relation("OrderStoreReceivedBy", fields: [storeReceivedBy], references: [id])
   canceller           User?              @relation("OrderCancelledBy", fields: [cancelledBy], references: [id])
+  refunder            User?              @relation("OrderRefundedBy", fields: [refundedBy], references: [id])
   lines               OnlineOrderLine[]
   events              OnlineOrderEvent[]
   sale                Sale?

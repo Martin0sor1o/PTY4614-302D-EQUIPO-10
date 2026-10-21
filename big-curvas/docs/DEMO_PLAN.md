@@ -65,11 +65,14 @@
     - [x] Cancelar en `ESPERANDO_TRASPASO` (traslado en borrador, en tránsito o recibido con diferencias)
     - [x] lint + typecheck + tests · commit
   - **Fuera de la demo:** el **retiro en tienda** (EN_CAMINO_A_TIENDA → LISTO_PARA_RETIRO) queda pendiente de P-11 (¿hay retiro y dónde?).
-- [ ] **Etapa 6 – Aprobación remota**
-  - [ ] Caso principal: **descuento de la vendedora** (límite 0 %, solo Belén da descuentos) → solicitud, caja en espera (polling ~3 s). Además, reembolsos y anulaciones
-  - [ ] Vista móvil `/aprobaciones`
-  - [ ] Aprobación de uso único (tipo, ubicación y monto) + tests
-  - [ ] lint + typecheck + tests · commit
+- [x] **Etapa 6 – Aprobación remota**
+  - [x] Caso principal: **descuento de la vendedora** (límite 0 %, solo Belén da descuentos) → solicitud, caja en espera (polling ~3 s)
+  - [x] **Anulación de venta del mismo día** (RN-12): la pide la vendedora, se ejecuta sola al aprobarse (`ANULACION_VENTA`); el efectivo sale de la caja abierta
+  - [x] Reembolso de un pedido cancelado: lo registra Belén directamente (la `Sale` pasa a `ANULADA`)
+  - [x] Vista móvil `/aprobaciones` (contador en el menú, refresco ~3 s)
+  - [x] Aprobación presencial con PIN ("Belén está aquí")
+  - [x] Aprobación de uso único (tipo, ubicación, monto y carrito/venta) + tests
+  - [x] Migración `approvals` · lint + typecheck + tests + build · commit
 - [ ] **Etapa 7 – Pulido para presentar**
   - [ ] Inicio "Guion de demo" (5 pasos)
   - [ ] Botón reiniciar datos (ADMIN + `DEMO_MODE`)
@@ -175,8 +178,8 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - **PIN de la vendedora (RN-29):** en la caja compartida cada venta debe identificar a la vendedora con su PIN. En la demo se identifica con "Entrar como…"; el PIN llega con la autenticación real (Fase 1).
 - En producción, el usuario de BD de la app no debe tener permiso `TRUNCATE` sobre `inventory_movements` (el trigger de solo-INSERT no cubre TRUNCATE; en la demo se permite para reiniciar datos y para los tests).
 - Validar con el contador el redondeo de efectivo a $10 (1–5 baja, 6–9 sube).
-- ~~P-08~~ resuelto en v0.4: solo Belén da descuentos; el límite de la vendedora es 0 % (`settings`, sin `is_demo_value`). Falta el flujo de aprobación (Etapa 6): hasta entonces, el POS bloquea todo descuento de la vendedora.
-- ~~Cancelación de pedidos online~~ hecha en la Etapa 5 (la `Sale` queda con "reembolso pendiente" hasta el reembolso formal de la Etapa 6). Vencimiento de reservas: **no aplica** (ADR-004 v3).
+- ~~P-08~~ resuelto en v0.4: solo Belén da descuentos; el límite de la vendedora es 0 % (`settings`, sin `is_demo_value`). El flujo de aprobación se hizo en la Etapa 6.
+- ~~Cancelación de pedidos online~~ hecha en la Etapa 5 (la `Sale` queda con "reembolso pendiente" hasta que Belén registra el reembolso, Etapa 6). Vencimiento de reservas: **no aplica** (ADR-004 v3).
 - Extraer el registro de auditoría (`audit_log`) a un módulo propio cuando haya más acciones sensibles (hoy lo escribe `inventory.adjust`).
 - Validar el acceso (rol/ubicación) antes de la validación de datos de entrada (hoy InventoryService valida primero con Zod, así que un dato inválido responde `VALIDATION` antes que `FORBIDDEN`).
 - Definir el manejo de prendas no incluidas en un traslado (P-23, pendiente con el cliente). En la demo se rechazan al recibir: "Esta prenda no viene en el traslado. Sepárala y avisa a Belén".
@@ -331,4 +334,45 @@ Usuarios: Belén (ADMIN) y Vendedora Rancagua. Reiniciar los datos con `pnpm db:
 | 4 | **Completar faltante** | Tras una merma, con stock en la tienda: Completar faltante → Apartar en Tienda Rancagua | Nuevo traslado ligado al pedido; al recibirlo, `Listo para preparar` |
 | 5 | **Cancelar esperando traslado** | Cancelar el pedido con el traslado en borrador / en tránsito | Borrador: traslado anulado y reserva liberada. En tránsito: al recibirlo en bodega la prenda queda libre (sin reserva). El pedido muestra "Reembolso pendiente" |
 | 6 | **Permisos** | La vendedora abre el traslado del pedido | Puede enviarlo; no tiene "Editar o anular"; no recibe en bodega ni resuelve diferencias (`FORBIDDEN`) |
+
+## Decisiones del usuario (Etapa 6)
+
+1. **Aprobación ligada a lo aprobado (binding).** `approvals` es genérico: quien pide (`sales`) calcula un SHA-256 y un monto. Descuento: huella de las líneas `{variantId, qty, discountBps}` ordenadas + monto = descuento total en CLP con los precios vigentes. Anulación: huella de la venta + monto = lo cobrado. Al usarla se recalculan y deben coincidir. El medio de pago no forma parte del binding. Cambiar prendas, cantidades, % o un precio invalida la aprobación (el POS la descarta al instante y el servidor lo comprueba igual).
+2. **Uso único y transaccional.** Un `UPDATE` condicional exige `APROBADA`, no vencida, mismo tipo, ubicación, monto y binding, y la deja `USADA` **en la misma transacción** que la venta o la anulación (si esa falla, la aprobación sigue disponible). Si no afecta filas, una lectura explica el motivo (usada, rechazada, vencida, otra ubicación, carrito cambiado). Dos usos simultáneos: gana uno.
+3. **Vigencia.** La solicitud pendiente vence a los `approval_timeout_minutes` (10, valor de demo) **de creada**; la aprobada, a los mismos minutos **desde la decisión**. Sin job: se evalúa al consultar y al decidir (`expireStale`, con el reloj de la BD). Aprobar o rechazar dos veces, o decidir una vencida, es `CONFLICT`.
+4. **Idempotencia.** Crear la solicitud: `idempotency_key` de la tabla. Aprobar, rechazar y PIN: fila de `audit_log` (`APPROVAL_DECISION`) con la clave. Venta y anulación: sus propias claves.
+5. **PIN presencial (RF-AUT-05).** En "Belén está aquí" se elige a la administradora y se ingresa **su** PIN: los fallos cuentan solo para esa persona. Hash **scrypt** de Node (sin dependencias nuevas), comparación de tiempo constante. **PIN de demo de Belén: `2468`** (seed, `// DEMO:`; la pantalla lo muestra como pista solo con `DEMO_MODE`). Bloqueo a los **5 fallos por 15 min** (`settings.pin_max_attempts` / `pin_lock_minutes`, valores de demo). El acierto reinicia el contador; un bloqueo vencido se limpia solo. Fallos y bloqueos quedan en `audit_log` (`PIN_FAILED`, `PIN_LOCKED`). La aprobación queda con método `PIN`.
+6. **Anulación de venta (RN-12).** Solo ventas POS `COMPLETADA` del **mismo día calendario en hora de Chile** (también para el ADMIN). Una transacción: consume la aprobación (vendedora) → `COMPLETADA → ANULADA` condicional → `InventoryService.reverseSale` (nueva operación: movimiento inverso `ANULACION_VENTA`, nada se borra) → `audit_log` (`SALE_VOID`, con `direct: true/false`). Las ventas online no se anulan por "Ventas del día": su anulación es el reembolso del pedido.
+7. **Caja.** Si se pagó en efectivo, el dinero sale de la caja **abierta**; sin caja abierta se rechaza (la aprobación sigue vigente para reintentar). Se guarda `sales.void_cash_session_id`. Efectivo esperado = inicial + efectivo de ventas `COMPLETADA` de la caja − efectivo de ventas de **otra** caja anuladas con esta abierta (`cashRefunded`). Una venta anulada en su propia caja simplemente no cuenta. Tarjeta o transferencia no tocan la caja.
+8. **Reembolso de pedido cancelado.** Lo registra Belén directamente (ADMIN, sin solicitud, regla 10b): medio y referencia son **texto libre** (P-17 sigue pendiente). La `Sale` pasa a `ANULADA` (sin mover stock: la cancelación ya lo repuso o liberó) y el aviso desaparece. Queda en `audit_log` (`ORDER_REFUND`, `direct: true`) y en el historial del pedido. Condicional e idempotente: reembolsar dos veces → `CONFLICT`.
+9. **Acciones directas del ADMIN** (regla 10b): su descuento (`DISCOUNT_OVERRIDE`), su anulación (`SALE_VOID` directa) y el reembolso (`ORDER_REFUND`) no generan solicitud pero sí `audit_log`. Un descuento aprobado deja `DISCOUNT_APPROVED`.
+10. **Esquema (migración `20261021120000_approvals`).** `users.pin_hash / failed_pin_attempts / pin_locked_until`; `sales.voided_at / voided_by / void_reason / void_approval_id (UNIQUE) / void_cash_session_id` y CHECK (`ANULADA` ⇔ `voided_at`); `online_orders.refunded_at / refunded_by / refund_method / refund_reference`; CHECK de monto de aprobación. `cash_sessions_one_open_per_location_idx` se verificó intacto.
+11. **Acceso.** Solo ADMIN aprueba, rechaza y ve la bandeja. Solo una VENDEDORA de la ubicación pide aprobaciones (no BODEGA ni ADMIN) y solo consulta las de su ubicación. El PIN lo opera la vendedora de esa ubicación o el ADMIN. BODEGA no anula.
+12. **`next.config.ts`: `allowedDevOrigins: ["127.0.0.1"]`** (solo `next dev`): permite abrir la app también por `127.0.0.1` (otro origen = otra cookie), para simular dos ventanas.
+
+## Casos de prueba para la demo (Etapa 6)
+
+Dos ventanas: la **vendedora** en `http://localhost:3000` (caja) y **Belén** en `http://127.0.0.1:3000/aprobaciones` (otro origen = otra sesión; idealmente con la vista móvil del navegador o desde el celular). Reiniciar los datos con `pnpm db:seed` antes de presentar. **Solo la pestaña que está al frente ejecuta el refresco**: tras aprobar, vuelve a la caja y en ~3 s continúa sola. PIN de demo de Belén: **2468**.
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| 1 | **Descuento aprobado** (caso principal) | Vendedora: abrir caja, escanear `PBA041-NEG-XL`, poner 10 % de descuento → "Requiere aprobación de Belén" → **Pedir aprobación a Belén** (con motivo) → "Esperando a Belén…". Belén: `/aprobaciones` → ve la solicitud (prenda, % y monto, motivo, antigüedad) → comentario opcional → **Aprobar** | La caja pasa sola a "Aprobado por Belén (válida una sola vez, vence en 10 min)" y habilita Confirmar. La venta queda con el descuento; la aprobación pasa a `Usada` |
+| 2 | **Rechazo** | Igual, pero Belén pulsa **Rechazar** con comentario | La caja muestra "Belén rechazó la solicitud: «…»" y no queda nada a medias; la venta sigue bloqueada |
+| 3 | **El carrito cambia** | Con la aprobación recibida, cambiar el % o la cantidad | La aprobación deja de valer ("El carrito cambió: … pide una nueva") y Confirmar se bloquea; si vuelve al carrito original, vuelve a valer. Aunque se fuerce, el servidor la rechaza ("El carrito cambió después de la aprobación") |
+| 4 | **Aprobación con PIN** | En la espera, **Belén está aquí** → PIN incorrecto (ej. 0000) → "PIN incorrecto. Quedan 4 intentos" → PIN `2468` | La solicitud queda `Aprobada` con método PIN. Con 5 fallos seguidos el PIN se bloquea 15 min (aun con el correcto) |
+| 5 | **Anulación de una venta del día** | Vendedora: Ventas del día → **Anular** → motivo → **Pedir aprobación a Belén**. Belén aprueba (o PIN) | La anulación se ejecuta sola: la venta queda `Anulada` (tachada, con motivo), el stock vuelve (`Anulación de venta` en el kardex) y no suma a los totales. Si fue en efectivo, el dinero sale de la caja abierta (el efectivo esperado se descuenta) |
+| 6 | **Anulación en efectivo sin caja abierta** | Cerrar la caja y pedir anular una venta en efectivo | "Abre la caja para anular una venta pagada en efectivo"; la aprobación sigue vigente |
+| 7 | **Belén anula directo** | Belén (operando en la tienda): Ventas del día → Anular → motivo → **Anular venta** | Sin solicitud; queda en el registro de auditoría. Solo ventas del mismo día |
+| 8 | **Reembolso de un pedido cancelado** | Belén: cancelar un pedido pagado → en el detalle, **Reembolso pendiente** → medio y referencia → **Registrar reembolso** | La venta pasa a `Anulada`, desaparece el aviso y queda "Reembolsado el …" |
+| 9 | **Vencimiento** | Esperar más de 10 min sin responder (o bajar `approval_timeout_minutes`) | La solicitud pasa a `Vencida`: la caja informa que venció y Belén ya no puede aprobarla (`CONFLICT`) |
+| 10 | **Permisos** | La vendedora abre `/aprobaciones` | `/sin-acceso`; el servidor rechaza que apruebe, rechace o vea la bandeja |
+
+## Pendientes de la Etapa 6 para Fase 1
+
+- **Varias administradoras con PIN:** hoy la elección de quién aprueba es explícita (los fallos cuentan solo para ella), pero la lista de administradoras se muestra a la vendedora en la caja; en producción conviene identificar a la administradora de otra forma (p. ej. escaneando una credencial) y definir quién puede aprobar en cada ubicación.
+- **Notificaciones push** (RF-AUT-06): hoy Belén ve las solicitudes por refresco cada ~3 s con la pestaña abierta.
+- **Reembolso en la caja:** el reembolso de pedidos online no pasa por la caja de la tienda (el dinero se mueve fuera del POS); el medio de reembolso es texto libre hasta resolver **P-17**.
+- **Cambios, devoluciones, cambios fuera de plazo o sin boleta:** siguen fuera de la demo (P-09); los tipos `REEMBOLSO`, `CAMBIO_FUERA_PLAZO` y `CAMBIO_SIN_BOLETA` existen en el esquema pero no tienen flujo.
+- **Vencimiento sin job:** las solicitudes vencidas se marcan al consultarlas; con volumen real conviene un job (GitHub Actions → endpoint protegido, ADR-010) que las limpie.
+- **Un descuento aprobado cubre todo el carrito** con una sola aprobación (todas las líneas con descuento sobre el límite); si se quiere aprobar por línea, hay que partir la solicitud.
 

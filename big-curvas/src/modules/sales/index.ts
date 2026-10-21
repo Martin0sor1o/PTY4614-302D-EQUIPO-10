@@ -3,6 +3,8 @@
 
 export { createSale, type CreateSaleInput } from "./create-sale";
 export { createOnlineSale, type CreateOnlineSaleInput, type OnlineSaleResult } from "./online-sale";
+export { voidSale, voidOnlineSale } from "./void-sale";
+export { requestDiscountApproval, requestVoidApproval, cartBinding, voidBinding, assertVoidable, type CartLineInput } from "./approvals";
 export {
   openCashSession,
   closeCashSession,

@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
+import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
+import { ApprovalWait } from "@/components/approvals/approval-wait";
+import { Textarea } from "@/components/ui/textarea";
 
 // Pantalla de venta. El navegador solo MUESTRA los cálculos (funciones puras de sales/client): el servidor recalcula
 // precios, descuentos, redondeo y total, y valida el límite de descuento, la caja abierta y el stock.
@@ -39,7 +42,18 @@ function othersText(item: PosItem): string {
   return item.others.map((o) => `${o.name} (${o.available}${o.reserved > 0 ? `, ${o.reserved} reservada${o.reserved === 1 ? "" : "s"}` : ""})`).join(" · ");
 }
 
-export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName: string; limitBps: number; isAdmin: boolean }) {
+export function PosTerminal({
+  locationName,
+  limitBps,
+  isAdmin,
+  demoPinHint,
+}: {
+  locationName: string;
+  limitBps: number;
+  isAdmin: boolean;
+  /** DEMO: pista del PIN de Belén (solo con DEMO_MODE). */
+  demoPinHint: string | null;
+}) {
   const router = useRouter();
   const scanRef = useRef<HTMLInputElement>(null);
   const searchSeq = useRef(0);
@@ -57,6 +71,14 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [failedVariantId, setFailedVariantId] = useState<string | null>(null);
+  // Aprobación de Belén para los descuentos de la vendedora (RF-AUT-01 a 05). Va ligada a ESTE carrito.
+  const [approval, setApproval] = useState<ApprovalLite | null>(null);
+  const [approvalSnapshot, setApprovalSnapshot] = useState<string | null>(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  const askKey = useRef<{ snapshot: string; key: string } | null>(null);
 
   const focusScan = useCallback(() => scanRef.current?.focus(), []);
 
@@ -164,6 +186,44 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
     [cart],
   );
   const quote = quotePayment(priced.total, method);
+
+  // Huella del carrito (prendas, cantidades y % de descuento). Si cambia después de pedir o recibir la aprobación, esa
+  // aprobación ya no sirve (el servidor lo vuelve a comprobar con su propia huella).
+  const cartSnapshot = useMemo(
+    () =>
+      JSON.stringify(
+        cart.map((l) => [l.item.variantId, l.qty, discountBpsOf(l.discountPct)]).sort((a, b) => (String(a[0]) < String(b[0]) ? -1 : 1)),
+      ),
+    [cart],
+  );
+  // La aprobación solo vale para el carrito con el que se pidió: si el carrito cambia, deja de estar activa (y si vuelve a
+  // quedar igual, vuelve a valer). El servidor la vuelve a comprobar con su propia huella al confirmar la venta.
+  const activeApproval = approval && approvalSnapshot === cartSnapshot ? approval : null;
+  const staleApproval = approval !== null && activeApproval === null;
+  const approved = activeApproval?.status === "APROBADA";
+  const overLimitIdx = cart.flatMap((l, i) => {
+    const bps = discountBpsOf(l.discountPct);
+    return !isAdmin && !Number.isNaN(bps) && isDiscountOverLimit(bps, limitBps) ? [i] : [];
+  });
+
+  async function sendRequest() {
+    if (reason.trim().length < 3) return setAskError("Escribe el motivo para Belén (ej. clienta frecuente).");
+    setAsking(true);
+    setAskError(null);
+    // Una clave por carrito: cambiar el carrito es otra solicitud; repetir el clic con el mismo carrito, la misma.
+    if (askKey.current?.snapshot !== cartSnapshot) askKey.current = { snapshot: cartSnapshot, key: crypto.randomUUID() };
+    const res = await requestDiscountApprovalAction({
+      lines: cart.map((l) => ({ variantId: l.item.variantId, qty: l.qty, discountBps: discountBpsOf(l.discountPct) })),
+      reason: reason.trim(),
+      idempotencyKey: askKey.current.key,
+    });
+    setAsking(false);
+    if (!res.ok) return setAskError(res.message);
+    setApproval(res.approval);
+    setApprovalSnapshot(cartSnapshot);
+    setAskOpen(false);
+    setReason("");
+  }
   const receivedAmount = parseCLP(received);
   const change = method === "EFECTIVO" && receivedAmount !== null && receivedAmount >= quote.amount ? changeFor(receivedAmount, quote.amount) : null;
 
@@ -171,7 +231,7 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
     const bps = discountBpsOf(l.discountPct);
     if (Number.isNaN(bps)) return "Descuento inválido";
     // La vendedora no puede superar el límite sin aprobación; el ADMIN sí (queda en auditoría).
-    if (!isAdmin && isDiscountOverLimit(bps, limitBps)) return "Requiere aprobación de Belén";
+    if (!isAdmin && isDiscountOverLimit(bps, limitBps)) return approved ? null : "Requiere aprobación de Belén";
     if (l.qty > l.item.here.available) return `Solo hay ${l.item.here.available} disponible(s)`;
     return null;
   });
@@ -200,6 +260,7 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
     const payload = {
       lines: cart.map((l) => ({ variantId: l.item.variantId, qty: l.qty, discountBps: discountBpsOf(l.discountPct) })),
       payment: method === "EFECTIVO" ? { method, cashReceived: receivedAmount ?? 0 } : { method, reference: reference.trim() },
+      approvalId: approved ? activeApproval!.id : undefined,
       idempotencyKey: keyRef.current,
     };
     const res = await createSaleAction(payload);
@@ -210,6 +271,11 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
     setError(res.message);
     setFailedVariantId(res.variantId ?? null);
     setSubmitting(false);
+    if (res.code === "APROBACION_INVALIDA" || res.code === "APROBACION_REQUERIDA") {
+      // La aprobación no sirvió (usada, vencida, otro carrito…): se descarta para no dejar la caja a medias.
+      setApproval(null);
+      setApprovalSnapshot(null);
+    }
     if (res.code === "STOCK_INSUFICIENTE") {
       // La disponibilidad cambió: se actualizan las cantidades del carrito.
       const fresh = await refreshItemsAction(cart.map((l) => l.item.variantId));
@@ -374,6 +440,78 @@ export function PosTerminal({ locationName, limitBps, isAdmin }: { locationName:
             </ul>
           )}
         </div>
+        {overLimitIdx.length > 0 && (
+          <section aria-label="Aprobación de descuento" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50/70 p-3" data-testid="approval-box">
+            {staleApproval && (
+              <p className="text-sm font-medium text-amber-950" role="status" data-testid="approval-stale">
+                El carrito cambió: la solicitud o aprobación anterior ya no corresponde. Pide una nueva.
+              </p>
+            )}
+            {!activeApproval ? (
+              !askOpen ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-amber-950">Los descuentos los da solo Belén: pídele que apruebe el de este carrito.</p>
+                  <Button type="button" onClick={() => setAskOpen(true)} data-testid="ask-approval">
+                    Pedir aprobación a Belén
+                  </Button>
+                </div>
+              ) : (
+                <form
+                  className="space-y-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void sendRequest();
+                  }}
+                >
+                  <p className="text-sm font-medium text-amber-950">Solicitud de descuento para Belén</p>
+                  <ul className="rounded-lg border bg-card px-3 py-2 text-sm" aria-label="Detalle del descuento">
+                    {overLimitIdx.map((i) => (
+                      <li key={cart[i].item.variantId} className="flex justify-between gap-3">
+                        <span>
+                          {cart[i].item.sku} ×{cart[i].qty} · {discountBpsOf(cart[i].discountPct) / 100} %
+                        </span>
+                        <span className="tabular-nums">−{formatCLP(priced.lines[i].discount)}</span>
+                      </li>
+                    ))}
+                    <li className="mt-1 flex justify-between gap-3 border-t pt-1 font-medium">
+                      <span>Descuento total</span>
+                      <span className="tabular-nums">−{formatCLP(priced.discountTotal)}</span>
+                    </li>
+                  </ul>
+                  <label className="block text-sm font-medium" htmlFor="approval-reason">
+                    Motivo <span className="text-red-700">*</span>
+                  </label>
+                  <Textarea id="approval-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej. clienta frecuente, prenda con detalle…" />
+                  {askError && (
+                    <p role="alert" className="text-sm font-medium text-red-700">
+                      {askError}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={asking} data-testid="send-approval">
+                      {asking ? "Enviando…" : "Enviar solicitud"}
+                    </Button>
+                    <Button type="button" variant="ghost" onClick={() => (setAskOpen(false), setAskError(null))}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </form>
+              )
+            ) : (
+              <ApprovalWait
+                key={activeApproval.id}
+                approval={activeApproval}
+                onStatus={setApproval}
+                onClose={() => {
+                  setApproval(null);
+                  setApprovalSnapshot(null);
+                }}
+                closeLabel={activeApproval.status === "PENDIENTE" ? "Cancelar espera" : "Entendido"}
+                demoPinHint={demoPinHint}
+              />
+            )}
+          </section>
+        )}
         <p className="text-xs text-muted-foreground">
           {limitBps === 0
             ? `Los descuentos los da solo Belén${isAdmin ? " (como administradora puedes aplicarlos; los que superan el límite quedan registrados)" : ": cualquier descuento requiere su aprobación"}.`

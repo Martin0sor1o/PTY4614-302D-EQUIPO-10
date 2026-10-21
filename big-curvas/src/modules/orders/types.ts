@@ -74,6 +74,8 @@ export interface OrderDetail {
   shippedAt: Date | null;
   deliveredAt: Date | null;
   cancellation: { at: Date; reason: string | null; byName: string | null } | null;
+  /** Reembolso registrado de un pedido cancelado (la venta pasó a ANULADA). */
+  refund: { at: Date; byName: string | null; method: string; reference: string | null } | null;
   lines: OrderLineView[];
   events: OrderEventView[];
   sale: { id: string; number: string; status: "COMPLETADA" | "ANULADA"; total: number } | null;

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { formatTime } from "@/lib/dates";
 import { getDiscountLimit, getOpenCashSession } from "@/modules/sales";
+import { demoPinHint } from "@/modules/demo";
 import { PosTerminal } from "@/components/pos/pos-terminal";
 import { posPageContext } from "./context";
 
@@ -23,7 +24,7 @@ export default async function PosPage() {
           {session.salesCount === 1 ? "venta" : "ventas"}
         </p>
       </div>
-      <PosTerminal locationName={location.name} limitBps={limitBps} isAdmin={user.role === "ADMIN"} />
+      <PosTerminal locationName={location.name} limitBps={limitBps} isAdmin={user.role === "ADMIN"} demoPinHint={demoPinHint()} />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { formatCLP } from "@/lib/money";
 import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
 import { FillShortage } from "@/components/orders/fill-shortage";
+import { RefundOrder } from "@/components/orders/refund-order";
 import { CancelOrder, DeliverOrder } from "@/components/orders/order-actions";
 import { ageLabel, CHANNEL_LABEL, ORDER_STATUS_LABEL, OrderStatusBadge, PAYMENT_LABEL } from "@/components/orders/status-badge";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
@@ -26,7 +27,7 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
 
 /** Qué pasa al cancelar según el estado (se muestra antes de confirmar). */
 function cancelConsequence(o: OrderDetail): string {
-  const sale = o.sale ? ` La venta ${o.sale.number} queda registrada con aviso de reembolso pendiente (el reembolso formal llega en la Etapa 6).` : "";
+  const sale = o.sale ? ` La venta ${o.sale.number} queda registrada con aviso de reembolso pendiente: después registras el reembolso en el pedido.` : "";
   switch (o.status) {
     case "PENDIENTE_PAGO":
       return "No hay nada apartado: no se mueve stock.";
@@ -91,14 +92,13 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
         </div>
       </div>
 
-      {o.refundPending && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900" data-testid="refund-pending">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            <strong>Reembolso pendiente.</strong> El pedido se canceló después de pagar: la venta {o.sale?.number} sigue registrada por {formatCLP(o.sale?.total ?? 0)} y
-            el dinero no se ha devuelto. El reembolso formal, con aprobación de Belén, llega en la Etapa 6.
-          </span>
-        </div>
+      {o.refundPending && o.sale && <RefundOrder orderId={o.id} number={o.number} saleNumber={o.sale.number} amount={o.sale.total} />}
+      {o.refund && (
+        <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950" data-testid="refund-done">
+          <strong>Reembolsado</strong> el {formatDateTime(o.refund.at)}
+          {o.refund.byName ? ` por ${o.refund.byName}` : ""}: {o.refund.method}
+          {o.refund.reference ? ` (${o.refund.reference})` : ""}. La venta {o.sale?.number} quedó anulada.
+        </p>
       )}
       {o.cancellation && (
         <p className="rounded-lg border bg-muted/40 p-3 text-sm" data-testid="cancellation">

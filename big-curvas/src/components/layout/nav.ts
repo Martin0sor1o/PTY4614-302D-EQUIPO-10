@@ -17,7 +17,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/pos", label: "POS", roles: ["ADMIN", "VENDEDORA"], stage: "3", description: "Venta en tienda con lector de códigos" },
   { href: "/traslados", label: "Traslados", roles: ALL, stage: "4", description: "Enviar y recibir mercadería entre la tienda y la bodega" },
   { href: "/pedidos", label: "Pedidos", roles: ["ADMIN"], stage: "5", description: "Pedidos online: registrar, preparar y despachar (con contador de pedidos por preparar)" },
-  { href: "/aprobaciones", label: "Aprobaciones", roles: ["ADMIN"], stage: "6", description: "Aprobar descuentos desde el celular" },
+  { href: "/aprobaciones", label: "Aprobaciones", roles: ["ADMIN"], stage: "6", description: "Aprobar descuentos y anulaciones desde el celular (con contador de pendientes)" },
 ];
 
 export function navItemsFor(role: Role): NavItem[] {

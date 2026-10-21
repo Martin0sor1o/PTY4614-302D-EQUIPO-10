@@ -6,7 +6,7 @@ import { parseInput } from "@/lib/validation";
 import { MovementType, RefType } from "@/generated/prisma/client";
 import { assertVariantsExist, getActiveLocation, insufficientStock, recordMovement } from "./internal";
 import { normalizeLines } from "./lines";
-import { adjustSchema, loadInitialStockSchema, receiveSchema, returnOrderSchema, sellSchema } from "./schemas";
+import { adjustSchema, loadInitialStockSchema, receiveSchema, returnOrderSchema, reverseSaleSchema, sellSchema } from "./schemas";
 import { addOnHand, takeAvailable } from "./stock-sql";
 import type { Actor, MovementRecord, StockOperationResult } from "./types";
 
@@ -161,6 +161,44 @@ export async function sell(
         at: row.at,
         refType: RefType.SALE,
         refId: saleId,
+        userId: input.actor.id,
+        idempotencyKey: lineKey(idempotencyKey, n),
+      }),
+    );
+  }
+  return { movements };
+}
+
+/**
+ * Anulación de una venta POS (RN-12): la prenda vuelve al stock de la tienda con movimiento inverso ANULACION_VENTA
+ * (la venta nunca se borra). Lo llama sales dentro de la transacción de la anulación, con la aprobación ya consumida
+ * o por el ADMIN directamente. La vendedora solo repone en su tienda.
+ */
+export async function reverseSale(
+  tx: Tx,
+  input: WithActor<{ locationId: string; lines: { variantId: string; qty: number }[]; saleId: string; reason: string; idempotencyKey: string }>,
+): Promise<StockOperationResult> {
+  const { locationId, lines, saleId, reason, idempotencyKey } = parseInput(reverseSaleSchema, input);
+  assertAccess(input.actor, { roles: ["ADMIN", "VENDEDORA"], locationId });
+  const location = await getActiveLocation(tx, locationId);
+  if (!location.sellsPos) throw new AppError("VALIDATION", `${location.name} no vende en POS.`);
+  const sorted = normalizeLines(lines);
+  await assertVariantsExist(tx, sorted.map((l) => l.variantId));
+
+  const movements: MovementRecord[] = [];
+  for (const [n, line] of sorted.entries()) {
+    const row = await addOnHand(tx, line.variantId, locationId, line.qty);
+    movements.push(
+      await recordMovement(tx, {
+        variantId: line.variantId,
+        locationId,
+        type: MovementType.ANULACION_VENTA,
+        quantity: line.qty,
+        onHandAfter: row.onHand,
+        at: row.at,
+        refType: RefType.SALE,
+        refId: saleId,
+        reason,
         userId: input.actor.id,
         idempotencyKey: lineKey(idempotencyKey, n),
       }),

@@ -45,6 +45,14 @@ export const sellSchema = z.object({
   idempotencyKey,
 });
 
+export const reverseSaleSchema = z.object({
+  locationId: id,
+  lines,
+  saleId: id,
+  reason: z.string().trim().min(3).max(200),
+  idempotencyKey,
+});
+
 export const reserveSchema = z.object({
   lines: z.array(z.object({ variantId: id, locationId: id, qty, orderLineId: id.optional() })).min(1),
   expiresAt: z.date().nullable().optional(),

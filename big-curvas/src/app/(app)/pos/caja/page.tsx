@@ -42,6 +42,14 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
           <dd className="text-right tabular-nums">{formatCLP(session.openingCash)}</dd>
           <dt>+ Efectivo cobrado (sin vueltos, con redondeo)</dt>
           <dd className="text-right tabular-nums">{formatCLP(totals.cashCollected)}</dd>
+          {totals.cashRefunded > 0 && (
+            <>
+              <dt>− Efectivo devuelto por anulaciones</dt>
+              <dd className="text-right tabular-nums" data-testid="cash-refunded">
+                {formatCLP(-totals.cashRefunded)}
+              </dd>
+            </>
+          )}
           <dt className="border-t pt-1 font-medium">Efectivo esperado</dt>
           <dd className="border-t pt-1 text-right font-medium tabular-nums" data-testid="expected-cash">
             {formatCLP(session.expectedCash ?? 0)}

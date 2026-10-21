@@ -38,6 +38,8 @@ export const createSaleSchema = z.object({
   locationId: id,
   lines: z.array(saleLine).min(1, "El carrito está vacío").max(100, "Demasiadas líneas"),
   payment: paymentInputSchema,
+  /** Aprobación de Belén (APROBADA, de uso único) para los descuentos sobre el límite de una VENDEDORA. */
+  approvalId: id.optional(),
   idempotencyKey,
 });
 

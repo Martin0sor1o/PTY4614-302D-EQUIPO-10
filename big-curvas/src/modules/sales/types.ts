@@ -36,6 +36,8 @@ export interface SaleView {
   roundingAdjustment: number;
   lines: SaleLineView[];
   payments: SalePaymentView[];
+  /** Solo si la venta está ANULADA. */
+  voided: { at: Date; reason: string | null; byName: string | null; approved: boolean } | null;
 }
 
 export interface CashSessionView {
@@ -58,6 +60,8 @@ export interface CashClosingTotals {
   salesCount: number;
   byMethod: Record<PaymentMethodCode, number>;
   cashCollected: number;
+  /** Efectivo devuelto en esta caja por ventas de OTRA caja anuladas hoy (el efectivo sale de la caja abierta). */
+  cashRefunded: number;
   expectedCash: number;
 }
 

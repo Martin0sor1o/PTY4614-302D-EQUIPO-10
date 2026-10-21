@@ -14,6 +14,7 @@ import {
   getVariantAvailability,
   markDelivered,
   prepareOrder,
+  refundOrder,
   registerOrder,
   searchOrderVariants,
   updateOrder,
@@ -244,6 +245,22 @@ export async function markDeliveredAction(payload: { orderId: string; idempotenc
   try {
     const user = await requireAccess({ roles: ["ADMIN", "BODEGA"] });
     await markDelivered({ actor: user, ...parsed.data });
+    refresh(parsed.data.orderId);
+    return { ok: true };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Reembolso de un pedido cancelado y pagado: lo registra Belén directamente (sin solicitud; queda en audit_log). */
+export async function refundOrderAction(payload: { orderId: string; method: string; reference?: string; idempotencyKey: string }): Promise<ActionResult> {
+  const parsed = z
+    .object({ orderId: idSchema, method: z.string().trim().max(60), reference: z.string().trim().max(60).optional(), idempotencyKey: keySchema })
+    .safeParse(payload);
+  if (!parsed.success) return invalid(parsed.error);
+  try {
+    const user = await requireAccess({ roles: ["ADMIN"] });
+    await refundOrder({ actor: user, ...parsed.data, reference: parsed.data.reference || undefined });
     refresh(parsed.data.orderId);
     return { ok: true };
   } catch (error) {

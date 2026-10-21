@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import type { Actor } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
 import { AppError } from "@/lib/errors";
+import { hashPin } from "@/modules/approvals";
 import { findLedgerMismatches, findReservationMismatches, loadInitialStock } from "@/modules/inventory";
 import {
   CATEGORIES,
@@ -118,6 +119,7 @@ export async function resetAndSeedDemoData(): Promise<SeedSummary> {
             email: u.email,
             role: u.role,
             locationId: u.locationCode ? locationByCode.get(u.locationCode)! : null,
+            pinHash: u.pin ? hashPin(u.pin) : null,
           },
         });
         userIds.set(u.key, row.id);

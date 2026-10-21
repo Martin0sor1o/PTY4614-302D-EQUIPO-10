@@ -23,6 +23,16 @@ export function Ticket({ sale }: { sale: SaleView }) {
         {sale.location.address && <div>{sale.location.address}</div>}
       </div>
 
+      {sale.voided && (
+        <div className="my-2 border-2 border-black py-1 text-center text-base font-extrabold tracking-widest" data-testid="ticket-voided">
+          VENTA ANULADA
+          <div className="text-[10px] font-normal tracking-normal">
+            {formatDateTime(sale.voided.at)}
+            {sale.voided.reason ? ` · ${sale.voided.reason}` : ""}
+          </div>
+        </div>
+      )}
+
       <hr className="my-2 border-dashed border-black" />
       <div className="flex justify-between">
         <span>Venta N°</span>

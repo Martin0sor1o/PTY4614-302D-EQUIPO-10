@@ -93,6 +93,7 @@ export async function loadOrderDetail(reader: Reader, orderId: string): Promise<
       fulfillmentLocation: { select: { id: true, name: true } },
       creator: { select: { name: true } },
       canceller: { select: { name: true } },
+      refunder: { select: { name: true } },
     },
   });
   if (!o) throw new AppError("NOT_FOUND", "El pedido no existe.", { orderId });
@@ -147,6 +148,7 @@ export async function loadOrderDetail(reader: Reader, orderId: string): Promise<
     trackingNumber: o.trackingNumber,
     shippedAt: o.shippedAt,
     deliveredAt: o.deliveredAt,
+    refund: o.refundedAt ? { at: o.refundedAt, byName: o.refunder?.name ?? null, method: o.refundMethod ?? "", reference: o.refundReference } : null,
     cancellation: o.cancelledAt ? { at: o.cancelledAt, reason: o.cancelReason, byName: o.canceller?.name ?? null } : null,
     lines: lines.map((l) => ({
       id: l.id,
