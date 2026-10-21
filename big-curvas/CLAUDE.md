@@ -25,7 +25,7 @@ Hosting: Render (app como servidor Node con `next start` + Postgres). Nada espec
 8. **Idempotencia:** ventas, pedidos y operaciones de stock desde la UI llevan `idempotencyKey` único.
 9. **Auditoría:** toda operación de stock/dinero guarda `userId`; acciones sensibles van a `audit_log`.
 10. **Permisos en el servidor por rol Y ubicación:** cada Server Action usa `requireAccess({ roles, locationId })`. VENDEDORA y BODEGA solo escriben en su `location_id`; consultar stock de otras ubicaciones es solo lectura. Ocultar botones no es seguridad.
-10b. **Aprobaciones:** solo Belén da descuentos (límite de VENDEDORA = 0 %, en `settings`). Descuentos de vendedora, reembolsos y anulaciones exigen un `approvalId` APROBADO, de uso único y coincidente en tipo, ubicación y monto.
+10b. **Aprobaciones:** solo Belén da descuentos (límite de VENDEDORA = 0 %, en `settings`). Cuando una **VENDEDORA** necesita un descuento, una anulación o un reembolso, la acción exige un `approvalId` APROBADO por Belén (remoto o con su PIN), de uso único y coincidente en tipo, ubicación y monto. Cuando la acción la ejecuta **directamente el ADMIN**, no requiere solicitud, pero queda en `audit_log`.
 11. **Fechas:** guardar en UTC; mostrar y agrupar reportes en `America/Santiago` (`src/lib/dates.ts`).
 12. Si una regla de negocio es ambigua o no está en `/docs`, **pregunta; no la inventes.**
 
