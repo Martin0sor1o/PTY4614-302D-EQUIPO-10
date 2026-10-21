@@ -46,6 +46,9 @@ Roles: ADMIN (Belén, todas las ubicaciones, **incluida la operación de la bode
 
 ### ADR-014 · Aprobaciones de Belén (remotas o con PIN) — *Aceptada (confirmada 2026-10-02)*
 **Solo Belén** da descuentos, aprueba reembolsos y anula. Límite de descuento de la vendedora = 0 % (configurable). Aprobación remota desde el celular o con su PIN si está en la tienda. Uso único, ligada a tipo, ubicación y monto.
+- Diseño (Etapa 6, 2026-10-21): la aprobación queda **amarrada** al carrito o a la venta con un hash (binding) y un monto recalculados en el servidor; si el carrito o los precios cambian, deja de servir. Se consume con un único UPDATE condicional en la misma transacción que la venta o la anulación.
+- PIN presencial: se elige a la administradora y se ingresa su PIN (hash con `scrypt`); bloqueo tras N fallos.
+- La anulación de una venta del día en efectivo requiere una caja abierta; el dinero sale de esa caja. Las ventas online no se anulan: se registra el reembolso del pedido cancelado.
 
 ### ADR-015 · Retiro en tienda como envío interno del pedido — *En revisión*
 Sigue siendo el diseño si existe retiro, pero la existencia del retiro y su lugar quedan pendientes (P-11).

@@ -47,7 +47,7 @@ erDiagram
 
 **locations**: `id`, `code` (único: `TIENDA_RANCAGUA`, `BODEGA`; el modelo admite más), `name`, `type` (`STORE` | `WAREHOUSE`), `address`, `sells_pos` (bool), `fulfills_online` (bool; solo BODEGA = true), `receives_suppliers` (bool; ambas = true), `sale_prefix` (`RGA`, `BOD`), `sii_branch_code` (nullable, futuro), `active`.
 
-**users**: `id`, `name`, `email` (único, nullable para vendedoras solo-PIN), `password_hash` (nullable), `pin_hash`, `role` (`ADMIN` | `VENDEDORA` | `BODEGA`), `location_id` (**obligatorio para VENDEDORA y BODEGA**; null para ADMIN), `active`, `failed_pin_attempts`, `locked_until`.
+**users**: `id`, `name`, `email` (único, nullable para vendedoras solo-PIN), `password_hash` (nullable), `pin_hash`, `role` (`ADMIN` | `VENDEDORA` | `BODEGA`), `location_id` (**obligatorio para VENDEDORA y BODEGA**; null para ADMIN), `active`, `failed_pin_attempts`, `pin_locked_until` (bloqueo tras `pin_max_attempts` fallos).
 - Constraint: `role = 'ADMIN' OR location_id IS NOT NULL`.
 
 **pos_devices**: `id`, `location_id`, `name` ("Caja Tienda Rancagua"), `device_token_hash`, `registered_by`, `active`. La sesión POS queda ligada a la tienda del dispositivo.
@@ -98,13 +98,13 @@ erDiagram
 
 **cash_movements** (D): `id`, `cash_session_id`, `type`, `amount`, `reason`, `user_id`.
 
-**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `shipping_cost` (Int ≥ 0; 0 en POS), `total` (= subtotal − discount_total + shipping_cost, con CHECK), `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_approval_id`.
+**sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `shipping_cost` (Int ≥ 0; 0 en POS), `total` (= subtotal − discount_total + shipping_cost, con CHECK), `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_reason`, `void_approval_id`, `void_cash_session_id` (caja de la que sale el efectivo; CHECK: `ANULADA` ⇔ `voided_at` no nulo).
 
 **sale_lines**: `id`, `sale_id`, `variant_id`, `quantity`, `unit_price`, `unit_cost`, `promotion_id`, `promotion_discount`, `manual_discount`, `discount_approval_id` (nullable), `line_total`.
 
 **payments**: `id`, `sale_id`, `method`, `amount`, `reference`, `created_at`. Invariante: `SUM(amount) = total + rounding_adjustment`.
 
-**approval_requests**: `id`, `type` (`REEMBOLSO` | `ANULACION` | `DESCUENTO_SOBRE_LIMITE` | `CAMBIO_FUERA_PLAZO` | `CAMBIO_SIN_BOLETA`), `location_id`, `requested_by`, `payload` (json: venta, monto, %, motivo), `amount` (Int, nullable), `status` (`PENDIENTE` | `APROBADA` | `RECHAZADA` | `VENCIDA` | `USADA`), `method` (`REMOTA` | `PIN`), `decided_by`, `decided_at`, `decision_comment`, `expires_at`, `used_at`, `used_ref_type`, `used_ref_id`, `created_at`.
+**approval_requests**: `id`, `type` (`REEMBOLSO` | `ANULACION` | `DESCUENTO_SOBRE_LIMITE` | `CAMBIO_FUERA_PLAZO` | `CAMBIO_SIN_BOLETA`), `location_id`, `requested_by`, `payload` (json: venta, monto, %, motivo), `amount` (Int, nullable), `status` (`PENDIENTE` | `APROBADA` | `RECHAZADA` | `VENCIDA` | `USADA`), `method` (`REMOTA` | `PIN`), `decided_by`, `decided_at`, `decision_comment`, `expires_at`, `used_at`, `used_ref_type`, `used_ref_id`, `created_at`. El `payload` guarda un **binding** (SHA-256 de un JSON canónico: para descuentos, las líneas `{variantId, qty, discountBps}` ordenadas; para anulación, el `saleId`) y `amount` (descuento total o monto cobrado). Al usarla se recalculan en el servidor y deben coincidir. Vigencia: la pendiente vence a los `approval_timeout_minutes` de creada; la aprobada, a los `approval_timeout_minutes` desde la decisión.
 - Una aprobación se usa **una sola vez** y solo para la acción, la ubicación y el monto aprobados.
 
 ### 2.5 Cambios, devoluciones, vales
@@ -120,7 +120,7 @@ erDiagram
 **customers**: `id`, `name`, `instagram_handle`, `phone`, `email`, `rut` (nullable), `address`, `commune` (dirección simple en la demo; `customer_addresses` queda para después), `notes`, `active`.
 **customer_addresses**: `id`, `customer_id`, `street`, `number`, `apartment`, `commune`, `region`, `reference`.
 
-**online_orders**: `id`, `number`, `channel`, `customer_id`, `status` (`PENDIENTE_PAGO` | `PAGADO` | `ESPERANDO_TRASPASO` | `LISTO_PARA_PREPARAR` | `PREPARADO` | `DESPACHADO` | `EN_CAMINO_A_TIENDA` | `LISTO_PARA_RETIRO` | `ENTREGADO` | `CANCELADO`), `fulfillment_location_id` (= BODEGA), `delivery_method` (`DESPACHO` | `RETIRO_TIENDA`), `pickup_location_id` (tienda de retiro, nullable), `shipping_address`, `shipping_cost`, `free_shipping_applied`, `subtotal`, `discount_total`, `total`, `payment_method`, `payment_reference`, `paid_at`, `prepared_at`, `prepared_by`, `courier`, `tracking_number`, `shipped_at`, `arrived_at_store_at`, `store_received_by`, `delivered_at`, `delivered_by`, `picked_up_by_name` / `picked_up_by_rut`, `cancelled_at`, `cancel_reason`, `sale_id`, `created_by` (ADMIN), `idempotency_key`, `notes`. El estado `PAGADO` no se persiste (solo existe dentro de la transacción de confirmar). `DESPACHADO` y `ENTREGADO` no se cancelan: se gestionan como devolución.
+**online_orders**: `id`, `number`, `channel`, `customer_id`, `status` (`PENDIENTE_PAGO` | `PAGADO` | `ESPERANDO_TRASPASO` | `LISTO_PARA_PREPARAR` | `PREPARADO` | `DESPACHADO` | `EN_CAMINO_A_TIENDA` | `LISTO_PARA_RETIRO` | `ENTREGADO` | `CANCELADO`), `fulfillment_location_id` (= BODEGA), `delivery_method` (`DESPACHO` | `RETIRO_TIENDA`), `pickup_location_id` (tienda de retiro, nullable), `shipping_address`, `shipping_cost`, `free_shipping_applied`, `subtotal`, `discount_total`, `total`, `payment_method`, `payment_reference`, `paid_at`, `prepared_at`, `prepared_by`, `courier`, `tracking_number`, `shipped_at`, `arrived_at_store_at`, `store_received_by`, `delivered_at`, `delivered_by`, `picked_up_by_name` / `picked_up_by_rut`, `cancelled_at`, `cancel_reason`, `sale_id`, `created_by` (ADMIN), `idempotency_key`, `notes`. El estado `PAGADO` no se persiste (solo existe dentro de la transacción de confirmar). `DESPACHADO` y `ENTREGADO` no se cancelan: se gestionan como devolución. Reembolso de pedido cancelado: `refunded_at`, `refunded_by`, `refund_method`, `refund_reference` (texto libre mientras P-17 siga pendiente); al registrarlo la `Sale` pasa a `ANULADA`.
 
 **online_order_lines**: `id`, `order_id`, `variant_id`, `quantity`, `unit_price`, `promotion_id`, `discount_amount`, `line_total`, `source_location_id` (BODEGA o la tienda de donde se trae), `picked_qty`. En la demo: `discount_bps` (0–10000) y UNIQUE (`order_id`, `variant_id`): una variante aparece una vez por pedido.
 
@@ -134,7 +134,7 @@ erDiagram
 
 **audit_log**: `id`, `user_id`, `location_id`, `action`, `entity`, `entity_id`, `before`, `after`, `created_at`.
 
-**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡).
+**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡). Demo: `pin_max_attempts` (5), `pin_lock_minutes` (15).
 
 **stock_min_levels** (post-MVP): `variant_id`, `location_id`, `min_qty`, `target_qty` → sugerencias de reposición.
 
