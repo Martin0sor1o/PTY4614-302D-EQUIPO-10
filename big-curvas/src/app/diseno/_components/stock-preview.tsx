@@ -64,7 +64,7 @@ export function StockPreview({ d }: { d: Direction }) {
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead className={cn("px-2", d.ui.thead)}>Prenda</TableHead>
-              <TableHead className={cn("bg-primary/10 px-1 text-center", d.ui.thead, d.id === "C" && "bg-[#4B1D5E]")}>Rancagua</TableHead>
+              <TableHead className={cn("px-1 text-center", d.ui.thead, d.ui.hlHead)}>Rancagua</TableHead>
               <TableHead className={cn("px-1 text-center", d.ui.thead)}>Bodega</TableHead>
               <TableHead className={cn("hidden px-1 text-center leading-tight whitespace-normal @xl:table-cell", d.ui.thead)}>En tránsito</TableHead>
             </TableRow>
@@ -72,20 +72,20 @@ export function StockPreview({ d }: { d: Direction }) {
           <TableBody>
             {ROWS.map((r) => (
               <TableRow key={r.sku}>
-                <TableCell className="px-2 whitespace-normal">
+                <TableCell className={cn("px-2 whitespace-normal", d.ui.cell)}>
                   <div className="text-[13px] leading-tight font-medium">{r.name}</div>
                   <div className="text-xs text-muted-foreground">{r.variant}</div>
                   <a href="#" className="font-mono text-[11px] whitespace-nowrap text-brand-ink underline underline-offset-4">
                     {r.sku}
                   </a>
                 </TableCell>
-                <TableCell className="bg-primary/5 px-1 text-center">
+                <TableCell className={cn("px-1 text-center", d.ui.cell, d.ui.hlCell)}>
                   <StockCell cell={r.rancagua} d={d} />
                 </TableCell>
-                <TableCell className="px-1 text-center">
+                <TableCell className={cn("px-1 text-center", d.ui.cell)}>
                   <StockCell cell={r.bodega} d={d} transit={r.transit} />
                 </TableCell>
-                <TableCell className="hidden px-1 text-center tabular-nums @xl:table-cell">
+                <TableCell className={cn("hidden px-1 text-center tabular-nums @xl:table-cell", d.ui.cell)}>
                   {r.transit ? <StatusChip spec={{ ...CHIPS.transit, label: `${r.transit} en camino` }} d={d} className="text-[11px]" /> : <span className="text-muted-foreground">—</span>}
                 </TableCell>
               </TableRow>

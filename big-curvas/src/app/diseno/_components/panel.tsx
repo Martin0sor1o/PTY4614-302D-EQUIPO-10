@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { contrastRows, directionVars, type Direction, type Tone } from "../_lib/directions";
 import { CHIPS, Ornament, StatusChip, Wordmark } from "./brand";
 import { DesktopMenu, MobileMenu } from "./menus";
+import { PosPreview } from "./pos-preview";
 import { StockPreview } from "./stock-preview";
 
 const fmt = (n: number) => n.toFixed(2).replace(".", ",");
@@ -30,14 +31,7 @@ function IconSample({ d }: { d: Direction }) {
   return (
     <div className="flex flex-wrap gap-2">
       {icons.map((I, i) => (
-        <span
-          key={i}
-          className={cn(
-            "grid size-10 place-items-center text-primary",
-            d.id === "B" && "rounded-full bg-secondary",
-            d.id === "C" && "rounded-[2px] border border-foreground/30",
-          )}
-        >
+        <span key={i} className={cn("grid size-10 place-items-center", d.ui.iconCircle)}>
           <I className="size-5" aria-hidden />
         </span>
       ))}
@@ -125,7 +119,7 @@ export function DirectionPanel({ d }: { d: Direction }) {
           <Ornament id={d.id} className="shrink-0 text-primary" />
         </div>
         <p className="text-sm leading-relaxed">{d.tagline}</p>
-        <div className={cn("flex items-center justify-center py-6", d.id === "C" ? "bg-[var(--dir-menu-bg)] text-[var(--dir-accent)]" : "bg-card text-primary", d.ui.frame)}>
+        <div className={cn("flex items-center justify-center bg-[var(--dir-menu-bg)] py-6 text-[var(--dir-wordmark)]", d.ui.frame)}>
           <Wordmark id={d.id} className={d.id === "C" ? "text-lg" : "scale-125"} />
         </div>
         <dl className="grid gap-x-4 gap-y-2 text-sm @lg:grid-cols-2">
@@ -155,13 +149,30 @@ export function DirectionPanel({ d }: { d: Direction }) {
         </dl>
       </header>
 
-      {/* Pantalla real en contexto */}
-      <Block title="Pantalla Stock en contexto" hint="Menú de escritorio y pantalla real con datos de ejemplo.">
+      {/* Pantallas reales en contexto */}
+      <Block
+        title="Pantalla Stock en contexto"
+        hint={d.layout === "rail" ? `Riel lateral ${d.railStartsCollapsed ? "colapsado (solo íconos)" : "expandido"}; el botón de abajo lo alterna.` : "Barra superior y pantalla real con datos de ejemplo."}
+      >
         <div className={cn("overflow-hidden bg-background", d.ui.frame)}>
-          <div className={cn(d.id === "B" ? "flex" : "block")}>
-            <DesktopMenu d={d} />
+          <div className={cn(d.layout === "rail" ? "flex" : "block")}>
+            <DesktopMenu d={d} current="Stock" collapsed={d.railStartsCollapsed} />
             <div className="min-w-0 flex-1">
               <StockPreview d={d} />
+            </div>
+          </div>
+        </div>
+      </Block>
+
+      <Block
+        title="Pantalla POS (caja) en contexto"
+        hint={d.layout === "rail" ? "Pantalla crítica: el riel parte en solo íconos para no perder ancho útil. Misma disposición que la caja real." : "Pantalla crítica: misma disposición que la caja real."}
+      >
+        <div className={cn("overflow-hidden bg-background", d.ui.frame)}>
+          <div className={cn(d.layout === "rail" ? "flex" : "block")}>
+            <DesktopMenu d={d} current="POS" collapsed />
+            <div className="min-w-0 flex-1">
+              <PosPreview d={d} />
             </div>
           </div>
         </div>

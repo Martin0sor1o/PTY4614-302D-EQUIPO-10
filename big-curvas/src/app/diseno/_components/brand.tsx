@@ -23,6 +23,34 @@ export function Wordmark({ id, className }: { id: DirectionId; className?: strin
       </span>
     );
   }
+  if (id === "D") {
+    return (
+      <span aria-label="Big Curvas" className={cn("dir-display inline-flex flex-col leading-none", className)}>
+        <span aria-hidden className="text-[10px] font-bold tracking-[0.5em] uppercase">Big</span>
+        <span aria-hidden className="-mt-0.5 text-[1.9rem] font-bold italic">Curvas</span>
+      </span>
+    );
+  }
+  if (id === "E") {
+    return (
+      <span aria-label="Big Curvas" className={cn("dir-display inline-flex items-center gap-1.5 text-[1.55rem] leading-none font-semibold tracking-tight lowercase", className)}>
+        <svg aria-hidden viewBox="0 0 24 24" className="size-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round">
+          <path d="M20 8 A9 9 0 1 0 20 16" />
+        </svg>
+        <span aria-hidden>big curvas</span>
+      </span>
+    );
+  }
+  if (id === "F") {
+    return (
+      <span aria-label="Big Curvas" className={cn("dir-display inline-flex items-center gap-1.5 text-[1.45rem] leading-none font-semibold", className)}>
+        <svg aria-hidden viewBox="0 0 28 14" className="h-3.5 w-7 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <path d="M2 10 C 7 -2, 13 -2, 14 7 S 21 14, 26 3" />
+        </svg>
+        <span aria-hidden>Big Curvas</span>
+      </span>
+    );
+  }
   return (
     <span aria-label="Big Curvas" className={cn("dir-display inline-flex flex-col text-lg leading-none font-medium uppercase tracking-[0.34em]", className)}>
       <span aria-hidden>Big Curvas</span>
@@ -49,6 +77,32 @@ export function Ornament({ id, className }: { id: DirectionId; className?: strin
         <path d="M6 36 V22 a18 18 0 0 1 36 0 V36" />
         <path d="M42 36 V18 a18 18 0 0 1 36 0 V36" opacity=".6" />
         <path d="M78 36 V26 a14 14 0 0 1 28 0 V36" opacity=".35" />
+      </svg>
+    );
+  }
+  if (id === "D") {
+    return (
+      <svg {...common} viewBox="0 0 120 40" strokeWidth="2" strokeLinecap="round">
+        <path d="M6 36 C 6 14, 30 4, 60 4 S 114 14, 114 36" />
+        <path d="M22 36 C 22 20, 40 12, 60 12 S 98 20, 98 36" opacity=".6" />
+        <path d="M38 36 C 38 28, 48 22, 60 22 S 82 28, 82 36" opacity=".35" />
+      </svg>
+    );
+  }
+  if (id === "E") {
+    return (
+      <svg {...common} viewBox="0 0 120 40" strokeWidth="1.75">
+        <circle cx="26" cy="20" r="14" />
+        <circle cx="60" cy="20" r="14" opacity=".6" />
+        <circle cx="94" cy="20" r="14" opacity=".3" />
+      </svg>
+    );
+  }
+  if (id === "F") {
+    return (
+      <svg {...common} viewBox="0 0 120 40" strokeWidth="2.25" strokeLinecap="round">
+        <path d="M4 12 C 20 -2, 36 -2, 52 12 S 84 26, 100 12" />
+        <path d="M20 30 C 36 16, 52 16, 68 30 S 100 38, 116 24" opacity=".5" />
       </svg>
     );
   }

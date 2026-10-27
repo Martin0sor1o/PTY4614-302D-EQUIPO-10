@@ -17,6 +17,25 @@
 .dir[data-dir="A"] [data-slot="card-title"] {
   font-variant-numeric: lining-nums;
 }
+/* Playfair y Newsreader también traen cifras de texto en algunos contextos: se fuerzan alineadas. */
+.dir[data-dir="D"] .dir-display,
+.dir[data-dir="D"] [data-slot="card-title"],
+.dir[data-dir="F"] .dir-display,
+.dir[data-dir="F"] [data-slot="card-title"] {
+  font-variant-numeric: lining-nums;
+}
+.dir[data-dir="D"] [data-slot="card-title"] {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.dir[data-dir="E"] [data-slot="card-title"] {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.dir[data-dir="F"] [data-slot="card-title"] {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
 .dir[data-dir="B"] .dir-display,
 .dir[data-dir="B"] [data-slot="card-title"] {
   font-variation-settings: "SOFT" 100;
@@ -37,6 +56,11 @@
 .dir :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+/* Dentro del menú (riel o barra) el foco usa el color pensado para ese fondo. */
+.dir [data-menu] :focus-visible {
+  outline-color: var(--dir-menu-ring);
 }
 
 @media (prefers-reduced-motion: reduce) {
