@@ -16,6 +16,9 @@ import {
   type LocationDef,
   type StockByLocation,
 } from "./seed-data";
+import { runDemoHistory, type HistorySummary } from "./history";
+import { buildHistoryPlan } from "./history-plan";
+import { hashString, seededRandom } from "./random";
 
 // DEMO: reinicia y carga los datos de ejemplo. Vacía las tablas de la app: solo con DEMO_MODE=true.
 
@@ -46,27 +49,6 @@ const ALL_TABLES = [
   "locations",
 ] as const;
 
-/** Generador pseudoaleatorio determinista (mulberry32) para que el stock sea siempre el mismo. */
-function seededRandom(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function hashString(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 /** EAN-13 con prefijo 780 (Chile) y dígito verificador válido. */
 export function ean13(index: number): string {
   const base = `780${String(100000 + index * 37).padStart(9, "0")}`;
@@ -94,13 +76,48 @@ export interface SeedSummary {
   variants: number;
   unitsByLocation: Record<string, number>;
   ledgerMismatches: number;
+  /** Solo con `history: true`. */
+  history?: HistorySummary;
 }
 
-export async function resetAndSeedDemoData(): Promise<SeedSummary> {
+export interface ResetOptions {
+  /**
+   * Además de los datos base, genera ~8 semanas de ventas y pedidos (Etapa 6.5) por los servicios reales, para que los
+   * reportes no salgan vacíos. El stock final es el mismo de los casos de prueba de DEMO_PLAN.md, pero los correlativos
+   * (RGA-, BOD-, PED-, TR-) continúan después del historial. Por omisión NO (los tests y `pnpm db:seed` quedan como antes).
+   */
+  history?: boolean;
+  /** Reloj del seed (solo para pruebas del historial). */
+  now?: Date;
+}
+
+export async function resetAndSeedDemoData(options: ResetOptions = {}): Promise<SeedSummary> {
   if (!isDemoMode()) {
     throw new AppError("FORBIDDEN", "El reinicio de datos solo está disponible con DEMO_MODE=true.");
   }
 
+  // Stock objetivo por SKU (el de los casos de prueba). Con historial, la carga inicial suma lo que el historial venderá,
+  // así que al terminar el stock queda exactamente en estos números.
+  const targets = new Map<string, StockByLocation>();
+  for (const p of PRODUCTS) {
+    for (const color of p.colors) {
+      for (const size of p.sizes) {
+        const sku = `${p.model}-${color}-${size}`;
+        targets.set(sku, STOCK_OVERRIDES[sku] ?? randomStock(sku));
+      }
+    }
+  }
+  const plan = options.history ? buildHistoryPlan(options.now ?? new Date(), targets) : null;
+
+  const summary = await seedBaseData(targets, plan?.extraUnits ?? null);
+  if (plan) summary.history = await runDemoHistory(plan);
+  return summary;
+}
+
+async function seedBaseData(
+  targets: ReadonlyMap<string, StockByLocation>,
+  extraUnits: { TIENDA_RANCAGUA: Record<string, number>; BODEGA: Record<string, number> } | null,
+): Promise<SeedSummary> {
   return db.$transaction(
     async (tx) => {
       await tx.$executeRawUnsafe(`TRUNCATE TABLE ${ALL_TABLES.map((t) => `"${t}"`).join(", ")} RESTART IDENTITY CASCADE`);
@@ -166,7 +183,7 @@ export async function resetAndSeedDemoData(): Promise<SeedSummary> {
               },
             });
             variantRows.push({ id: variant.id, sku });
-            stockBySku.set(sku, STOCK_OVERRIDES[sku] ?? randomStock(sku));
+            stockBySku.set(sku, targets.get(sku)!);
           }
         }
       }
@@ -179,14 +196,16 @@ export async function resetAndSeedDemoData(): Promise<SeedSummary> {
       const admin: Actor = { id: adminId, role: "ADMIN", location: null };
       const unitsByLocation: Record<string, number> = {};
       for (const loc of LOCATIONS) {
-        const lines = variantRows.map((v) => ({ variantId: v.id, qty: stockBySku.get(v.sku)![loc.code] }));
+        const extra = extraUnits?.[loc.code] ?? {};
+        const lines = variantRows.map((v) => ({ variantId: v.id, qty: stockBySku.get(v.sku)![loc.code] + (extra[v.sku] ?? 0) }));
         await loadInitialStock(tx, {
           actor: admin,
           locationId: locationByCode.get(loc.code)!,
           lines,
           idempotencyKey: `seed-carga-inicial-${loc.code}`,
         });
-        unitsByLocation[loc.code] = lines.reduce((sum, l) => sum + l.qty, 0);
+        // Se informa el stock final (el objetivo), no la carga que incluye lo que el historial consumirá.
+        unitsByLocation[loc.code] = variantRows.reduce((sum, v) => sum + stockBySku.get(v.sku)![loc.code], 0);
       }
 
       const mismatches = await findLedgerMismatches(tx);

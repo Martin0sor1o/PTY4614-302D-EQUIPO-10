@@ -73,6 +73,11 @@
   - [x] Aprobación presencial con PIN ("Belén está aquí")
   - [x] Aprobación de uso único (tipo, ubicación, monto y carrito/venta) + tests
   - [x] Migración `approvals` · lint + typecheck + tests + build · commit
+- [x] **Etapa 6.5 – Reportes y dashboard (objetivo específico 4)** · propuesta de demo: lo que quiere ver Belén sigue abierto (P-24) y cada supuesto está listado abajo
+  - [x] Módulo `reports` (solo lectura, solo ADMIN) y `/reportes` con tarjetas hoy/semana/mes y una pestaña por reporte
+  - [x] Ventas por medio de pago (día/semana/mes, rango, canal, ventas y ticket promedio) · Más vendidos · Stock bajo · Sin rotación · Lista del viernes (imprimible)
+  - [x] Historial de demo de 8 semanas por los servicios reales (`pnpm db:seed:history`)
+  - [x] Sin migración de esquema: los umbrales son 3 filas nuevas en `settings` · lint + typecheck + tests + build · commit
 - [ ] **Etapa 7 – Pulido para presentar**
   - [ ] Inicio "Guion de demo" (5 pasos)
   - [ ] Botón reiniciar datos (ADMIN + `DEMO_MODE`)
@@ -104,7 +109,7 @@ big-curvas/
   tests/  integration/ (Postgres real)
 ```
 
-`returns/`, `reports/`, `suppliers/`, `billing/` quedan fuera de la demo.
+`returns/`, `suppliers/`, `billing/` quedan fuera de la demo. `reports/` entró en la Etapa 6.5 (solo lectura).
 
 ## Subconjunto del modelo Prisma
 
@@ -366,6 +371,53 @@ Dos ventanas: la **vendedora** en `http://localhost:3000` (caja) y **Belén** en
 | 8 | **Reembolso de un pedido cancelado** | Belén: cancelar un pedido pagado → en el detalle, **Reembolso pendiente** → medio y referencia → **Registrar reembolso** | La venta pasa a `Anulada`, desaparece el aviso y queda "Reembolsado el …" |
 | 9 | **Vencimiento** | Esperar más de 10 min sin responder (o bajar `approval_timeout_minutes`) | La solicitud pasa a `Vencida`: la caja informa que venció y Belén ya no puede aprobarla (`CONFLICT`) |
 | 10 | **Permisos** | La vendedora abre `/aprobaciones` | `/sin-acceso`; el servidor rechaza que apruebe, rechace o vea la bandeja |
+
+## Decisiones del usuario (Etapa 6.5)
+
+Los reportes los ve solo Belén. Es una **propuesta de demo**: la pregunta P-24 (qué reportes quiere Belén) sigue abierta y los supuestos de abajo se validan con ella.
+
+1. **Módulo y acceso.** `src/modules/reports` solo lee (regla 1; un test compara movimientos, stock, reservas y traslados antes y después). Cada consulta hace `assertAccess(actor, { roles: ["ADMIN"] })` y la página usa `requirePageAccess(["ADMIN"])`; la vendedora y el rol BODEGA son rechazados antes de validar los datos. Sin Server Actions: los filtros son GET.
+2. **Fechas.** Todo se agrupa en `America/Santiago` con `src/lib/dates.ts` (se agregaron `santiagoWeekKey`, `santiagoMonthKey`, `startOfDayKeySantiago`, `addDaysToKey`, `daysBetweenKeys`). Una venta a las 23:30 de Chile cae en su día aunque en UTC ya sea el siguiente. Se corrigió `startOfDaySantiago` para el día del cambio de horario de septiembre (la medianoche no existe y el día empieza a la 01:00). Sin `$queryRaw`: se agrupa en JS sobre consultas de Prisma. Rango máximo: 366 días.
+3. **Qué cuenta en "ventas" (plata).** Lo cobrado: Σ `payments.amount` de ventas `COMPLETADA` (en efectivo incluye el redondeo a $10; en pedidos online incluye el envío, que se informa aparte). Tarjeta = débito + crédito. Canal tienda = `POS`; online = INSTAGRAM, WHATSAPP o WEB. Fecha de la venta online = `sales.created_at` (al confirmar el pago).
+4. **Anuladas.** No cuentan: la venta desaparece del día en que se hizo, aunque se anule o reembolse días después. Se informa aparte "Anuladas en el rango".
+5. **Pedidos cancelados con reembolso pendiente (RF-PED-09).** Su venta **sigue contando** en los reportes de plata hasta que Belén registra el reembolso (entonces pasa a `ANULADA` y deja de contar). La tarjeta "Reembolsos pendientes: N · $X" muestra esa plata. Los reportes de **producto** (más vendidos, sin rotación, lista del viernes) **excluyen** las líneas de pedidos `CANCELADO`.
+6. **Más vendidos.** Ranking de modelos por unidades, luego ingreso (`line_total`, sin envío), luego código; los modelos con las mismas unidades e ingreso comparten puesto. Detalle por variante. Primeros 20.
+7. **Stock bajo.** Por ubicación activa: `disponible = en mano − reservado ≤ umbral`, incluidas las agotadas. Umbral = `settings.low_stock_threshold` (2); un producto con `low_stock_threshold` propio usa el suyo (como la matriz de Stock). **En la demo todos los productos traen umbral propio 2**, así que el valor de `settings` solo rige si se borra el del producto.
+8. **Sin rotación.** Variantes con stock (en mano > 0 en alguna ubicación) sin ventas en los últimos `settings.no_rotation_days` (60) días calendario, contando hoy. **No se excluyen las prendas recién ingresadas** (supuesto visible en la pantalla; en la demo todos los ingresos tienen fecha de hoy).
+9. **Lista del viernes.** `sugerido = min(disponible en BODEGA, max(0, ventas de TIENDA_RANCAGUA en los últimos N días − disponible en tienda))`, N = `settings.friday_list_days` (14). Disponible descuenta lo reservado. Lo que ya viaja a la tienda se muestra pero **no se resta**. Solo se ve e imprime (A4): no crea el traslado.
+10. **Claves de `settings`** (valor de demo, `is_demo_value = true`, sin cambio de esquema): `low_stock_threshold = 2`, `no_rotation_days = 60`, `friday_list_days = 14`. No hay pantalla para editarlas: se cambian en la tabla.
+11. **Historial de demo** (`src/modules/demo/history-plan.ts` + `history.ts`). Plan puro y determinista de ~8 semanas (lunes a sábado): ventas POS de las dos vendedoras con los tres medios de pago, algunas anuladas por Belén el mismo día, y pedidos online que se entregan, se cancelan con reembolso pendiente o se cancelan y reembolsan. Todo pasa por `createSale`, `voidSale` y los servicios de `orders`; el stock solo se mueve vía `InventoryService`. Las fechas simuladas se corrigen al final con `update` de Prisma (ventas, pagos, cajas, pedidos); los movimientos de stock y el historial de estados de los pedidos son inmutables por trigger y conservan la fecha del seed. **Caja secuencial por día** (abrir, vender, anular antes de cerrar, cerrar): nunca hay dos abiertas ni se toca el índice `cash_sessions_one_open_per_location_idx`. El stock final queda **exactamente** en el de los casos de prueba de arriba: la carga inicial suma lo que el historial consumirá. Solo corre desde el seed/reinicio con `DEMO_MODE` (`resetAndSeedDemoData({ history: true })`; `runDemoHistory` no se exporta a rutas ni acciones).
+12. **Dos comandos de seed.** `pnpm db:seed` carga solo los datos base (como antes: todos los casos de prueba de las etapas 2–6, con sus números `TR-000001`, `PED-000001`, `BOD-000001`, siguen exactos). `pnpm db:seed:history` agrega el historial (unos 12 s en local): los correlativos (`RGA-`, `BOD-`, `PED-`) continúan después del historial, así que los números de los casos manuales cambian. El botón de reinicio de la Etapa 7 debe llamar a `resetAndSeedDemoData({ history: true })`.
+
+### Supuestos a validar con Belén (P-24)
+
+- Umbral de stock bajo en 2 unidades ("2 o menos"), con las agotadas incluidas.
+- Sin rotación a los 60 días, sin excluir prendas nuevas.
+- Lista del viernes con ventana de 14 días y la fórmula de arriba; lo que ya viaja a la tienda no se resta.
+- Semana de lunes a domingo.
+- "Tarjeta" = débito + crédito.
+- Las ventas se miden por lo cobrado: incluye el redondeo a $10 en efectivo y el envío de los pedidos online.
+- Un pedido cancelado sigue sumando en las ventas hasta registrar el reembolso; **un reembolso registrado días después hace desaparecer la venta de su día original** (y ese día baja retroactivamente).
+- Una venta anulada no cuenta y desaparece de su día.
+- Que Rancagua vende de lunes a sábado (supuesto solo del historial de demo).
+
+## Casos de prueba para la demo (Etapa 6.5)
+
+Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `DEMO_MODE=true`). Todos los reportes son de solo lectura.
+
+| # | Caso | Pasos | Resultado esperado |
+|---|---|---|---|
+| 1 | **Resumen y ventas por medio de pago** (caso principal) | Menú **Reportes** → pestaña **Ventas** (últimos 30 días, por día) | Tarjetas de hoy, semana y mes; total cobrado, ventas y ticket promedio; efectivo, tarjeta y transferencia con su barra; una fila por día (los domingos en cero); suma de los medios = total |
+| 2 | **Semana, mes y canal** | Agrupar por **Semana**, luego **Mes**; Canal **Solo online** y **Solo tienda** → Aplicar | Semanas de lunes a domingo (la de los bordes puede ser parcial); online + tienda = ambos; online muestra transferencia y tarjeta con envío incluido |
+| 3 | **Anuladas no cuentan** | En el POS (vendedora o Belén) vender y anular una venta del día; volver a Reportes | La venta no suma; aparece "Anuladas en este rango: 1 venta" |
+| 4 | **Reembolso pendiente** | Pedidos → cancelar un pedido pagado; mirar Reportes | La tarjeta amarilla "Reembolsos pendientes" sube y el total de ventas **no** baja. Registrar el reembolso en el pedido: la tarjeta baja y la venta sale del total y del día en que se hizo |
+| 5 | **Venta de las 23:30** | Vender a las 23:30 (hora de Chile) y mirar el día | Cae en su día de Chile, no en el siguiente |
+| 6 | **Más vendidos** | Pestaña **Más vendidos**; tocar un modelo | Ranking por unidades con ingreso; el detalle muestra las variantes. Un rango sin ventas muestra "No hay ventas en este rango" |
+| 7 | **Stock bajo** | Pestaña **Stock bajo** | Una sección por ubicación, con las agotadas primero. Reservar unidades de una prenda para un pedido baja su disponible y la hace aparecer |
+| 8 | **Sin rotación** | Pestaña **Sin rotación** | Prendas con stock sin ventas en 60 días; las nunca vendidas primero. Bajar `no_rotation_days` en `settings` las aumenta |
+| 9 | **Lista del viernes** | Pestaña **Lista del viernes** → Imprimir | Lista A4 "Bodega → Tienda Rancagua" con lo que llevar; jamás más que el disponible de la bodega (no cuenta lo reservado). No crea ningún traslado: Stock y Traslados siguen igual |
+| 10 | **Permisos** | La vendedora abre `/reportes` | `/sin-acceso`; el menú no muestra "Reportes" y el servidor rechaza cada consulta |
+| 11 | **Celular** | Abrir `/reportes` en vista móvil | Tarjetas apiladas, pestañas con desplazamiento lateral, filtros en dos columnas y tablas con la información secundaria bajo cada fila |
 
 ## Pendientes de la Etapa 6 para Fase 1
 

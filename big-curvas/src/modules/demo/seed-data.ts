@@ -161,6 +161,24 @@ export const DEMO_SETTINGS: { key: string; valueInt?: number; valueText?: string
     isDemoValue: true,
   },
   {
+    key: "low_stock_threshold",
+    valueInt: 2,
+    description: "Reportes: una variante está en stock bajo si su disponible (en mano − reservado) es este número o menos. Un producto puede fijar el suyo. Valor propuesto (P-24, pendiente de validar).",
+    isDemoValue: true,
+  },
+  {
+    key: "no_rotation_days",
+    valueInt: 60,
+    description: "Reportes: días sin ventas a partir de los cuales una variante con stock se considera sin rotación. Valor propuesto (P-24, pendiente de validar).",
+    isDemoValue: true,
+  },
+  {
+    key: "friday_list_days",
+    valueInt: 14,
+    description: "Reportes: ventana (días) de ventas de la tienda con que se calcula la lista sugerida del viernes. Valor propuesto (P-24, pendiente de validar).",
+    isDemoValue: true,
+  },
+  {
     key: "couriers",
     valueText: "Starken,Blue Express,Chilexpress",
     description: "Couriers disponibles al despachar un pedido online (separados por coma). Lista de la clienta; cómo se cobra el envío sigue pendiente (P-11).",
