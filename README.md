@@ -115,4 +115,4 @@ pnpm test                   # 307 pruebas automáticas
 | Renato Espina | Aseguramiento de calidad (QA), pruebas y certificación |
 | Benjamín Rojas | Dashboards y reportes de ventas |
 
-**Clienta:** Belén López Villanueva, dueña de Big Curvas (Rancagua).
+**Clienta:** Belén, dueña de Big Curvas (Rancagua).
