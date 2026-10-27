@@ -80,8 +80,25 @@ describe("siembra inicial (demo:bootstrap)", () => {
     expect(await db.sale.count()).toBeGreaterThan(0);
   });
 
-  it("con DEMO_SEED_HISTORY=false una BD con datos base se considera sembrada", async () => {
+  it("con DEMO_SEED_HISTORY=false nunca re-siembra una BD con datos: no hay TRUNCATE en arranques posteriores", async () => {
     process.env.DEMO_SEED_HISTORY = "false";
+    // resetDemo() dejó datos base sin ventas, más el usuario BODEGA de test (que el seed no trae): si hubiera TRUNCATE, desaparece.
+    expect(await db.sale.count()).toBe(0);
+    for (let boot = 0; boot < 3; boot++) {
+      expect(await seedDemoDataIfEmpty()).toEqual({ seeded: false, reason: "already-seeded" });
+    }
+    expect(await db.user.count({ where: { email: "bodega@bigcurvas.test" } })).toBe(1);
+    expect(await db.sale.count()).toBe(0);
+  });
+
+  it("con DEMO_SEED_HISTORY=false y la BD vacía siembra solo los datos base (sin historial)", async () => {
+    process.env.DEMO_SEED_HISTORY = "false";
+    await db.$executeRawUnsafe(`TRUNCATE TABLE "users" RESTART IDENTITY CASCADE`);
+    const result = await seedDemoDataIfEmpty();
+    expect(result.seeded).toBe(true);
+    expect(result.seeded && result.summary.history).toBeUndefined();
+    expect(await db.user.count()).toBeGreaterThan(0);
+    expect(await db.sale.count()).toBe(0);
     expect(await seedDemoDataIfEmpty()).toEqual({ seeded: false, reason: "already-seeded" });
   });
 });
