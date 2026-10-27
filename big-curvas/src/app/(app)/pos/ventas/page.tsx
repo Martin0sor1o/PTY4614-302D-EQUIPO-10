@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { formatTime } from "@/lib/dates";
 import { formatCLP } from "@/lib/money";
 import { demoPinHint } from "@/modules/demo";
@@ -10,6 +11,8 @@ import { posPageContext } from "../context";
 export const dynamic = "force-dynamic";
 
 const METHOD_ORDER = ["EFECTIVO", "DEBITO", "CREDITO", "TRANSFERENCIA"] as const;
+
+export const metadata: Metadata = { title: "Ventas del día" };
 
 export default async function DaySalesPage() {
   const { user, location, problem } = await posPageContext();

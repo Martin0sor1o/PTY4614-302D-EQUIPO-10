@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/dates";
@@ -11,6 +12,8 @@ import { loadTransfer } from "../../load-transfer";
 export const dynamic = "force-dynamic";
 
 /** Guía de traslado imprimible (A4): la lleva Belén en el vehículo. El CSS de impresión está en globals.css (`.guia`). */
+export const metadata: Metadata = { title: "Guía de traslado" };
+
 export default async function TransferGuidePage({ params }: PageProps<"/traslados/[id]/guia">) {
   await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);
   const t = await loadTransfer(params);

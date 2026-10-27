@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { canAccess } from "@/lib/access";
@@ -6,6 +7,8 @@ import { TransferEditor } from "@/components/transfers/transfer-editor";
 import { loadTransfer } from "../../load-transfer";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Editar traslado" };
 
 export default async function EditTransferPage({ params }: PageProps<"/traslados/[id]/editar">) {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

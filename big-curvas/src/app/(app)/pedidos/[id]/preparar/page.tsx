@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requirePageAccess } from "@/modules/auth";
@@ -5,6 +6,8 @@ import { PickForm } from "@/components/orders/pick-form";
 import { loadOrder } from "../../load-order";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Preparar pedido" };
 
 export default async function PrepareOrderPage({ params }: PageProps<"/pedidos/[id]/preparar">) {
   const user = await requirePageAccess(["ADMIN", "BODEGA"]);

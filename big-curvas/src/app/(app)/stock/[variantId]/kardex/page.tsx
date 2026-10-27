@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -42,6 +43,8 @@ const REF_LABEL: Record<RefType, string> = {
 
 const paramsSchema = z.object({ variantId: z.string().min(1).max(64) });
 const searchSchema = z.object({ ubicacion: z.string().max(64).optional().catch(undefined) });
+
+export const metadata: Metadata = { title: "Kardex" };
 
 export default async function KardexPage({ params, searchParams }: PageProps<"/stock/[variantId]/kardex">) {
   await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

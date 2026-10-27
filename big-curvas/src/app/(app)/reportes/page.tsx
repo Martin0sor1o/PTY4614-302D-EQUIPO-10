@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { z } from "zod";
 import { addDaysToKey, santiagoDayKey } from "@/lib/dates";
 import { isAppError } from "@/lib/errors";
@@ -49,6 +50,8 @@ function RangeError({ message }: { message: string }) {
 }
 
 /** Reportes y dashboard de Belén (solo ADMIN, solo lectura). El rol se valida aquí y otra vez en cada consulta del módulo. */
+export const metadata: Metadata = { title: "Reportes" };
+
 export default async function ReportsPage({ searchParams }: PageProps<"/reportes">) {
   const actor = await requirePageAccess(["ADMIN"]);
   const q = searchSchema.parse(await searchParams);

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, FileText, PackageCheck, Pencil } from "lucide-react";
 import { canAccess } from "@/lib/access";
@@ -24,6 +25,8 @@ function Meta({ label, children }: { label: string; children: React.ReactNode })
     </div>
   );
 }
+
+export const metadata: Metadata = { title: "Traslado" };
 
 export default async function TransferDetailPage({ params }: PageProps<"/traslados/[id]">) {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

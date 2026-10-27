@@ -15,6 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:seed:history": "prisma db seed -- --history",
+    "demo:bootstrap": "tsx --env-file-if-exists=.env scripts/demo-bootstrap.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

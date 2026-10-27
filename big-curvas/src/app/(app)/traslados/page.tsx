@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, Plus } from "lucide-react";
 import { z } from "zod";
@@ -74,6 +75,8 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
     </TableRow>
   );
 }
+
+export const metadata: Metadata = { title: "Traslados" };
 
 export default async function TransfersPage({ searchParams }: PageProps<"/traslados">) {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePageAccess } from "@/modules/auth";
 import { listLocations } from "@/modules/locations";
 import { TransferEditor } from "@/components/transfers/transfer-editor";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Nuevo traslado" };
 
 export default async function NewTransferPage() {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

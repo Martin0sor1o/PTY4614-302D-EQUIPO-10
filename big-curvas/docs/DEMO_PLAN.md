@@ -78,12 +78,13 @@
   - [x] Ventas por medio de pago (día/semana/mes, rango, canal, ventas y ticket promedio) · Más vendidos · Stock bajo · Sin rotación · Lista del viernes (imprimible)
   - [x] Historial de demo de 8 semanas por los servicios reales (`pnpm db:seed:history`)
   - [x] Sin migración de esquema: los umbrales son 3 filas nuevas en `settings` · lint + typecheck + tests + build · commit
-- [ ] **Etapa 7 – Pulido para presentar**
-  - [ ] Inicio "Guion de demo" (5 pasos)
-  - [ ] Botón reiniciar datos (ADMIN + `DEMO_MODE`)
-  - [ ] README en español
-  - [ ] Despliegue en Render (`render.yaml` + instrucciones)
-  - [ ] lint + typecheck + tests · commit
+- [x] **Etapa 7 – Pulido para presentar y publicación en Render**
+  - [x] Inicio "Guion de demo" (7 pasos con enlaces, usuario y problema que resuelve; solo con `DEMO_MODE`)
+  - [x] Botón "Reiniciar datos de demo" (solo ADMIN + `DEMO_MODE`, validado en el servidor) → `resetAndSeedDemoData({ history: true })`
+  - [x] Aviso "Demo con datos ficticios" en el login, títulos de página, menú y tablas legibles en celular
+  - [x] README en español y `docs/DEPLOY_RENDER.md`
+  - [x] `render.yaml` (raíz del repositorio), `/api/health` y `pnpm demo:bootstrap` (siembra solo si la BD está vacía)
+  - [x] lint + typecheck + tests · commit
 
 ## Estructura de carpetas (todo dentro de `big-curvas/`)
 
@@ -428,3 +429,13 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 - **Vencimiento sin job:** las solicitudes vencidas se marcan al consultarlas; con volumen real conviene un job (GitHub Actions → endpoint protegido, ADR-010) que las limpie.
 - **Un descuento aprobado cubre todo el carrito** con una sola aprobación (todas las líneas con descuento sobre el límite); si se quiere aprobar por línea, hay que partir la solicitud.
 
+
+## Decisiones del usuario (Etapa 7)
+
+1. **Guion de demo** en Inicio (`src/components/demo/`), solo con `DEMO_MODE=true`; los casos con `TR-000001` / `PED-000001` de las etapas 4 a 6 solo calzan con `pnpm db:seed` (sin historial). Con historial, los correlativos continúan después de él: se avisa en el guion y en el README.
+2. **Reiniciar datos de demo:** `resetDemoData` (`src/modules/demo/reset.ts`) exige ADMIN y `DEMO_MODE` en el servidor y llama a `resetAndSeedDemoData({ history })`. Como el seed regenera los ids de usuario, la acción cierra la sesión y vuelve a `/login`. `DEMO_SEED_HISTORY=false` (opcional) quita el historial del reinicio y de la primera siembra, por si el hosting es lento.
+3. **Primera siembra en el hosting:** `pnpm demo:bootstrap` (`seedDemoDataIfEmpty`) siembra solo si no hay usuarios, o si falta el historial de ventas esperado (siembra anterior cortada); en los demás arranques no hace nada.
+4. **Render (planes gratuitos):** `render.yaml` en la raíz del repositorio. Las migraciones (`prisma migrate deploy`) y la siembra van en el comando de inicio porque el plan gratuito no tiene pre-deploy. El historial tarda ~18 s en local (el seed base, ~2 s); el tiempo en Render se lee en los logs. Detalle y riesgos en `DEPLOY_RENDER.md`.
+5. **`/api/health`:** público, hace `SELECT 1` y responde 200 `{status:"ok"}` o 503. El ping vive en `src/modules/system` (Prisma solo dentro de `src/modules`).
+6. **Stock bajo** ya salía ordenado de menor a mayor disponible (y luego por SKU); se agregó un test con muchas variantes que fija el orden. No se limitan filas.
+7. **Celular:** el menú pasa a segunda línea en vez de desplazarse; en Stock se ocultan Talla y Total (van bajo el SKU) y en Pedidos se ocultan Unidades, Total y antigüedad (van bajo la clienta).

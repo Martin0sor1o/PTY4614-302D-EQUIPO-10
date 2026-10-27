@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { formatTime } from "@/lib/dates";
 import { getDiscountLimit, getOpenCashSession } from "@/modules/sales";
@@ -6,6 +7,8 @@ import { PosTerminal } from "@/components/pos/pos-terminal";
 import { posPageContext } from "./context";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "POS" };
 
 export default async function PosPage() {
   const { user, location, problem } = await posPageContext();

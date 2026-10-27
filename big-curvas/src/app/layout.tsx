@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Big Curvas",
+  title: { default: "Big Curvas", template: "%s · Big Curvas" },
   description: "Inventario, POS y pedidos online de Big Curvas",
 };
 

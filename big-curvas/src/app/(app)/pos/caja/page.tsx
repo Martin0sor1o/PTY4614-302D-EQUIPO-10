@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { formatDateTime, formatTime } from "@/lib/dates";
@@ -86,6 +87,8 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
     </Card>
   );
 }
+
+export const metadata: Metadata = { title: "Caja" };
 
 export default async function CashPage({ searchParams }: PageProps<"/pos/caja">) {
   const { user, location, problem } = await posPageContext();

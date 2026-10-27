@@ -1,0 +1,36 @@
+# Blueprint de Render para la demo de Big Curvas (planes gratuitos). Guía: big-curvas/docs/DEPLOY_RENDER.md
+# Va en la raíz del repositorio (requisito de Render); la app vive en la subcarpeta big-curvas/.
+# Sin secretos: DATABASE_URL la entrega la base de datos de Render.
+
+databases:
+  - name: big-curvas-db
+    databaseName: big_curvas
+    user: bigcurvas
+    region: oregon
+    plan: free
+
+services:
+  - type: web
+    name: big-curvas-demo
+    runtime: node
+    region: oregon
+    plan: free
+    branch: feature/demo
+    rootDir: big-curvas
+    autoDeployTrigger: commit
+    # corepack activa el pnpm fijado en package.json ("packageManager"). Se instalan también las devDependencies
+    # (Next, TypeScript, Tailwind y Prisma las necesitan para compilar) aunque NODE_ENV sea production.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    # Las migraciones y la siembra van en el arranque: el plan gratuito no tiene "pre-deploy command".
+    # demo:bootstrap solo siembra si la base está vacía (primera vez); en los demás arranques no hace nada.
+    startCommand: pnpm db:deploy && pnpm demo:bootstrap && pnpm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DEMO_MODE
+        value: "true"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: big-curvas-db
+          property: connectionString

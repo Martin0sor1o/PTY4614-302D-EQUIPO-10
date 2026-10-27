@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { requirePageAccess } from "@/modules/auth";
@@ -41,6 +42,8 @@ function cancelConsequence(o: OrderDetail): string {
       return sale;
   }
 }
+
+export const metadata: Metadata = { title: "Pedido" };
 
 export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[id]">) {
   const user = await requirePageAccess(["ADMIN"]);

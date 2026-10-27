@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePageAccess } from "@/modules/auth";
 import { OrderForm } from "@/components/orders/order-form";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Nuevo pedido" };
 
 export default async function NewOrderPage() {
   await requirePageAccess(["ADMIN"]);

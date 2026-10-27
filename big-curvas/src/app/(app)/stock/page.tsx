@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { z } from "zod";
 import { requirePageAccess } from "@/modules/auth";
@@ -36,6 +37,8 @@ function StockCellView({ cell, threshold }: { cell: StockCell; threshold: number
   );
 }
 
+export const metadata: Metadata = { title: "Stock" };
+
 export default async function StockPage({ searchParams }: PageProps<"/stock">) {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);
   const { q } = searchSchema.parse(await searchParams);
@@ -70,7 +73,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
             <TableRow>
               <TableHead>SKU</TableHead>
               <TableHead className="hidden sm:table-cell">Prenda</TableHead>
-              <TableHead className="text-center">Talla</TableHead>
+              <TableHead className="hidden text-center sm:table-cell">Talla</TableHead>
               {locations.map((l) => (
                 <TableHead
                   key={l.id}
@@ -85,7 +88,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                   Por resolver
                 </TableHead>
               )}
-              <TableHead className="text-center">Total</TableHead>
+              <TableHead className="hidden text-center sm:table-cell">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -102,15 +105,15 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                   <Link href={`/stock/${r.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline" title="Ver kardex">
                     {r.sku}
                   </Link>
-                  <div className="font-sans text-[11px] text-muted-foreground sm:hidden">
-                    {r.productName} · {r.color}
+                  <div className="max-w-[8rem] whitespace-normal font-sans text-[11px] text-muted-foreground sm:hidden">
+                    {r.productName} · {r.color} · talla {r.size} · total {r.total}
                   </div>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <div className="font-medium">{r.productName}</div>
                   <div className="text-xs text-muted-foreground">{r.color}</div>
                 </TableCell>
-                <TableCell className="text-center">{r.size}</TableCell>
+                <TableCell className="hidden text-center sm:table-cell">{r.size}</TableCell>
                 {locations.map((l) => (
                   <TableCell key={l.id} className={cn("text-center", l.id === myLocationId && "bg-primary/15")}>
                     <StockCellView cell={cellFor(r, l.id)} threshold={r.lowStockThreshold} />
@@ -130,7 +133,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                     )}
                   </TableCell>
                 )}
-                <TableCell className="text-center font-medium tabular-nums">{r.total}</TableCell>
+                <TableCell className="hidden text-center font-medium tabular-nums sm:table-cell">{r.total}</TableCell>
               </TableRow>
             ))}
           </TableBody>

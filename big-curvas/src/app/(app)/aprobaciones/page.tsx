@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { requirePageAccess } from "@/modules/auth";
 import { listApprovals, type ApprovalStatus } from "@/modules/approvals";
 import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
@@ -19,6 +20,8 @@ const STATUS: Record<ApprovalStatus, { label: string; className: string }> = {
 };
 
 // Vista de Belén (RF-AUT-02, RNF-07): pensada para el celular. En la demo se actualiza cada ~3 s (sin push).
+export const metadata: Metadata = { title: "Aprobaciones" };
+
 export default async function ApprovalsPage() {
   const user = await requirePageAccess(["ADMIN"]);
   const { pending, recent } = await listApprovals({ actor: user });

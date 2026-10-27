@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
@@ -9,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { loadOrder } from "../../load-order";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Confirmar pago" };
 
 export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/pagar">) {
   const user = await requirePageAccess(["ADMIN"]);

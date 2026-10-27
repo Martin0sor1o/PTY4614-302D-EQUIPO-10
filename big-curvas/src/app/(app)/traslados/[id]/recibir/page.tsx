@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { canAccess } from "@/lib/access";
@@ -6,6 +7,8 @@ import { ReceiveForm } from "@/components/transfers/receive-form";
 import { loadTransfer } from "../../load-transfer";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Recibir traslado" };
 
 export default async function ReceiveTransferPage({ params }: PageProps<"/traslados/[id]/recibir">) {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);

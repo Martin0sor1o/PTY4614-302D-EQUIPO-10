@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { posPageContext } from "../../context";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Comprobante de venta" };
 
 export default async function TicketPage({ params }: PageProps<"/pos/ticket/[saleId]">) {
   const { user } = await posPageContext();

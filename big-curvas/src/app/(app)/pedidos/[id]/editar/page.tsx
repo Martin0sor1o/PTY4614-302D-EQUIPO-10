@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requirePageAccess } from "@/modules/auth";
@@ -5,6 +6,8 @@ import { OrderForm } from "@/components/orders/order-form";
 import { loadOrder } from "../../load-order";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Editar pedido" };
 
 export default async function EditOrderPage({ params }: PageProps<"/pedidos/[id]/editar">) {
   const user = await requirePageAccess(["ADMIN"]);

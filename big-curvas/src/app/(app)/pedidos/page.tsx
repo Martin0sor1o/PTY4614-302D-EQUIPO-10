@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { z } from "zod";
@@ -45,13 +46,19 @@ function Row({ o, now }: { o: OrderBoardItem; now: Date }) {
           {CHANNEL_LABEL[o.channel]}
           {o.instagramHandle ? ` · @${o.instagramHandle}` : ""}
         </div>
+        <div className={cn("mt-0.5 text-xs tabular-nums md:hidden", stale ? "font-medium text-red-700" : "text-muted-foreground")}>
+          {o.units} {o.units === 1 ? "prenda" : "prendas"} · {formatCLP(o.total)} · {ageLabel(o.statusSince, now)}
+        </div>
+        <div className="mt-1 md:hidden">
+          <OrderStatusBadge status={o.status} />
+        </div>
       </TableCell>
-      <TableCell className="text-center tabular-nums">{o.units}</TableCell>
-      <TableCell className="text-right tabular-nums">{formatCLP(o.total)}</TableCell>
-      <TableCell>
+      <TableCell className="hidden text-center tabular-nums md:table-cell">{o.units}</TableCell>
+      <TableCell className="hidden text-right tabular-nums md:table-cell">{formatCLP(o.total)}</TableCell>
+      <TableCell className="hidden md:table-cell">
         <OrderStatusBadge status={o.status} />
       </TableCell>
-      <TableCell className={cn("whitespace-nowrap text-sm tabular-nums", stale ? "font-medium text-red-700" : "text-muted-foreground")} data-stale={stale || undefined}>
+      <TableCell className={cn("hidden whitespace-nowrap text-sm tabular-nums md:table-cell", stale ? "font-medium text-red-700" : "text-muted-foreground")} data-stale={stale || undefined}>
         {ageLabel(o.statusSince, now)}
       </TableCell>
       <TableCell className="text-right">
@@ -62,6 +69,8 @@ function Row({ o, now }: { o: OrderBoardItem; now: Date }) {
     </TableRow>
   );
 }
+
+export const metadata: Metadata = { title: "Pedidos" };
 
 export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">) {
   const user = await requirePageAccess(["ADMIN"]);
@@ -120,10 +129,10 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
             <TableRow>
               <TableHead>Pedido</TableHead>
               <TableHead>Clienta</TableHead>
-              <TableHead className="text-center">Unidades</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>En este estado</TableHead>
+              <TableHead className="hidden text-center md:table-cell">Unidades</TableHead>
+              <TableHead className="hidden text-right md:table-cell">Total</TableHead>
+              <TableHead className="hidden md:table-cell">Estado</TableHead>
+              <TableHead className="hidden md:table-cell">En este estado</TableHead>
               <TableHead className="w-32" />
             </TableRow>
           </TableHeader>

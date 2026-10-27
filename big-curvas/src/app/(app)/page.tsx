@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { isDemoMode } from "@/lib/demo";
 import { requirePageAccess } from "@/modules/auth";
+import { DemoScript } from "@/components/demo/demo-script";
 import { navItemsFor } from "@/components/layout/nav";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = { title: "Inicio" };
 
 export default async function HomePage() {
   const user = await requirePageAccess(["ADMIN", "VENDEDORA", "BODEGA"]);
@@ -19,6 +23,8 @@ export default async function HomePage() {
         </p>
       </div>
 
+      {isDemoMode() && <DemoScript user={user} />}
+
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Pantallas disponibles para tu rol</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -26,9 +32,7 @@ export default async function HomePage() {
             <Link key={item.href} href={item.href} className="rounded-xl transition-shadow hover:shadow-md">
               <Card className="h-full">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    {item.label} <Badge variant="secondary">Etapa {item.stage}</Badge>
-                  </CardTitle>
+                  <CardTitle>{item.label}</CardTitle>
                   <CardDescription>{item.description}</CardDescription>
                 </CardHeader>
               </Card>

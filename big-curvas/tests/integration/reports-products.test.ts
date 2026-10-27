@@ -117,6 +117,19 @@ describe("stock bajo", () => {
     expect(bySku(await rowsOf("TIENDA_RANCAGUA"), PBA)).toMatchObject({ onHand: 5, reserved: 5, available: 0 });
   });
 
+  it("con muchas variantes se ordena de menor a mayor disponible y, en empate, por SKU (sin recortar filas)", async () => {
+    await db.product.updateMany({ data: { lowStockThreshold: 10 } }); // umbral alto: entra casi todo el catálogo
+    for (const code of ["TIENDA_RANCAGUA", "BODEGA"] as const) {
+      const rows = await rowsOf(code);
+      expect(rows.length).toBeGreaterThan(30);
+      const sorted = [...rows].sort((a, b) => a.available - b.available || a.sku.localeCompare(b.sku));
+      expect(rows.map((r) => r.sku)).toEqual(sorted.map((r) => r.sku));
+      // Las agotadas van primero y el último de la lista es el de mayor disponible.
+      expect(rows[0].available).toBe(Math.min(...rows.map((r) => r.available)));
+      expect(rows.at(-1)!.available).toBe(Math.max(...rows.map((r) => r.available)));
+    }
+  });
+
   it("el umbral sale de settings y un producto puede fijar el suyo", async () => {
     await db.setting.update({ where: { key: "low_stock_threshold" }, data: { valueInt: 1 } });
     let r = await getLowStock({ actor: f.actors.belen });

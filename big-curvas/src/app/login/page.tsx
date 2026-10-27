@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { isDemoMode } from "@/lib/demo";
 import { listDemoLoginOptions } from "@/modules/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +11,11 @@ const ROLE_LABEL = { ADMIN: "Administradora", VENDEDORA: "Vendedora", BODEGA: "B
 export const dynamic = "force-dynamic";
 
 // DEMO: pantalla "Entrar como…" sin contraseña.
-export default async function LoginPage() {
+export const metadata: Metadata = { title: "Entrar" };
+
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const demo = isDemoMode();
+  const justReset = (await searchParams).reiniciado === "1";
   const options = await listDemoLoginOptions();
 
   return (
@@ -22,6 +26,18 @@ export default async function LoginPage() {
         </h1>
         <p className="pt-2 text-muted-foreground">Inventario, POS y pedidos online</p>
       </div>
+
+      {demo && (
+        <div role="note" data-testid="demo-notice" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950">
+          <p className="font-semibold">Demo con datos ficticios</p>
+          <p>Esta versión de prueba entra sin contraseña y no guarda información real. No ingreses datos personales.</p>
+        </div>
+      )}
+      {demo && justReset && (
+        <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-950">
+          Los datos de demo volvieron al inicio. Elige un usuario para entrar.
+        </p>
+      )}
 
       {demo ? (
         <Card>
