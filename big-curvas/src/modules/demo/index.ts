@@ -1,5 +1,6 @@
 // API pública del módulo demo. DEMO: solo funciona con DEMO_MODE=true.
-export { resetAndSeedDemoData, ean13, type SeedSummary } from "./seed";
+export { resetAndSeedDemoData, ean13, type ResetOptions, type SeedSummary } from "./seed";
+// `runDemoHistory` (history.ts) NO se exporta: solo corre desde el seed/reinicio con DEMO_MODE.
 import { isDemoMode } from "@/lib/demo";
 import { DEMO_ADMIN_PIN } from "./seed-data";
 
