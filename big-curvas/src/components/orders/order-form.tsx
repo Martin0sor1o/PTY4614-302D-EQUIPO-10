@@ -400,11 +400,11 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
                     </TableCell>
                     <TableCell className="text-xs">
                       {l.availability.map((a) => (
-                        <div key={a.locationId} className={cn(a === bodega && short && "font-medium text-amber-700")}>
+                        <div key={a.locationId} className={cn(a === bodega && short && "font-medium text-tone-warn")}>
                           {a.name}: <span className="tabular-nums">{a.available}</span>
                         </div>
                       ))}
-                      {short && <div className="mt-0.5 text-amber-700">Bodega no alcanza hoy</div>}
+                      {short && <div className="mt-0.5 text-tone-warn">Bodega no alcanza hoy</div>}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{priced ? formatCLP(priced.lineTotal) : "—"}</TableCell>
                     <TableCell>
@@ -472,7 +472,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
       </section>
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-muted-foreground")}>
+        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-muted-foreground")}>
           {message.text}
         </p>
       )}

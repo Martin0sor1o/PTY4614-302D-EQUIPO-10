@@ -29,18 +29,18 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" className="border-red-300 text-red-800 hover:bg-red-50" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" className="border-tone-danger/30 text-tone-danger hover:bg-tone-danger-soft" onClick={() => setOpen(true)}>
         Cancelar pedido
       </Button>
     );
   }
   return (
-    <div className="max-w-lg space-y-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+    <div className="max-w-lg space-y-2 rounded-xl border border-tone-danger/30 bg-tone-danger-soft/60 p-3">
       <Label htmlFor="cancel-reason">Motivo de la cancelación *</Label>
       <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       <p className="text-xs text-muted-foreground">{consequence}</p>
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {message}
         </p>
       )}
@@ -48,7 +48,7 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
         <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
           Volver
         </Button>
-        <Button type="button" className="bg-red-700 text-white hover:bg-red-800" onClick={submit} disabled={pending}>
+        <Button type="button" className="bg-tone-danger text-white hover:bg-tone-danger/90" onClick={submit} disabled={pending}>
           {pending ? "Cancelando…" : "Confirmar cancelación"}
         </Button>
       </div>
@@ -79,7 +79,7 @@ export function DeliverOrder({ orderId, number }: { orderId: string; number: str
         {pending ? "Guardando…" : "Marcar como entregado"}
       </Button>
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {message}
         </p>
       )}

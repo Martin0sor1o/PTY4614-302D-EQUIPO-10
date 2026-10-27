@@ -25,7 +25,7 @@ export function AutoRefresh({ renderedAt, intervalMs = 3000 }: { renderedAt: str
     <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
       <span
         aria-hidden
-        className={cn("size-2 rounded-full", enabled ? "animate-pulse bg-emerald-500" : "bg-muted-foreground/40")}
+        className={cn("size-2 rounded-full", enabled ? "animate-pulse bg-tone-ok" : "bg-muted-foreground/40")}
       />
       <span>
         {enabled ? "En vivo" : "Pausado"} · actualizado {renderedAt}

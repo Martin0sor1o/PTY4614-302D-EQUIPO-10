@@ -107,7 +107,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
           <Card size="sm">
             <CardContent>
               <div className="text-xs text-muted-foreground">Por resolver</div>
-              <div className="text-2xl font-semibold tabular-nums text-amber-700">{pendingResolution}</div>
+              <div className="text-2xl font-semibold tabular-nums text-tone-warn">{pendingResolution}</div>
               <div className="text-xs text-muted-foreground">faltantes de traslados sin resolver</div>
             </CardContent>
           </Card>
@@ -162,7 +162,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
                   <Badge variant={m.quantity < 0 ? "outline" : "secondary"}>{MOVEMENT_LABEL[m.type]}</Badge>
                 </TableCell>
                 <TableCell
-                  className={cn("text-right font-medium tabular-nums", m.quantity > 0 ? "text-emerald-700" : "text-red-700")}
+                  className={cn("text-right font-medium tabular-nums", m.quantity > 0 ? "text-tone-ok" : "text-tone-danger")}
                 >
                   {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                 </TableCell>

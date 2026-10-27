@@ -48,12 +48,12 @@ export function LowStockTab({ report }: { report: LowStock }) {
                         {r.available === 0 ? (
                           <Badge variant="destructive">Agotado</Badge>
                         ) : (
-                          <span className={cn("text-base font-semibold tabular-nums text-amber-700")}>{r.available}</span>
+                          <span className={cn("text-base font-semibold tabular-nums text-tone-warn")}>{r.available}</span>
                         )}
                       </TableCell>
                       <TableCell className="hidden text-center tabular-nums sm:table-cell">{r.onHand}</TableCell>
                       <TableCell className="hidden text-center tabular-nums sm:table-cell">
-                        {r.reserved > 0 ? <span className="text-violet-700">{r.reserved}</span> : <span className="text-muted-foreground">—</span>}
+                        {r.reserved > 0 ? <span className="text-tone-violet">{r.reserved}</span> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { isDemoMode } from "@/lib/demo";
 import { listDemoLoginOptions } from "@/modules/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BrandLogo } from "@/components/brand/brand-logo";
+import { Ornament } from "@/components/brand/ornament";
+import { Wordmark } from "@/components/brand/wordmark";
 import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/ui/notice";
 import { demoLoginAction } from "./actions";
 
 const ROLE_LABEL = { ADMIN: "Administradora", VENDEDORA: "Vendedora", BODEGA: "Bodega" } as const;
@@ -19,30 +21,30 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const options = await listDemoLoginOptions();
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 px-4 py-12">
-      <div className="space-y-1 text-center">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-5 px-4 py-10">
+      <div className="relative overflow-hidden rounded-3xl bg-brand-black px-6 py-9 text-center text-brand-pink shadow-soft">
+        <Ornament className="mx-auto mb-4 h-8 text-brand-pink/60" />
         <h1 className="flex justify-center">
-          <BrandLogo size="lg" />
+          <Wordmark size="lg" tone="onDark" />
         </h1>
-        <p className="pt-2 text-muted-foreground">Inventario, POS y pedidos online</p>
+        <p className="mt-4 text-sm">Inventario, POS y pedidos online</p>
       </div>
 
       {demo && (
-        <div role="note" data-testid="demo-notice" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm text-amber-950">
-          <p className="font-semibold">Demo con datos ficticios</p>
-          <p>Esta versión de prueba entra sin contraseña y no guarda información real. No ingreses datos personales.</p>
-        </div>
+        <Notice tone="warn" title="Demo con datos ficticios" role="note" data-testid="demo-notice">
+          Esta versión de prueba entra sin contraseña y no guarda información real. No ingreses datos personales.
+        </Notice>
       )}
       {demo && justReset && (
-        <p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-950">
+        <Notice tone="ok" role="status">
           Los datos de demo volvieron al inicio. Elige un usuario para entrar.
-        </p>
+        </Notice>
       )}
 
       {demo ? (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
               Entrar como… <Badge variant="secondary">DEMO</Badge>
             </CardTitle>
             <CardDescription>Modo demostración: elige un usuario, no se pide contraseña.</CardDescription>
@@ -53,12 +55,17 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
                 <input type="hidden" name="userId" value={u.id} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border p-4 text-left transition-colors hover:border-brand-pink-strong hover:bg-accent focus-visible:border-brand-pink-strong focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong"
+                  className="flex min-h-14 w-full items-center gap-3 rounded-2xl border bg-card p-3 text-left transition-colors hover:bg-secondary"
                 >
-                  <div className="font-medium">{u.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {ROLE_LABEL[u.role]} · {u.locationName ?? "Todas las ubicaciones"}
-                  </div>
+                  <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-black text-base font-bold text-brand-pink">
+                    {u.name.charAt(0)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{u.name}</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {ROLE_LABEL[u.role]} · {u.locationName ?? "Todas las ubicaciones"}
+                    </span>
+                  </span>
                 </button>
               </form>
             ))}

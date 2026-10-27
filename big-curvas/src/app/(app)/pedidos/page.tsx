@@ -46,7 +46,7 @@ function Row({ o, now }: { o: OrderBoardItem; now: Date }) {
           {CHANNEL_LABEL[o.channel]}
           {o.instagramHandle ? ` · @${o.instagramHandle}` : ""}
         </div>
-        <div className={cn("mt-0.5 text-xs tabular-nums md:hidden", stale ? "font-medium text-red-700" : "text-muted-foreground")}>
+        <div className={cn("mt-0.5 text-xs tabular-nums md:hidden", stale ? "font-medium text-tone-danger" : "text-muted-foreground")}>
           {o.units} {o.units === 1 ? "prenda" : "prendas"} · {formatCLP(o.total)} · {ageLabel(o.statusSince, now)}
         </div>
         <div className="mt-1 md:hidden">
@@ -58,7 +58,7 @@ function Row({ o, now }: { o: OrderBoardItem; now: Date }) {
       <TableCell className="hidden md:table-cell">
         <OrderStatusBadge status={o.status} />
       </TableCell>
-      <TableCell className={cn("hidden whitespace-nowrap text-sm tabular-nums md:table-cell", stale ? "font-medium text-red-700" : "text-muted-foreground")} data-stale={stale || undefined}>
+      <TableCell className={cn("hidden whitespace-nowrap text-sm tabular-nums md:table-cell", stale ? "font-medium text-tone-danger" : "text-muted-foreground")} data-stale={stale || undefined}>
         {ageLabel(o.statusSince, now)}
       </TableCell>
       <TableCell className="text-right">
@@ -108,7 +108,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
               href={t === "activos" ? "/pedidos" : `/pedidos?tab=${t}`}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong",
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium outline-none",
                 active ? "border-brand-ink text-brand-ink" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >

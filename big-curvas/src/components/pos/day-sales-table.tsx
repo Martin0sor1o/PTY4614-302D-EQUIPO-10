@@ -65,7 +65,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
 
   if (done) {
     return (
-      <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm font-medium text-emerald-950" data-testid="void-done">
+      <p role="status" className="rounded-lg border border-tone-ok/30 bg-tone-ok-soft p-3 text-sm font-medium text-tone-ok" data-testid="void-done">
         {done}
       </p>
     );
@@ -88,7 +88,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
               : "Se la pides a Belén. Si la aprueba, se anula sola, la prenda vuelve al stock y, si fue en efectivo, el dinero sale de la caja abierta."}
           </p>
           {error && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-tone-danger">
               {error}
             </p>
           )}
@@ -96,7 +96,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
             {isAdmin ? (
               <Button
                 type="button"
-                className="bg-red-700 text-white hover:bg-red-800"
+                className="bg-tone-danger text-white hover:bg-tone-danger/90"
                 disabled={pending}
                 onClick={() => {
                   if (reason.trim().length < 3) return setError("Escribe el motivo de la anulación.");
@@ -132,7 +132,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
               {pending && <p className="text-sm text-muted-foreground">Anulando la venta…</p>}
               {error && (
                 <div role="alert" className="space-y-2">
-                  <p className="text-sm font-medium text-red-700">{error}</p>
+                  <p className="text-sm font-medium text-tone-danger">{error}</p>
                   <Button type="button" size="sm" onClick={() => execute(approval.id)} disabled={pending}>
                     Reintentar anulación
                   </Button>
@@ -174,13 +174,13 @@ export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow
           )}
           {rows.map((s) => (
             <Fragment key={s.id}>
-              <TableRow data-testid="day-sale" data-voided={s.voided ? "true" : undefined} className={cn(s.voided && "bg-red-50/60 text-muted-foreground")}>
+              <TableRow data-testid="day-sale" data-voided={s.voided ? "true" : undefined} className={cn(s.voided && "bg-tone-danger-soft/60 text-muted-foreground")}>
                 <TableCell className="font-mono">
                   <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline">
                     {s.number}
                   </Link>
                   {s.voided && (
-                    <Badge variant="secondary" className="ml-2 bg-red-100 text-red-900" data-testid="voided-badge">
+                    <Badge variant="secondary" className="ml-2 bg-tone-danger-soft text-tone-danger" data-testid="voided-badge">
                       Anulada
                     </Badge>
                   )}

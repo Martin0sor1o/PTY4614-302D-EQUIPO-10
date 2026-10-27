@@ -149,7 +149,7 @@ export function TransferEditor({
       </form>
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-muted-foreground")}>
+        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-muted-foreground")}>
           {message.text}
         </p>
       )}
@@ -200,7 +200,7 @@ export function TransferEditor({
                 <TableCell>
                   {l.description}
                   {l.available !== null && l.qty > l.available && (
-                    <div className="text-xs text-amber-700">
+                    <div className="text-xs text-tone-warn">
                       Hoy hay {l.available} disponible{l.available === 1 ? "" : "s"} en {fromName}; se valida al enviar.
                     </div>
                   )}

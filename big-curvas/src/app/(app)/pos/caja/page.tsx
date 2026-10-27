@@ -61,7 +61,7 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
           </dd>
           <dt className="font-semibold">Diferencia</dt>
           <dd
-            className={cn("text-right text-lg font-bold tabular-nums", diff === 0 ? "text-emerald-700" : "text-red-700")}
+            className={cn("text-right text-lg font-bold tabular-nums", diff === 0 ? "text-tone-ok" : "text-tone-danger")}
             data-testid="cash-difference"
           >
             {diff === 0 ? "Cuadra ($0)" : `${diff > 0 ? "+" : ""}${formatCLP(diff)} ${diff > 0 ? "(sobra)" : "(falta)"}`}

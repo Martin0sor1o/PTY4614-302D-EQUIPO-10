@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 const STATUS: Record<ApprovalStatus, { label: string; className: string }> = {
-  PENDIENTE: { label: "Pendiente", className: "bg-amber-100 text-amber-900" },
-  APROBADA: { label: "Aprobada", className: "bg-emerald-100 text-emerald-900" },
-  RECHAZADA: { label: "Rechazada", className: "bg-red-100 text-red-900" },
-  VENCIDA: { label: "Vencida", className: "bg-zinc-200 text-zinc-800" },
-  USADA: { label: "Usada", className: "bg-sky-100 text-sky-900" },
+  PENDIENTE: { label: "Pendiente", className: "bg-tone-warn-soft text-tone-warn" },
+  APROBADA: { label: "Aprobada", className: "bg-tone-ok-soft text-tone-ok" },
+  RECHAZADA: { label: "Rechazada", className: "bg-tone-danger-soft text-tone-danger" },
+  VENCIDA: { label: "Vencida", className: "bg-tone-neutral-soft text-tone-neutral" },
+  USADA: { label: "Usada", className: "bg-tone-info-soft text-tone-info" },
 };
 
 // Vista de Belén (RF-AUT-02, RNF-07): pensada para el celular. En la demo se actualiza cada ~3 s (sin push).

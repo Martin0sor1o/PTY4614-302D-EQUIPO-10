@@ -122,7 +122,7 @@ export function PayForm({
       </dl>
 
       {message && (
-        <p role="alert" className={cn("rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-900")} data-testid="pay-error">
+        <p role="alert" className={cn("rounded-lg border border-tone-danger/30 bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger")} data-testid="pay-error">
           {message}
         </p>
       )}

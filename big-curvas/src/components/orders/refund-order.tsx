@@ -37,11 +37,11 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-red-300 bg-red-50 p-4" aria-labelledby="sec-reembolso" data-testid="refund-pending">
-      <h2 id="sec-reembolso" className="flex items-center gap-2 font-medium text-red-950">
+    <section className="space-y-3 rounded-xl border border-tone-danger/30 bg-tone-danger-soft p-4" aria-labelledby="sec-reembolso" data-testid="refund-pending">
+      <h2 id="sec-reembolso" className="flex items-center gap-2 font-medium text-tone-danger">
         <AlertTriangle className="size-4" aria-hidden /> Reembolso pendiente · {formatCLP(amount)}
       </h2>
-      <p className="text-sm text-red-950">
+      <p className="text-sm text-tone-danger">
         El pedido se canceló después de pagar y el dinero no se ha devuelto. Cuando lo devuelvas, regístralo aquí: la venta {saleNumber} pasa a anulada. Lo haces tú
         directamente, sin solicitud de aprobación; queda en el registro de auditoría.
       </p>
@@ -63,7 +63,7 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
         </div>
       </div>
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-800">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {message}
         </p>
       )}

@@ -46,7 +46,7 @@ export function DispatchForm({ orderId, couriers }: { orderId: string; couriers:
         <Input id="tracking" autoComplete="off" value={tracking} onChange={(e) => setTracking(e.target.value)} />
       </div>
       {message && (
-        <p role="alert" className={cn("text-sm font-medium text-red-700")}>
+        <p role="alert" className={cn("text-sm font-medium text-tone-danger")}>
           {message}
         </p>
       )}

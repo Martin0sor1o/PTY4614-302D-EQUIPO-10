@@ -4,7 +4,7 @@ import type { ReportChannel, ReportGroupBy } from "@/modules/reports";
 import type { ReportTabId } from "./report-tabs";
 
 const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-background px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm";
+  "h-9 w-full rounded-lg border border-input bg-background px-2.5 text-base outline-none md:text-sm";
 
 /** Filtro por GET (sin JavaScript): rango de días de Chile y, en Ventas, canal y agrupación. */
 export function RangeFilter({

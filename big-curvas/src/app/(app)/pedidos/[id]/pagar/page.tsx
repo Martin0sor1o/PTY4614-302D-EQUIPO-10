@@ -34,7 +34,7 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
       </div>
 
       {short.length > 0 && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900" data-testid="short-warning">
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-tone-danger/30 bg-tone-danger-soft p-3 text-sm text-tone-danger" data-testid="short-warning">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             {short.length === 1 ? "Una prenda no alcanza" : `${short.length} prendas no alcanzan`} hoy en {o.fulfillmentLocation.name}:{" "}
@@ -69,7 +69,7 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
                   <TableCell className="text-center tabular-nums">{l.quantity}</TableCell>
                   <TableCell className="text-xs">
                     {l.availability.map((a) => (
-                      <div key={a.locationId} className={cn(a.locationId === o.fulfillmentLocation.id && isShort && "font-semibold text-red-700")}>
+                      <div key={a.locationId} className={cn(a.locationId === o.fulfillmentLocation.id && isShort && "font-semibold text-tone-danger")}>
                         {a.name}: <span className="tabular-nums">{a.available}</span>
                       </div>
                     ))}

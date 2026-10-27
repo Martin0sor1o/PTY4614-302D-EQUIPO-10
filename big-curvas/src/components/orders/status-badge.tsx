@@ -1,6 +1,6 @@
 import type { OrderStatus } from "@/modules/orders";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Ban, CheckCheck, CircleCheck, ClipboardList, Clock, Hourglass, PackageCheck, Store, Truck, type LucideIcon } from "lucide-react";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 
 /** Etiquetas de estado de los pedidos (UI en español). Sin "use client": lo usan páginas del servidor y componentes. */
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
@@ -16,24 +16,25 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   CANCELADO: "Cancelado",
 };
 
-const STYLE: Record<OrderStatus, string> = {
-  PENDIENTE_PAGO: "bg-amber-100 text-amber-900",
-  PAGADO: "bg-sky-100 text-sky-900",
-  ESPERANDO_TRASPASO: "bg-violet-100 text-violet-900",
-  LISTO_PARA_PREPARAR: "bg-sky-100 text-sky-900",
-  PREPARADO: "bg-indigo-100 text-indigo-900",
-  DESPACHADO: "bg-teal-100 text-teal-900",
-  EN_CAMINO_A_TIENDA: "bg-violet-100 text-violet-900",
-  LISTO_PARA_RETIRO: "bg-teal-100 text-teal-900",
-  ENTREGADO: "bg-emerald-100 text-emerald-900",
-  CANCELADO: "bg-red-100 text-red-900",
+const STATUS: Record<OrderStatus, { tone: StatusTone; icon: LucideIcon }> = {
+  PENDIENTE_PAGO: { tone: "warn", icon: Clock },
+  PAGADO: { tone: "ok", icon: CircleCheck },
+  ESPERANDO_TRASPASO: { tone: "violet", icon: Hourglass },
+  LISTO_PARA_PREPARAR: { tone: "info", icon: ClipboardList },
+  PREPARADO: { tone: "info", icon: PackageCheck },
+  DESPACHADO: { tone: "info", icon: Truck },
+  EN_CAMINO_A_TIENDA: { tone: "violet", icon: Truck },
+  LISTO_PARA_RETIRO: { tone: "ok", icon: Store },
+  ENTREGADO: { tone: "ok", icon: CheckCheck },
+  CANCELADO: { tone: "danger", icon: Ban },
 };
 
 export function OrderStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
+  const { tone, icon } = STATUS[status];
   return (
-    <Badge variant="secondary" className={cn(STYLE[status], className)} data-testid="order-status">
+    <StatusBadge tone={tone} icon={icon} className={className} data-testid="order-status">
       {ORDER_STATUS_LABEL[status]}
-    </Badge>
+    </StatusBadge>
   );
 }
 

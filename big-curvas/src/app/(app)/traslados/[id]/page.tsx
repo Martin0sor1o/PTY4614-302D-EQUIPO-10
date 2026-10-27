@@ -68,7 +68,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
       </div>
 
       {t.overdue && (
-        <p role="alert" className="flex items-center gap-2 rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-900" data-testid="overdue-alert">
+        <p role="alert" className="flex items-center gap-2 rounded-lg bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger" data-testid="overdue-alert">
           <AlertTriangle className="size-4" aria-hidden /> Lleva {t.daysInTransit} días en tránsito (alerta desde {t.alertDays}). Revisa si ya llegó.
         </p>
       )}
@@ -127,7 +127,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
           <p className="text-sm text-muted-foreground">Lo recibe {t.toLocation.name}.</p>
         )}
         {t.status === "RECIBIDO_CON_DIFERENCIAS" && !isAdmin && (
-          <p className="text-sm font-medium text-amber-800">Hay diferencias: las resuelve Belén.</p>
+          <p className="text-sm font-medium text-tone-warn">Hay diferencias: las resuelve Belén.</p>
         )}
       </div>
 
@@ -161,7 +161,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
                     {diff === null || diff === 0 ? (
                       <span className="text-muted-foreground">{diff === 0 ? "Cuadra" : "—"}</span>
                     ) : (
-                      <span className={cn("font-medium", l.differenceResolution ? "text-muted-foreground" : "text-amber-800")}>
+                      <span className={cn("font-medium", l.differenceResolution ? "text-muted-foreground" : "text-tone-warn")}>
                         {diff < 0 ? `Faltan ${-diff}` : `Sobran ${diff}`}
                         {l.differenceResolution && ` · ${RESOLUTION_SHORT[l.differenceResolution]}`}
                       </span>

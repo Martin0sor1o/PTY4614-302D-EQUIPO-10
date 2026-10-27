@@ -30,7 +30,7 @@ export function SendTransferButton({ transferId, number, fromName, units }: { tr
         <Send /> {pending ? "Enviando…" : "Enviar traslado"}
       </Button>
       {error && (
-        <p role="alert" className="max-w-sm text-sm font-medium text-red-700">
+        <p role="alert" className="max-w-sm text-sm font-medium text-tone-danger">
           {error}
         </p>
       )}

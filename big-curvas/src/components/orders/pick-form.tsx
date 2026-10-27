@@ -101,7 +101,7 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
       </form>
 
       {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-emerald-700")}>
+        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-tone-ok")}>
           {message.text}
         </p>
       )}
@@ -140,11 +140,11 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {n === l.quantity ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-tone-ok">
                         <Check className="size-4" /> Completa
                       </span>
                     ) : (
-                      <span className="font-medium text-amber-700">Faltan {l.quantity - n}</span>
+                      <span className="font-medium text-tone-warn">Faltan {l.quantity - n}</span>
                     )}
                   </TableCell>
                 </TableRow>

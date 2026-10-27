@@ -30,7 +30,7 @@ export function OpenCashForm({ locationName }: { locationName: string }) {
         <p className="text-xs text-muted-foreground">Efectivo con el que parte la caja (fondo para vueltos). Puede ser $0.</p>
       </div>
       {state?.message && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {state.message}
         </p>
       )}
@@ -65,7 +65,7 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
       </div>
       <div className="space-y-1.5">
         <label htmlFor="notes" className="text-sm font-medium">
-          Observación {state?.needsNotes ? <span className="text-red-700">(obligatoria)</span> : <span className="font-normal text-muted-foreground">(obligatoria si hay diferencia)</span>}
+          Observación {state?.needsNotes ? <span className="text-tone-danger">(obligatoria)</span> : <span className="font-normal text-muted-foreground">(obligatoria si hay diferencia)</span>}
         </label>
         <Textarea
           id="notes"
@@ -78,7 +78,7 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
         />
       </div>
       {state?.message && (
-        <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-900">
+        <p role="alert" className="rounded-lg border border-tone-danger/30 bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger">
           {state.message}
         </p>
       )}

@@ -63,7 +63,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4" aria-labelledby="resolve-title" data-testid="resolve-panel">
+    <section className="space-y-3 rounded-xl border border-tone-warn/30 bg-tone-warn-soft p-4" aria-labelledby="resolve-title" data-testid="resolve-panel">
       <div>
         <h2 id="resolve-title" className="font-semibold">
           Resolver diferencias
@@ -74,7 +74,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
       </div>
 
       {done && (
-        <p role="status" className="text-sm font-medium text-emerald-800" data-testid="resolve-done">
+        <p role="status" className="text-sm font-medium text-tone-ok" data-testid="resolve-done">
           {done.closed ? "Diferencias resueltas: el traslado quedó cerrado." : "Resolución guardada. Quedan prendas por resolver."}
           {done.reshipTransferId && (
             <>
@@ -102,7 +102,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
                     <div>
                       <span className="font-mono text-xs">{l.sku}</span> <span className="text-sm">{l.description}</span>
                     </div>
-                    <div className="text-sm font-medium text-amber-800">
+                    <div className="text-sm font-medium text-tone-warn">
                       Enviado {l.qtySent} · recibido {l.qtyReceived} → {d > 0 ? `faltan ${d}` : `sobran ${-d}`}
                     </div>
                   </div>
@@ -135,7 +135,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
             <Textarea id="resolve-notes" rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           {error && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-tone-danger">
               {error}
             </p>
           )}

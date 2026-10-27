@@ -29,11 +29,11 @@ export default async function DispatchOrderPage({ params }: PageProps<"/pedidos/
         </p>
       </div>
       {!inBodega ? (
-        <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="needs-bodega">
+        <p role="alert" className="rounded-lg border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="needs-bodega">
           Para despachar elige <strong>“Operando en: {o.fulfillmentLocation.name}”</strong> en el menú superior.
         </p>
       ) : couriers.length === 0 ? (
-        <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+        <p role="alert" className="rounded-lg border border-tone-danger/30 bg-tone-danger-soft p-3 text-sm text-tone-danger">
           No hay couriers configurados (settings.couriers).
         </p>
       ) : (

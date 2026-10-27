@@ -39,7 +39,7 @@ export default async function PrepareOrderPage({ params }: PageProps<"/pedidos/[
           }))}
         />
       ) : (
-        <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="needs-bodega">
+        <p role="alert" className="rounded-lg border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="needs-bodega">
           Para preparar el pedido elige <strong>“Operando en: {o.fulfillmentLocation.name}”</strong> en el menú superior.
         </p>
       )}

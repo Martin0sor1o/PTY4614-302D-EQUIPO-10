@@ -107,13 +107,13 @@ export function ApprovalCard({ data }: { data: CardData }) {
       />
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium text-red-700")} data-testid="decision-error">
+        <p role="alert" className={cn("text-sm font-medium text-tone-danger")} data-testid="decision-error">
           {message}
         </p>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Button type="button" variant="outline" size="lg" className="h-14 border-red-300 text-base text-red-800 hover:bg-red-50" disabled={pending} onClick={() => decide("reject")} data-testid="reject">
+        <Button type="button" variant="outline" size="lg" className="h-14 border-tone-danger/30 text-base text-tone-danger hover:bg-tone-danger-soft" disabled={pending} onClick={() => decide("reject")} data-testid="reject">
           <X /> Rechazar
         </Button>
         <Button type="button" size="lg" className="h-14 text-base" disabled={pending} onClick={() => decide("approve")} data-testid="approve">

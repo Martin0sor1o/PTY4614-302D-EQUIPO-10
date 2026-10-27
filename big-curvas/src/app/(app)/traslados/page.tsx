@@ -53,12 +53,12 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <TransferStatusBadge status={t.status} />
           {t.overdue && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900" data-testid="overdue-alert">
+            <span className="inline-flex items-center gap-1 rounded-full bg-tone-danger-soft px-2 py-0.5 text-xs font-medium text-tone-danger" data-testid="overdue-alert">
               <AlertTriangle className="size-3" aria-hidden /> {t.daysInTransit} días en tránsito
             </span>
           )}
           {t.status === "RECIBIDO_CON_DIFERENCIAS" && (
-            <span className="text-xs text-amber-800">
+            <span className="text-xs text-tone-warn">
               {t.unresolvedLines} por resolver
             </span>
           )}
@@ -124,7 +124,7 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
               href={`/traslados?tab=${b}`}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong",
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium outline-none",
                 active ? "border-brand-ink text-brand-ink" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >

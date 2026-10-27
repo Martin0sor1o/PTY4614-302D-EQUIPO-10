@@ -27,7 +27,7 @@ export function SummaryCards({ cards }: { cards: SalesSummaryCards }) {
       {pendingRefunds.orders > 0 && (
         <div
           data-testid="card-pending-refunds"
-          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          className="rounded-xl border border-tone-warn/30 bg-tone-warn-soft px-4 py-3 text-sm text-tone-warn"
           role="note"
         >
           <span className="font-semibold">Reembolsos pendientes: {pendingRefunds.orders} · {formatCLP(pendingRefunds.amount)}.</span>{" "}

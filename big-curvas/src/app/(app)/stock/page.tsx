@@ -23,14 +23,14 @@ function StockCellView({ cell, threshold }: { cell: StockCell; threshold: number
         className={cn(
           "text-base font-semibold tabular-nums",
           cell.available === 0 && "font-normal text-muted-foreground",
-          low && "text-amber-700",
+          low && "text-tone-warn",
         )}
       >
         {cell.available}
       </span>
       {cell.reserved > 0 && (
         <div className="text-[11px] text-muted-foreground">
-          de {cell.onHand} · <span className="text-violet-700">{cell.reserved} res.</span>
+          de {cell.onHand} · <span className="text-tone-violet">{cell.reserved} res.</span>
         </div>
       )}
     </div>
@@ -120,12 +120,12 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                   </TableCell>
                 ))}
                 <TableCell className="text-center tabular-nums">
-                  {r.inTransit > 0 ? <span className="font-medium text-sky-700">{r.inTransit}</span> : <span className="text-muted-foreground">—</span>}
+                  {r.inTransit > 0 ? <span className="font-medium text-tone-info">{r.inTransit}</span> : <span className="text-muted-foreground">—</span>}
                 </TableCell>
                 {showPending && (
                   <TableCell className="text-center tabular-nums" data-testid="pending-resolution">
                     {r.pendingResolution > 0 ? (
-                      <Link href="/traslados?tab=con-diferencias" className="font-medium text-amber-700 underline-offset-4 hover:underline">
+                      <Link href="/traslados?tab=con-diferencias" className="font-medium text-tone-warn underline-offset-4 hover:underline">
                         {r.pendingResolution}
                       </Link>
                     ) : (
@@ -141,7 +141,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        <span className="text-amber-700">Ámbar</span>: stock bajo · <span className="text-violet-700">res.</span>: unidades
+        <span className="text-tone-warn">Ámbar</span>: stock bajo · <span className="text-tone-violet">res.</span>: unidades
         reservadas para pedidos online · Total = físico en todas las ubicaciones + en tránsito + por resolver (faltantes de traslados que Belén aún no resuelve). Toca un SKU para ver su kardex.
       </p>
     </div>

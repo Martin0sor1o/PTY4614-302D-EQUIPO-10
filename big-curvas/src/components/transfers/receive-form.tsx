@@ -104,7 +104,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       </form>
 
       {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-emerald-700")}>
+        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-tone-ok")}>
           {message.text}
         </p>
       )}
@@ -144,13 +144,13 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {diff === 0 ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-tone-ok">
                         <Check className="size-4" /> Cuadra
                       </span>
                     ) : diff < 0 ? (
-                      <span className="font-medium text-amber-700">Faltan {-diff}</span>
+                      <span className="font-medium text-tone-warn">Faltan {-diff}</span>
                     ) : (
-                      <span className="font-medium text-amber-700">Sobran {diff}</span>
+                      <span className="font-medium text-tone-warn">Sobran {diff}</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -163,7 +163,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground" data-testid="receive-total">
           Escaneadas {scanned} de {expected} unidades enviadas
-          {diffs.length > 0 && <span className="font-medium text-amber-700"> · {diffs.length} con diferencia</span>}
+          {diffs.length > 0 && <span className="font-medium text-tone-warn"> · {diffs.length} con diferencia</span>}
         </p>
         <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
           {pending ? "Recibiendo…" : "Confirmar recepción"}

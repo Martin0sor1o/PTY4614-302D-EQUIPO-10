@@ -97,7 +97,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
 
       {o.refundPending && o.sale && <RefundOrder orderId={o.id} number={o.number} saleNumber={o.sale.number} amount={o.sale.total} />}
       {o.refund && (
-        <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950" data-testid="refund-done">
+        <p className="rounded-lg border border-tone-ok/30 bg-tone-ok-soft p-3 text-sm text-tone-ok" data-testid="refund-done">
           <strong>Reembolsado</strong> el {formatDateTime(o.refund.at)}
           {o.refund.byName ? ` por ${o.refund.byName}` : ""}: {o.refund.method}
           {o.refund.reference ? ` (${o.refund.reference})` : ""}. La venta {o.sale?.number} quedó anulada.
@@ -110,7 +110,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
         </p>
       )}
       {o.blockedByTransferDifference && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="order-blocked">
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="order-blocked">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             <strong>Pedido bloqueado.</strong> El traslado de este pedido llegó con diferencias. Se desbloquea cuando Belén las resuelve en Traslados → Con diferencias.
@@ -204,9 +204,9 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
                       </div>
                     ))
                   )}
-                  {l.inTransit > 0 && <div className="text-violet-700">En camino a bodega: {l.inTransit}</div>}
-                  {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && <div className="font-medium text-amber-700">Faltan {l.shortage}</div>}
-                  {l.pickedQty > 0 && <div className="text-emerald-700">Preparadas: {l.pickedQty}</div>}
+                  {l.inTransit > 0 && <div className="text-tone-violet">En camino a bodega: {l.inTransit}</div>}
+                  {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && <div className="font-medium text-tone-warn">Faltan {l.shortage}</div>}
+                  {l.pickedQty > 0 && <div className="text-tone-ok">Preparadas: {l.pickedQty}</div>}
                 </TableCell>
                 <TableCell className="text-xs">
                   {l.availability.map((a) => (

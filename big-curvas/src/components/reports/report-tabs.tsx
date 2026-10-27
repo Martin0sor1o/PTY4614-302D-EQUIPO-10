@@ -28,7 +28,7 @@ export function ReportTabs({ active, query }: { active: ReportTabId; query: Reco
               href={href(t.id)}
               aria-current={t.id === active ? "page" : undefined}
               className={cn(
-                "block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-pink-strong",
+                "block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors",
                 t.id === active ? "bg-brand-black text-brand-pink" : "text-brand-black hover:bg-brand-pink",
               )}
             >

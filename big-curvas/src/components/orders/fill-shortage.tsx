@@ -48,24 +48,24 @@ export function FillShortage({
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-amber-300 bg-amber-50/60 p-4" aria-labelledby="sec-faltante" data-testid="fill-shortage">
-      <h2 id="sec-faltante" className="flex items-center gap-2 font-medium text-amber-950">
+    <section className="space-y-3 rounded-xl border border-tone-warn/30 bg-tone-warn-soft/60 p-4" aria-labelledby="sec-faltante" data-testid="fill-shortage">
+      <h2 id="sec-faltante" className="flex items-center gap-2 font-medium text-tone-warn">
         <AlertTriangle className="size-4" aria-hidden /> Faltan {units} unidad{units === 1 ? "" : "es"} del pedido
       </h2>
-      <ul className="text-sm text-amber-950">
+      <ul className="text-sm text-tone-warn">
         {lines.map((l) => (
           <li key={l.lineId}>
             <span className="font-mono text-xs">{l.sku}</span> · {l.description}: faltan <strong>{l.qty}</strong>
           </li>
         ))}
       </ul>
-      <p className="text-sm text-amber-950">
+      <p className="text-sm text-tone-warn">
         Las diferencias del traslado ya están resueltas, pero estas unidades no están apartadas. Complétalas con las mismas reglas de “confirmar pago”, o cancela el
         pedido.
       </p>
       <LineSourcePicker lines={lines} fulfillmentLocationId={fulfillmentLocationId} value={sources} onChange={setSources} />
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-700" data-testid="fill-error">
+        <p role="alert" className="text-sm font-medium text-tone-danger" data-testid="fill-error">
           {message}
         </p>
       )}

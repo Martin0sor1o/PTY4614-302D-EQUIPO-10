@@ -118,7 +118,7 @@ export function ApprovalWait({
 
   if (status === "APROBADA") {
     return (
-      <div role="status" className="flex items-start gap-2 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950" data-testid="approval-approved">
+      <div role="status" className="flex items-start gap-2 rounded-lg border border-tone-ok/30 bg-tone-ok-soft p-3 text-sm text-tone-ok" data-testid="approval-approved">
         <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden />
         <div>
           <p className="font-medium">
@@ -126,7 +126,7 @@ export function ApprovalWait({
             {current.method === "PIN" ? " (con PIN, en la tienda)" : ""}.
           </p>
           {current.decisionComment && <p>“{current.decisionComment}”</p>}
-          <p className="text-emerald-900/80">Válida una sola vez, {untilText(current.expiresAt)}.</p>
+          <p className="text-tone-ok/80">Válida una sola vez, {untilText(current.expiresAt)}.</p>
         </div>
       </div>
     );
@@ -140,7 +140,7 @@ export function ApprovalWait({
           ? "La solicitud venció sin respuesta. Si todavía la necesitas, pide una nueva."
           : "Esta aprobación ya se usó.";
     return (
-      <div role="alert" className="space-y-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-950" data-testid={`approval-${status.toLowerCase()}`}>
+      <div role="alert" className="space-y-2 rounded-lg border border-tone-danger/30 bg-tone-danger-soft p-3 text-sm text-tone-danger" data-testid={`approval-${status.toLowerCase()}`}>
         <p className="flex items-start gap-2 font-medium">
           <XCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>{text}</span>
@@ -153,12 +153,12 @@ export function ApprovalWait({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950" data-testid="approval-waiting" role="status" aria-live="polite">
+    <div className="space-y-3 rounded-lg border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="approval-waiting" role="status" aria-live="polite">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-medium">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Esperando a Belén…
         </p>
-        <p className="flex items-center gap-1 text-xs text-amber-900/80">
+        <p className="flex items-center gap-1 text-xs text-tone-warn/80">
           <Clock className="size-3.5" aria-hidden /> pedida {ago(current.createdAt)} · {untilText(current.expiresAt)}
         </p>
       </div>
@@ -223,7 +223,7 @@ export function ApprovalWait({
           </div>
           {demoPinHint && <p className="text-xs text-muted-foreground">DEMO: el PIN de Belén es {demoPinHint}.</p>}
           {pinError && (
-            <p role="alert" className={cn("text-sm font-medium text-red-700")} data-testid="pin-error">
+            <p role="alert" className={cn("text-sm font-medium text-tone-danger")} data-testid="pin-error">
               {pinError}
             </p>
           )}

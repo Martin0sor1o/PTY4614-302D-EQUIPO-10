@@ -1,18 +1,7 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
-import { DIRECTIONS, RAIL_COLLAPSED_PX, RAIL_EXPANDED_PX, directionById, railBudgets, type Direction } from "./_lib/directions";
+import { RAIL_COLLAPSED_PX, RAIL_EXPANDED_PX, DIRECTIONS, railBudgets } from "./_lib/directions";
 import { DirectionPanel } from "./_components/panel";
 
-// TEMPORAL (Etapa 8, Fases A y A2): comparación de direcciones visuales. Se elimina al cerrar la etapa.
-type View = { key: string; label: string; items: Direction[]; grid: string };
-
-const pick = (...ids: string[]) => ids.map((id) => directionById(id)).filter((d): d is Direction => Boolean(d));
-
-const VIEWS: View[] = [
-  { key: "BDEF", label: "B, D, E y F (riel lateral)", items: pick("B", "D", "E", "F"), grid: "xl:grid-cols-2 min-[1900px]:grid-cols-4" },
-  { key: "ABC", label: "A, B y C (Fase A)", items: pick("A", "B", "C"), grid: "xl:grid-cols-3" },
-];
-
+// TEMPORAL (Etapa 8): referencia de la dirección elegida (D). Se elimina al cerrar la etapa.
 function RailBudgetBlock() {
   const budgets = railBudgets(1366);
   return (
@@ -20,8 +9,8 @@ function RailBudgetBlock() {
       <div>
         <h2 id="riel-titulo" className="text-base font-semibold">El riel en las pantallas críticas (PC de caja de 1366 px)</h2>
         <p className="max-w-4xl text-sm text-stone-700">
-          Un riel expandido ({RAIL_EXPANDED_PX} px) le quita una de cada siete columnas de píxeles al POS. Solo íconos ({RAIL_COLLAPSED_PX} px) deja casi todo el ancho.
-          El «carrito» es el espacio del lector y de las líneas del POS real, que mantiene una columna de pago de 23 rem.
+          Aplicado en la tanda 1: riel expandido ({RAIL_EXPANDED_PX} px) en las pantallas de lectura y solo íconos ({RAIL_COLLAPSED_PX} px) en POS, caja, escaneo de
+          traslados, picking y aprobaciones. El «carrito» es el espacio del lector y las líneas del POS, que mantiene una columna de pago de 23 rem.
         </p>
       </div>
       <ul className="space-y-2">
@@ -49,47 +38,20 @@ function RailBudgetBlock() {
   );
 }
 
-export default async function DisenoPage({ searchParams }: PageProps<"/diseno">) {
-  const ver = String((await searchParams).ver ?? "");
-  const single = DIRECTIONS.find((d) => d.id === ver);
-  const view = single ? undefined : (VIEWS.find((v) => v.key === ver) ?? VIEWS[0]);
-  const items = single ? [single] : view!.items;
-
-  const tab = "rounded-md px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-stone-900";
-  const tabCls = (on: boolean) => cn(tab, on ? "bg-stone-900 text-white" : "bg-white text-stone-900 hover:bg-stone-100");
+export default function DisenoPage() {
   return (
-    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6">
-      <header className="space-y-3">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.14em] text-stone-600 uppercase">Etapa 8 · Fase A2 · página temporal</p>
-          <h1 className="text-2xl font-semibold">Direcciones para Big Curvas</h1>
-          <p className="max-w-4xl text-sm text-stone-700">
-            D, E y F conservan la estructura y las formas de la B (riel lateral, botones en píldora, radios grandes, sombras suaves, íconos de trazo grueso) con la paleta
-            actual: negro, rosado #FFF5F8 y vino #9D1F52. El rosado claro solo se usa como texto sobre negro. Cada columna usa los componentes reales del sistema.
-            Abre una sola para verla a ancho completo.
-          </p>
-        </div>
-        <nav aria-label="Vista" className="flex flex-wrap gap-1">
-          {VIEWS.map((v, i) => (
-            <Link key={v.key} href={i === 0 ? "/diseno" : `/diseno?ver=${v.key}`} aria-current={view?.key === v.key ? "page" : undefined} className={tabCls(view?.key === v.key)}>
-              {v.label}
-            </Link>
-          ))}
-          {DIRECTIONS.map((d) => (
-            <Link key={d.id} href={`/diseno?ver=${d.id}`} aria-current={single?.id === d.id ? "page" : undefined} className={tabCls(single?.id === d.id)}>
-              {d.id} · {d.name}
-            </Link>
-          ))}
-        </nav>
+    <main className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
+      <header className="space-y-1">
+        <p className="text-xs font-semibold tracking-[0.14em] text-stone-600 uppercase">Etapa 8 · página temporal</p>
+        <h1 className="text-2xl font-semibold">Dirección elegida: D · Medianoche Rosa</h1>
+        <p className="max-w-3xl text-sm text-stone-700">
+          Referencia de la dirección que ya está aplicada al sistema (tanda 1). Se elimina al cerrar la etapa; la guía vigente quedará en docs/DISENO.md.
+        </p>
       </header>
-
-      {!single && view?.key === "BDEF" && <RailBudgetBlock />}
-
-      <div className={cn("grid items-start gap-6", single ? "mx-auto max-w-4xl" : view?.grid)}>
-        {items.map((d) => (
-          <DirectionPanel key={d.id} d={d} />
-        ))}
-      </div>
+      <RailBudgetBlock />
+      {DIRECTIONS.map((d) => (
+        <DirectionPanel key={d.id} d={d} />
+      ))}
     </main>
   );
 }
