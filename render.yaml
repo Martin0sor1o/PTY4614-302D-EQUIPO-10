@@ -18,12 +18,13 @@ services:
     branch: feature/demo
     rootDir: big-curvas
     autoDeployTrigger: commit
-    # corepack activa el pnpm fijado en package.json ("packageManager"). Se instalan también las devDependencies
+    # "corepack pnpm" ejecuta el pnpm fijado en package.json ("packageManager") sin instalar enlaces: en Render
+    # /usr/bin es de solo lectura, así que "corepack enable" falla. Se instalan también las devDependencies
     # (Next, TypeScript, Tailwind y Prisma las necesitan para compilar) aunque NODE_ENV sea production.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm build
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm build
     # Las migraciones y la siembra van en el arranque: el plan gratuito no tiene "pre-deploy command".
     # demo:bootstrap solo siembra si la base está vacía (primera vez); en los demás arranques no hace nada.
-    startCommand: pnpm db:deploy && pnpm demo:bootstrap && pnpm start
+    startCommand: corepack pnpm db:deploy && corepack pnpm demo:bootstrap && corepack pnpm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION

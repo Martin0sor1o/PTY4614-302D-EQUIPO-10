@@ -90,7 +90,7 @@ Si la sincronización del Blueprint no recrea la base, borra el Blueprint (los r
 
 | Síntoma | Qué revisar |
 |---|---|
-| El build falla en `pnpm install` o dice que no encuentra `pnpm` | El build usa `corepack enable` para activar la versión de pnpm fijada en `package.json`. Si Render no la reconoce, cambia en el servicio → **Settings** → **Build Command** el principio por `npm install -g pnpm@12.8.1 &&` en lugar de `corepack enable &&`. |
+| El build falla con `EROFS: read-only file system, unlink '/usr/bin/pnpm'` | Es `corepack enable`, que intenta crear un enlace en `/usr/bin`, carpeta de solo lectura en Render. Los comandos del `render.yaml` ya usan `corepack pnpm …`, que ejecuta el pnpm fijado en `package.json` (`packageManager`) sin instalar enlaces. Si ves este error, revisa que el **Build Command** y el **Start Command** del servicio no tengan `corepack enable` ni `npm install -g` (el segundo tampoco sirve: también escribe en carpetas del sistema); deben ser los del `render.yaml`. |
 | El build falla con un error de versión de Node | Verifica que `NODE_VERSION` esté en `24` (servicio → **Environment**). |
 | Pantalla "Application loading" por más de dos minutos | El servicio se está despertando; espera. Si no avanza, revisa Logs. |
 | `/api/health` responde `{"status":"error","database":"down"}` | La base no responde: revisa que `big-curvas-db` esté **Available** y que no haya expirado. |
