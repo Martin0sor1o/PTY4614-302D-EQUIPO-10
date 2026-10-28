@@ -4,12 +4,12 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Clock, MapPin, UserRound, X } from "lucide-react";
 import { approveAction, rejectAction } from "@/app/(app)/aprobaciones/actions";
-import { Badge } from "@/components/ui/badge";
 import { TYPE_LABEL } from "./labels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCLP } from "@/lib/money";
-import { cn } from "@/lib/utils";
 
 export interface CardData {
   id: string;
@@ -33,8 +33,8 @@ function ago(iso: string): string {
 }
 
 /**
- * Tarjeta de una solicitud pendiente, pensada para el celular: detalle claro y dos botones grandes. Aprobar o
- * rechazar es un toque; el comentario es opcional. Cada tarjeta usa su propia clave de idempotencia.
+ * Tarjeta de una solicitud pendiente, pensada para el celular: el monto y el detalle primero y dos botones grandes,
+ * separados entre sí. Aprobar o rechazar es un toque; el comentario es opcional. Cada tarjeta usa su propia clave de idempotencia.
  */
 export function ApprovalCard({ data }: { data: CardData }) {
   const router = useRouter();
@@ -59,42 +59,50 @@ export function ApprovalCard({ data }: { data: CardData }) {
   }
 
   return (
-    <article className="space-y-3 rounded-2xl border bg-card p-4 shadow-sm" data-testid="approval-card" data-type={data.type} aria-label={data.headline}>
+    <article
+      className="space-y-4 rounded-3xl border-2 border-primary/25 bg-card p-4 shadow-soft"
+      data-testid="approval-card"
+      data-type={data.type}
+      aria-label={data.headline}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Badge className="bg-brand-black text-brand-pink">{TYPE_LABEL[data.type] ?? data.type}</Badge>
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="size-3.5" aria-hidden /> pedida {ago(data.createdAt)}
+        <span className="rounded-full bg-brand-black px-3 py-1 text-xs font-bold tracking-wide text-brand-pink">{TYPE_LABEL[data.type] ?? data.type}</span>
+        <span className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Clock className="size-4" aria-hidden /> pedida {ago(data.createdAt)}
         </span>
       </div>
 
-      <h2 className="text-lg leading-snug font-semibold">{data.headline}</h2>
+      {data.amount !== null && (
+        <div>
+          <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Monto</div>
+          <div className="text-4xl leading-tight font-bold tabular-nums">{formatCLP(data.amount)}</div>
+        </div>
+      )}
+
+      <h2 className="text-lg leading-snug font-bold">{data.headline}</h2>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span className="flex items-center gap-1">
-          <UserRound className="size-3.5" aria-hidden /> {data.requestedByName}
+          <UserRound className="size-4" aria-hidden /> {data.requestedByName}
         </span>
         <span className="flex items-center gap-1">
-          <MapPin className="size-3.5" aria-hidden /> {data.locationName}
+          <MapPin className="size-4" aria-hidden /> {data.locationName}
         </span>
       </div>
 
-      <dl className="space-y-1.5 rounded-xl bg-muted/50 p-3 text-sm">
-        {data.lines.map((l, i) => (
-          <div key={i} className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
-            <dt className="text-muted-foreground">{l.label}</dt>
-            <dd className="font-medium sm:text-right">{l.value}</dd>
-          </div>
-        ))}
-        {data.amount !== null && (
-          <div className="flex justify-between gap-3 border-t pt-1.5">
-            <dt className="text-muted-foreground">Monto</dt>
-            <dd className="font-semibold tabular-nums">{formatCLP(data.amount)}</dd>
-          </div>
-        )}
-      </dl>
+      {data.lines.length > 0 && (
+        <dl className="space-y-1.5 rounded-2xl bg-secondary p-3 text-sm">
+          {data.lines.map((l, i) => (
+            <div key={i} className="flex flex-col gap-0.5 sm:flex-row sm:justify-between sm:gap-3">
+              <dt className="text-muted-foreground">{l.label}</dt>
+              <dd className="font-semibold sm:text-right">{l.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
-      <blockquote className="border-l-4 border-brand-pink-strong bg-brand-pink/30 px-3 py-2 text-sm" data-testid="approval-reason">
-        <span className="text-xs font-medium text-muted-foreground">Motivo de la vendedora</span>
+      <blockquote className="rounded-2xl border-l-4 border-primary bg-secondary px-3 py-2 text-sm" data-testid="approval-reason">
+        <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Motivo de la vendedora</span>
         <br />“{data.reason}”
       </blockquote>
 
@@ -107,22 +115,36 @@ export function ApprovalCard({ data }: { data: CardData }) {
       />
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium text-tone-danger")} data-testid="decision-error">
+        <Notice tone="danger" role="alert" data-testid="decision-error">
           {message}
-        </p>
+        </Notice>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Button type="button" variant="outline" size="lg" className="h-14 border-tone-danger/30 text-base text-tone-danger hover:bg-tone-danger-soft" disabled={pending} onClick={() => decide("reject")} data-testid="reject">
+      {/* Dos botones grandes y bien separados (16 px) para no tocar el equivocado. */}
+      <div className="grid grid-cols-2 gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="h-14 border-tone-danger text-base text-tone-danger hover:bg-tone-danger-soft hover:text-tone-danger max-md:h-14"
+          disabled={pending}
+          onClick={() => decide("reject")}
+          data-testid="reject"
+        >
           <X /> Rechazar
         </Button>
-        <Button type="button" size="lg" className="h-14 text-base" disabled={pending} onClick={() => decide("approve")} data-testid="approve">
+        <Button type="button" size="lg" className="h-14 text-base max-md:h-14" disabled={pending} onClick={() => decide("approve")} data-testid="approve">
           <Check /> Aprobar
         </Button>
       </div>
-      <p className="text-center text-xs text-muted-foreground">
-        {data.expiresAt ? `Vence ${new Date(data.expiresAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" })}` : ""}
-      </p>
+
+      {data.expiresAt && (
+        <div className="flex justify-center">
+          <StatusBadge tone="neutral" icon={Clock}>
+            Vence a las {new Date(data.expiresAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" })}
+          </StatusBadge>
+        </div>
+      )}
     </article>
   );
 }

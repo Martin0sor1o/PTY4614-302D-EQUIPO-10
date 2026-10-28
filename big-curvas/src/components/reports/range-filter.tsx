@@ -4,7 +4,7 @@ import type { ReportChannel, ReportGroupBy } from "@/modules/reports";
 import type { ReportTabId } from "./report-tabs";
 
 const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-background px-2.5 text-base outline-none md:text-sm";
+  "h-9 w-full rounded-2xl border border-input bg-card px-3 text-base max-md:h-11 md:text-sm";
 
 /** Filtro por GET (sin JavaScript): rango de días de Chile y, en Ventas, canal y agrupación. */
 export function RangeFilter({
@@ -21,18 +21,18 @@ export function RangeFilter({
   groupBy?: ReportGroupBy;
 }) {
   return (
-    <form method="get" action="/reportes" className="grid grid-cols-2 gap-3 rounded-xl border bg-card p-3 lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end print:hidden">
+    <form method="get" action="/reportes" className="grid grid-cols-2 gap-3 rounded-2xl border bg-card p-3 shadow-soft lg:grid-cols-[repeat(4,minmax(0,1fr))_auto] lg:items-end print:hidden">
       <input type="hidden" name="tab" value={tab} />
-      <label className="space-y-1 text-sm font-medium">
+      <label className="space-y-1 text-sm font-semibold">
         Desde
         <Input type="date" name="desde" defaultValue={from} required className="h-9" />
       </label>
-      <label className="space-y-1 text-sm font-medium">
+      <label className="space-y-1 text-sm font-semibold">
         Hasta
         <Input type="date" name="hasta" defaultValue={to} required className="h-9" />
       </label>
       {channel !== undefined && (
-        <label className="space-y-1 text-sm font-medium">
+        <label className="space-y-1 text-sm font-semibold">
           Canal
           <select name="canal" defaultValue={channel} className={selectClass}>
             <option value="todos">Tienda y online</option>
@@ -42,7 +42,7 @@ export function RangeFilter({
         </label>
       )}
       {groupBy !== undefined && (
-        <label className="space-y-1 text-sm font-medium">
+        <label className="space-y-1 text-sm font-semibold">
           Agrupar por
           <select name="agrupar" defaultValue={groupBy} className={selectClass}>
             <option value="day">Día</option>
