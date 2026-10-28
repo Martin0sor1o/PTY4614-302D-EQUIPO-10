@@ -81,6 +81,8 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
 
   return (
     <div className="space-y-4">
+      {/* Celular: el campo de escaneo y el último aviso quedan fijos arriba mientras se recorren las tarjetas. */}
+      <div className="space-y-3 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:py-2 max-sm:shadow-soft">
       <form
         className="relative w-full sm:max-w-lg"
         onSubmit={(e) => {
@@ -106,8 +108,47 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
           {message.text}
         </Notice>
       )}
+      </div>
 
-      <div className="rounded-3xl border bg-card shadow-soft">
+      {/* Celular (bajo sm): una tarjeta por prenda, sin scroll horizontal. */}
+      <ul className="space-y-3 sm:hidden" aria-label="Prendas del pedido">
+        {lines.map((l) => {
+          const n = counts[l.variantId] ?? 0;
+          return (
+            <li key={l.variantId} className="rounded-2xl border bg-card p-3 shadow-soft">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-sm font-semibold">{l.sku}</div>
+                  <div className="text-sm">{l.description}</div>
+                </div>
+                {n === l.quantity ? (
+                  <StatusBadge tone="ok" icon={Check}>
+                    Completa
+                  </StatusBadge>
+                ) : (
+                  <StatusBadge tone="warn">Faltan {l.quantity - n}</StatusBadge>
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Pedido <span className="text-base font-bold text-foreground tabular-nums">{l.quantity}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="icon-sm" aria-label={`Quitar una unidad de ${l.sku}`} onClick={() => bump(l, -1)}>
+                    <Minus />
+                  </Button>
+                  <span className="w-12 text-center text-2xl font-bold tabular-nums">{n}</span>
+                  <Button type="button" variant="outline" size="icon-sm" aria-label={`Sumar una unidad de ${l.sku}`} onClick={() => bump(l, 1)}>
+                    <Plus />
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden rounded-3xl border bg-card shadow-soft sm:block">
         <Table>
           <TableHeader>
             <TableRow>
