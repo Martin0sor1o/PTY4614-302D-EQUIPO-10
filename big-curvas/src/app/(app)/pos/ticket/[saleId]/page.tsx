@@ -32,7 +32,7 @@ export default async function TicketPage({ params }: PageProps<"/pos/ticket/[sal
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Venta {sale.number} registrada</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Venta {sale.number} registrada</h1>
           <p className="text-sm text-muted-foreground">El stock ya se descontó. Imprime el ticket o sigue con la próxima venta.</p>
         </div>
         <div className="flex flex-wrap gap-2">

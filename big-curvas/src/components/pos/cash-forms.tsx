@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { closeCashAction, openCashAction, type FormState } from "@/app/(app)/pos/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/textarea";
 
 export function OpenCashForm({ locationName }: { locationName: string }) {
@@ -12,7 +13,7 @@ export function OpenCashForm({ locationName }: { locationName: string }) {
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
-        <label htmlFor="openingCash" className="text-sm font-medium">
+        <label htmlFor="openingCash" className="text-sm font-semibold">
           Monto inicial en caja ({locationName})
         </label>
         <Input
@@ -30,9 +31,9 @@ export function OpenCashForm({ locationName }: { locationName: string }) {
         <p className="text-xs text-muted-foreground">Efectivo con el que parte la caja (fondo para vueltos). Puede ser $0.</p>
       </div>
       {state?.message && (
-        <p role="alert" className="text-sm font-medium text-tone-danger">
+        <Notice tone="danger" role="alert" className="py-2">
           {state.message}
-        </p>
+        </Notice>
       )}
       <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={pending}>
         {pending ? "Abriendo…" : "Abrir caja"}
@@ -48,7 +49,7 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
   return (
     <form action={action} className="space-y-3">
       <div className="space-y-1.5">
-        <label htmlFor="countedCash" className="text-sm font-medium">
+        <label htmlFor="countedCash" className="text-sm font-semibold">
           Efectivo contado en {locationName}
         </label>
         <Input
@@ -64,7 +65,7 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
         <p className="text-xs text-muted-foreground">Cuenta todo el efectivo de la caja, incluido el fondo inicial. Al cerrar verás la diferencia.</p>
       </div>
       <div className="space-y-1.5">
-        <label htmlFor="notes" className="text-sm font-medium">
+        <label htmlFor="notes" className="text-sm font-semibold">
           Observación {state?.needsNotes ? <span className="text-tone-danger">(obligatoria)</span> : <span className="font-normal text-muted-foreground">(obligatoria si hay diferencia)</span>}
         </label>
         <Textarea
@@ -78,9 +79,9 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
         />
       </div>
       {state?.message && (
-        <p role="alert" className="rounded-lg border border-tone-danger/30 bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger">
+        <Notice tone="danger" role="alert" className="py-2">
           {state.message}
-        </p>
+        </Notice>
       )}
       <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={pending}>
         {pending ? "Cerrando…" : "Cerrar caja"}

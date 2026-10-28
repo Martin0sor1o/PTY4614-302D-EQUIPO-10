@@ -24,8 +24,8 @@ export async function posPageContext(): Promise<{ user: SessionUser; location: S
 
 export function PosNotice({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-lg rounded-xl border bg-card p-6 text-center" role="status">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="mx-auto max-w-lg rounded-3xl border bg-card p-6 text-center shadow-soft" role="status">
+      <h2 className="text-lg font-bold">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{children}</p>
     </div>
   );

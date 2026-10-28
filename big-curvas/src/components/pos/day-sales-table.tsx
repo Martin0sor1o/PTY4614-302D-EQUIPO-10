@@ -3,11 +3,13 @@
 import { Fragment, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Ban } from "lucide-react";
 import { requestVoidApprovalAction, voidSaleAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCLP } from "@/lib/money";
@@ -65,15 +67,15 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
 
   if (done) {
     return (
-      <p role="status" className="rounded-lg border border-tone-ok/30 bg-tone-ok-soft p-3 text-sm font-medium text-tone-ok" data-testid="void-done">
+      <Notice tone="ok" role="status" data-testid="void-done">
         {done}
-      </p>
+      </Notice>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-lg border bg-muted/40 p-3" data-testid="void-panel">
-      <p className="text-sm font-medium">
+    <div className="space-y-3 rounded-2xl border bg-secondary p-3" data-testid="void-panel">
+      <p className="text-sm font-bold">
         Anular la venta {row.number} · {formatCLP(row.collected)}
       </p>
       {!approval ? (
@@ -88,9 +90,9 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
               : "Se la pides a Belén. Si la aprueba, se anula sola, la prenda vuelve al stock y, si fue en efectivo, el dinero sale de la caja abierta."}
           </p>
           {error && (
-            <p role="alert" className="text-sm font-medium text-tone-danger">
+            <Notice tone="danger" role="alert" className="py-2">
               {error}
-            </p>
+            </Notice>
           )}
           <div className="flex gap-2">
             {isAdmin ? (
@@ -132,7 +134,9 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
               {pending && <p className="text-sm text-muted-foreground">Anulando la venta…</p>}
               {error && (
                 <div role="alert" className="space-y-2">
-                  <p className="text-sm font-medium text-tone-danger">{error}</p>
+                  <Notice tone="danger" className="py-2">
+                    {error}
+                  </Notice>
                   <Button type="button" size="sm" onClick={() => execute(approval.id)} disabled={pending}>
                     Reintentar anulación
                   </Button>
@@ -150,7 +154,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
 export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow[]; isAdmin: boolean; demoPinHint: string | null }) {
   const [openId, setOpenId] = useState<string | null>(null);
   return (
-    <div className="rounded-xl border bg-card">
+    <div className="rounded-3xl border bg-card shadow-soft">
       <Table>
         <TableHeader>
           <TableRow>
@@ -180,9 +184,9 @@ export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow
                     {s.number}
                   </Link>
                   {s.voided && (
-                    <Badge variant="secondary" className="ml-2 bg-tone-danger-soft text-tone-danger" data-testid="voided-badge">
+                    <StatusBadge tone="danger" icon={Ban} className="ml-2 font-sans" data-testid="voided-badge">
                       Anulada
-                    </Badge>
+                    </StatusBadge>
                   )}
                 </TableCell>
                 <TableCell className="tabular-nums">{s.time}</TableCell>

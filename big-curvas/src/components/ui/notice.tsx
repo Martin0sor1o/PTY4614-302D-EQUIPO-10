@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TONE_ICON, type StatusTone } from "./status-badge";
 
@@ -15,11 +16,12 @@ const TONE_BOX: Record<StatusTone, string> = {
 export function Notice({
   tone,
   title,
+  icon,
   children,
   className,
   ...props
-}: { tone: StatusTone; title?: ReactNode } & Omit<ComponentProps<"div">, "title">) {
-  const Icon = TONE_ICON[tone];
+}: { tone: StatusTone; title?: ReactNode; icon?: LucideIcon } & Omit<ComponentProps<"div">, "title">) {
+  const Icon = icon ?? TONE_ICON[tone];
   return (
     <div
       data-slot="notice"

@@ -13,7 +13,7 @@ const TABS = [
 export function PosTabs() {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 border-b print:hidden" aria-label="POS">
+    <nav className="flex gap-1 overflow-x-auto border-b print:hidden" aria-label="POS">
       {TABS.map((t) => {
         const active = t.href === "/pos" ? pathname === "/pos" || pathname.startsWith("/pos/ticket") : pathname.startsWith(t.href);
         return (
@@ -22,8 +22,8 @@ export function PosTabs() {
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "-mb-px border-b-2 px-4 py-2 text-sm font-medium outline-none transition-colors focus-visible:bg-accent",
-              active ? "border-brand-black text-foreground" : "border-transparent text-muted-foreground hover:border-brand-pink-strong hover:text-foreground",
+              "-mb-px flex items-center border-b-2 px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors max-md:min-h-11",
+              active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:border-primary/40 hover:text-foreground",
             )}
           >
             {t.label}

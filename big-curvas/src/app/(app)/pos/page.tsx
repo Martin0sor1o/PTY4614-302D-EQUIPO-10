@@ -21,7 +21,7 @@ export default async function PosPage() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Venta · {location.name}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Venta · {location.name}</h1>
         <p className="text-sm text-muted-foreground">
           Caja abierta desde las {formatTime(session.openedAt)} por {session.openedByName} · {session.salesCount}{" "}
           {session.salesCount === 1 ? "venta" : "ventas"}
