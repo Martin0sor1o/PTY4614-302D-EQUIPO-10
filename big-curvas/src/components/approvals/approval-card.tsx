@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Clock, MapPin, UserRound, X } from "lucide-react";
 import { approveAction, rejectAction } from "@/app/(app)/aprobaciones/actions";
@@ -25,8 +25,8 @@ export interface CardData {
   lines: { label: string; value: string }[];
 }
 
-function ago(iso: string): string {
-  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+function ago(iso: string, now: number): string {
+  const s = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
   if (s < 60) return `hace ${s} s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `hace ${m} min`;
@@ -43,6 +43,15 @@ export function ApprovalCard({ data }: { data: CardData }) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const key = useRef(crypto.randomUUID());
+  // El «hace N s» depende del reloj: se calcula solo en el cliente tras montar. Hasta entonces servidor y cliente
+  // muestran la misma hora fija, así que no hay diferencia de hidratación.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    tick();
+    const id = setInterval(tick, 10_000);
+    return () => clearInterval(id);
+  }, []);
 
   function decide(kind: "approve" | "reject") {
     setMessage(null);
@@ -69,7 +78,7 @@ export function ApprovalCard({ data }: { data: CardData }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="rounded-full bg-brand-black px-3 py-1 text-xs font-bold tracking-wide text-brand-pink">{TYPE_LABEL[data.type] ?? data.type}</span>
         <span className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Clock className="size-4" aria-hidden /> pedida {ago(data.createdAt)}
+          <Clock className="size-4" aria-hidden /> <span suppressHydrationWarning>{now === null ? `pedida a las ${formatTime(new Date(data.createdAt))}` : `pedida ${ago(data.createdAt, now)}`}</span>
         </span>
       </div>
 
