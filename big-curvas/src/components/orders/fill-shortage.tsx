@@ -48,8 +48,8 @@ export function FillShortage({
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-tone-warn/30 bg-tone-warn-soft/60 p-4" aria-labelledby="sec-faltante" data-testid="fill-shortage">
-      <h2 id="sec-faltante" className="flex items-center gap-2 font-medium text-tone-warn">
+    <section className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft/60 p-4" aria-labelledby="sec-faltante" data-testid="fill-shortage">
+      <h2 id="sec-faltante" className="flex items-center gap-2 text-lg font-bold text-tone-warn">
         <AlertTriangle className="size-4" aria-hidden /> Faltan {units} unidad{units === 1 ? "" : "es"} del pedido
       </h2>
       <ul className="text-sm text-tone-warn">

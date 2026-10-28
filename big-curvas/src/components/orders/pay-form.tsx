@@ -81,7 +81,7 @@ export function PayForm({
   }
 
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4">
+    <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-soft">
       <fieldset className="space-y-2">
         <legend className="font-medium">Medio de pago</legend>
         <div className="flex flex-wrap gap-2" role="radiogroup">
@@ -122,7 +122,7 @@ export function PayForm({
       </dl>
 
       {message && (
-        <p role="alert" className={cn("rounded-lg border border-tone-danger/30 bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger")} data-testid="pay-error">
+        <p role="alert" className={cn("rounded-2xl border border-tone-danger/30 bg-tone-danger-soft px-3 py-2 text-sm font-medium text-tone-danger")} data-testid="pay-error">
           {message}
         </p>
       )}

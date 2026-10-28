@@ -7,7 +7,8 @@ import { prepareOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export interface PickLine {
   variantId: string;
@@ -101,12 +102,12 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
       </form>
 
       {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-tone-ok")}>
+        <Notice tone={message.kind === "error" ? "danger" : "ok"} role={message.kind === "error" ? "alert" : "status"}>
           {message.text}
-        </p>
+        </Notice>
       )}
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -140,11 +141,11 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {n === l.quantity ? (
-                      <span className="inline-flex items-center gap-1 text-tone-ok">
-                        <Check className="size-4" /> Completa
-                      </span>
+                      <StatusBadge tone="ok" icon={Check}>
+                        Completa
+                      </StatusBadge>
                     ) : (
-                      <span className="font-medium text-tone-warn">Faltan {l.quantity - n}</span>
+                      <StatusBadge tone="warn">Faltan {l.quantity - n}</StatusBadge>
                     )}
                   </TableCell>
                 </TableRow>

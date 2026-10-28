@@ -41,7 +41,7 @@ export function StatusBadge({
       data-slot="status-badge"
       data-tone={tone}
       className={cn(
-        "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-5 font-semibold whitespace-nowrap",
+        "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 font-sans text-xs leading-5 font-semibold tracking-normal whitespace-nowrap normal-case",
         TONE_STYLE[tone],
         className,
       )}

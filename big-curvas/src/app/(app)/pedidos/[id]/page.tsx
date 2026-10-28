@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
 import { requirePageAccess } from "@/modules/auth";
 import { formatCLP } from "@/lib/money";
 import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
@@ -11,6 +10,8 @@ import { CancelOrder, DeliverOrder } from "@/components/orders/order-actions";
 import { ageLabel, CHANNEL_LABEL, ORDER_STATUS_LABEL, OrderStatusBadge, PAYMENT_LABEL } from "@/components/orders/status-badge";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { OrderDetail } from "@/modules/orders";
 import { loadOrder } from "../load-order";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{label}</dt>
       <dd className="text-sm font-medium">{children}</dd>
     </div>
   );
@@ -56,10 +57,10 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <Link href="/pedidos" className="text-sm text-brand-ink underline-offset-4 hover:underline">
+          <Link href="/pedidos" className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
             ← Pedidos
           </Link>
-          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
+          <h1 className="flex flex-wrap items-center gap-3 text-3xl font-bold tracking-tight">
             <span className="font-mono" data-testid="order-number">
               {o.number}
             </span>
@@ -97,25 +98,22 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
 
       {o.refundPending && o.sale && <RefundOrder orderId={o.id} number={o.number} saleNumber={o.sale.number} amount={o.sale.total} />}
       {o.refund && (
-        <p className="rounded-lg border border-tone-ok/30 bg-tone-ok-soft p-3 text-sm text-tone-ok" data-testid="refund-done">
-          <strong>Reembolsado</strong> el {formatDateTime(o.refund.at)}
+        <Notice tone="ok" title="Reembolsado" role="status" data-testid="refund-done">
+          El {formatDateTime(o.refund.at)}
           {o.refund.byName ? ` por ${o.refund.byName}` : ""}: {o.refund.method}
           {o.refund.reference ? ` (${o.refund.reference})` : ""}. La venta {o.sale?.number} quedó anulada.
-        </p>
+        </Notice>
       )}
       {o.cancellation && (
-        <p className="rounded-lg border bg-muted/40 p-3 text-sm" data-testid="cancellation">
-          Cancelado el {formatDateTime(o.cancellation.at)}
+        <Notice tone="neutral" title="Pedido cancelado" role="status" data-testid="cancellation">
+          El {formatDateTime(o.cancellation.at)}
           {o.cancellation.byName ? ` por ${o.cancellation.byName}` : ""}. Motivo: {o.cancellation.reason}
-        </p>
+        </Notice>
       )}
       {o.blockedByTransferDifference && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="order-blocked">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            <strong>Pedido bloqueado.</strong> El traslado de este pedido llegó con diferencias. Se desbloquea cuando Belén las resuelve en Traslados → Con diferencias.
-          </span>
-        </div>
+        <Notice tone="warn" title="Pedido bloqueado" role="alert" data-testid="order-blocked">
+          El traslado de este pedido llegó con diferencias. Se desbloquea cuando Belén las resuelve en Traslados → Con diferencias.
+        </Notice>
       )}
 
       {o.canFillShortage && (
@@ -133,7 +131,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
         />
       )}
 
-      <dl className="grid gap-4 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-4 rounded-2xl border bg-card p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-4">
         <Meta label="Clienta">
           {o.customer.name}
           <div className="text-xs font-normal text-muted-foreground">
@@ -168,7 +166,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
         {o.notes && <Meta label="Notas">{o.notes}</Meta>}
       </dl>
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -205,7 +203,11 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
                     ))
                   )}
                   {l.inTransit > 0 && <div className="text-tone-info">En camino a bodega: {l.inTransit}</div>}
-                  {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && <div className="font-medium text-tone-warn">Faltan {l.shortage}</div>}
+                  {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && (
+                    <div className="mt-0.5">
+                      <StatusBadge tone="warn">Faltan {l.shortage}</StatusBadge>
+                    </div>
+                  )}
                   {l.pickedQty > 0 && <div className="text-tone-ok">Preparadas: {l.pickedQty}</div>}
                 </TableCell>
                 <TableCell className="text-xs">
@@ -225,7 +227,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
         <div className="space-y-4">
           {o.transfers.length > 0 && (
             <section aria-labelledby="sec-traslados">
-              <h2 id="sec-traslados" className="mb-1 font-medium">
+              <h2 id="sec-traslados" className="mb-1 text-lg font-bold">
                 Traslados del pedido
               </h2>
               <ul className="space-y-1 text-sm">
@@ -269,10 +271,10 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
       </div>
 
       <section aria-labelledby="sec-historial" className="space-y-2">
-        <h2 id="sec-historial" className="font-medium">
+        <h2 id="sec-historial" className="text-lg font-bold">
           Historial
         </h2>
-        <ol className="divide-y rounded-xl border bg-card" data-testid="order-history">
+        <ol className="divide-y rounded-2xl border bg-card shadow-soft" data-testid="order-history">
           {o.events.map((e, i) => (
             <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
               <span className="w-36 shrink-0 tabular-nums text-muted-foreground">{formatDateTime(e.at)}</span>

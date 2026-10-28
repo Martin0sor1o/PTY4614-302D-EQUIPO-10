@@ -15,7 +15,7 @@ export default async function NewTransferPage() {
 
   if (!from || others.length !== 1) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border bg-card p-6 text-center" role="status">
+      <div className="mx-auto max-w-lg rounded-2xl border bg-card p-6 shadow-soft text-center" role="status">
         <h1 className="text-lg font-semibold">{from ? "No se puede crear el traslado" : "Elige una ubicación"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {from
@@ -32,7 +32,7 @@ export default async function NewTransferPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Nuevo traslado</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Nuevo traslado</h1>
         <p className="text-sm text-muted-foreground">
           De <strong>{from.name}</strong> a <strong>{others[0].name}</strong>. Queda en borrador: el stock no se mueve hasta que lo envíes.
         </p>

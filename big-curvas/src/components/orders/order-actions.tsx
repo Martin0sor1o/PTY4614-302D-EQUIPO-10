@@ -35,7 +35,7 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
     );
   }
   return (
-    <div className="max-w-lg space-y-2 rounded-xl border border-tone-danger/30 bg-tone-danger-soft/60 p-3">
+    <div className="max-w-lg space-y-2 rounded-2xl border border-tone-danger/30 bg-tone-danger-soft/60 p-3">
       <Label htmlFor="cancel-reason">Motivo de la cancelación *</Label>
       <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       <p className="text-xs text-muted-foreground">{consequence}</p>

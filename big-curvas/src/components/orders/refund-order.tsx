@@ -37,8 +37,8 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-tone-danger/30 bg-tone-danger-soft p-4" aria-labelledby="sec-reembolso" data-testid="refund-pending">
-      <h2 id="sec-reembolso" className="flex items-center gap-2 font-medium text-tone-danger">
+    <section className="space-y-3 rounded-2xl border border-tone-danger/30 bg-tone-danger-soft p-4" aria-labelledby="sec-reembolso" data-testid="refund-pending">
+      <h2 id="sec-reembolso" className="flex items-center gap-2 text-lg font-bold text-tone-danger">
         <AlertTriangle className="size-4" aria-hidden /> Reembolso pendiente · {formatCLP(amount)}
       </h2>
       <p className="text-sm text-tone-danger">

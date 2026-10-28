@@ -7,7 +7,8 @@ import { receiveTransferAction } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export interface ReceiveLine {
   variantId: string;
@@ -104,12 +105,12 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       </form>
 
       {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-tone-ok")}>
+        <Notice tone={message.kind === "error" ? "danger" : "ok"} role={message.kind === "error" ? "alert" : "status"}>
           {message.text}
-        </p>
+        </Notice>
       )}
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -144,13 +145,13 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {diff === 0 ? (
-                      <span className="inline-flex items-center gap-1 text-tone-ok">
-                        <Check className="size-4" /> Cuadra
-                      </span>
+                      <StatusBadge tone="ok" icon={Check}>
+                        Cuadra
+                      </StatusBadge>
                     ) : diff < 0 ? (
-                      <span className="font-medium text-tone-warn">Faltan {-diff}</span>
+                      <StatusBadge tone="warn">Faltan {-diff}</StatusBadge>
                     ) : (
-                      <span className="font-medium text-tone-warn">Sobran {diff}</span>
+                      <StatusBadge tone="warn">Sobran {diff}</StatusBadge>
                     )}
                   </TableCell>
                 </TableRow>
@@ -163,7 +164,11 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground" data-testid="receive-total">
           Escaneadas {scanned} de {expected} unidades enviadas
-          {diffs.length > 0 && <span className="font-medium text-tone-warn"> · {diffs.length} con diferencia</span>}
+          {diffs.length > 0 && (
+            <StatusBadge tone="warn" className="ml-2">
+              {diffs.length} con diferencia
+            </StatusBadge>
+          )}
         </p>
         <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
           {pending ? "Recibiendo…" : "Confirmar recepción"}

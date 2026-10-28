@@ -37,7 +37,7 @@ export function LineSourcePicker({
   if (short.length === 0) return null;
 
   return (
-    <fieldset className="space-y-3 rounded-xl border border-tone-warn/30 bg-tone-warn-soft/70 p-4" data-testid="source-picker">
+    <fieldset className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft/70 p-4" data-testid="source-picker">
       <legend className="px-1 font-medium text-tone-warn">La bodega no alcanza para {short.length === 1 ? "esta prenda" : "estas prendas"}</legend>
       <p className="text-sm text-tone-warn">
         Si la tienda tiene disponible, puedes apartarla ahí: se genera un traslado tienda → bodega ligado al pedido y el pedido espera a que llegue. Una línea sale de

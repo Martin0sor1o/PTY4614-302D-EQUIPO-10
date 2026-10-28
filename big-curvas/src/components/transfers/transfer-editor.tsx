@@ -155,13 +155,13 @@ export function TransferEditor({
       )}
 
       {hits?.ok && hits.items.length > 1 && (
-        <ul className="divide-y rounded-xl border bg-card" aria-label="Resultados de la búsqueda">
+        <ul className="divide-y rounded-2xl border bg-card shadow-soft" aria-label="Resultados de la búsqueda">
           {hits.items.map((item) => (
             <li key={item.variantId}>
               <button
                 type="button"
                 onClick={() => add(item)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left outline-none hover:bg-muted focus-visible:bg-muted"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted max-md:min-h-11 focus-visible:bg-muted"
               >
                 <span>
                   <span className="font-mono text-xs">{item.sku}</span>
@@ -176,7 +176,7 @@ export function TransferEditor({
         </ul>
       )}
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>

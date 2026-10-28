@@ -30,7 +30,7 @@ export function DispatchForm({ orderId, couriers }: { orderId: string; couriers:
   }
 
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4">
+    <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-soft">
       <fieldset className="space-y-2">
         <legend className="font-medium">Courier</legend>
         <div className="flex flex-wrap gap-2" role="radiogroup">
