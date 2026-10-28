@@ -85,6 +85,16 @@
   - [x] README en español y `docs/DEPLOY_RENDER.md`
   - [x] `render.yaml` (raíz del repositorio), `/api/health` y `pnpm demo:bootstrap` (siembra solo si la BD está vacía)
   - [x] lint + typecheck + tests · commit
+- [x] **Etapa 8 – Rediseño visual (dirección D)** · referencia en `docs/DISENO.md`
+  - [x] Dirección D elegida (negro, rosado y vino sobre fondo rosado claro); página temporal `/diseno` con las tres direcciones, eliminada al cerrar la etapa
+  - [x] Tokens de color y de papel en `globals.css`; tipografías Playfair Display (títulos y marca), Nunito Sans (texto) y Geist Mono (SKU, números de documento y ticket)
+  - [x] Riel lateral abierto por defecto (preferencia guardada) y menú móvil; tablas que pasan a tarjetas en celular donde corresponde
+  - [x] Pantallas rediseñadas por tandas: base, Stock y kardex, Pedidos y traslados, Reportes y aprobaciones, POS y caja
+  - [x] Ya no quedan clases de color sueltas de Tailwind fuera de los tokens; el ticket, las guías y la lista del viernes usan tokens de papel
+  - [x] Accesibilidad: contraste AA con test automático (33 casos), foco visible, objetivos táctiles de 44 px, movimiento reducido
+  - [x] `ConfirmDialog` (`components/ui/confirm-dialog.tsx`) reemplaza los 12 `window.confirm` nativos
+  - [x] Verificación: 37 rutas a 1440 y 375 px, impresión (7 documentos idénticos a antes de los tokens), los 7 pasos del guion, `pnpm build` y `pnpm start` con y sin `DEMO_MODE`
+  - [x] lint + typecheck + tests (389) + build · commits
 
 ## Estructura de carpetas (todo dentro de `big-curvas/`)
 
@@ -439,3 +449,18 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 5. **`/api/health`:** público, hace `SELECT 1` y responde 200 `{status:"ok"}` o 503. El ping vive en `src/modules/system` (Prisma solo dentro de `src/modules`).
 6. **Stock bajo** ya salía ordenado de menor a mayor disponible (y luego por SKU); se agregó un test con muchas variantes que fija el orden. No se limitan filas.
 7. **Celular:** el menú pasa a segunda línea en vez de desplazarse; en Stock se ocultan Talla y Total (van bajo el SKU) y en Pedidos se ocultan Unidades, Total y antigüedad (van bajo la clienta).
+
+
+## Decisiones del usuario (Etapa 8)
+
+1. **Dirección D** (riel lateral oscuro, rosado y vino, Playfair Display para títulos y marca). Las capturas de comparación de las tres direcciones quedan en `docs/diseno/`; las finales llevan el prefijo `final-`.
+2. **Confirmaciones:** el `window.confirm` nativo bloquea el navegador (y cualquier automatización) hasta que alguien lo cierra y se ve distinto en celular. Se reemplazó por `ConfirmDialog`, sobre el `AlertDialog` de `@base-ui/react` que ya era dependencia. Reglas: mismo texto, validaciones y permisos; foco inicial en «Cancelar» (un Enter suelto, como el del lector de códigos, cancela y nunca confirma); Escape cancela; mientras corre la acción el botón queda deshabilitado con «Procesando…»; botones de 44 px y texto de 14 px o más. En recibir traslado y preparar pedido el foco vuelve al campo de escaneo. La `idempotencyKey` se sigue generando una vez por pantalla, al montar.
+3. **Impresión sin cambios:** el ticket de 80 mm y las guías A4 salen píxel a píxel iguales que antes de pasar los colores a tokens (comparado con el medio `print` emulado y los mismos datos).
+4. **Texto de 10 px del ticket:** es intencional (réplica del papel térmico); el resto del sistema usa 12 px o más.
+
+### Pendientes de la Etapa 8
+
+- **Geist Mono:** se mantiene para SKU, números de documento y el ticket; quitarla cambiaría el papel. Confirmar si se prefiere otra solución.
+- **Overlay de desarrollo de Next:** en `pnpm dev` aparece un botón «sin foco» que no es de la aplicación; en `pnpm start` no aparece.
+- **Playwright:** no está instalado (no hay pruebas e2e en el repositorio); las verificaciones de pantalla de esta etapa se hicieron con Chrome por CDP, sin dependencias nuevas.
+
