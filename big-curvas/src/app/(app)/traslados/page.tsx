@@ -45,7 +45,7 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
       </TableCell>
       <TableCell className="text-center tabular-nums">
         {t.unitsSent}
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {t.lineCount} {t.lineCount === 1 ? "prenda" : "prendas"}
         </div>
       </TableCell>
@@ -130,7 +130,7 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
             >
               {TAB_LABEL[b]}
               {n ? (
-                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-[11px] leading-none text-brand-pink" data-testid={`count-${b}`}>
+                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-xs leading-none text-brand-pink" data-testid={`count-${b}`}>
                   {n}
                 </span>
               ) : null}

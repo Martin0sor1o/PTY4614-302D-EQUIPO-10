@@ -21,7 +21,7 @@ function hasLogoImage(): boolean {
 }
 
 const SIZES = {
-  sm: { big: "text-[10px] tracking-[0.5em]", name: "text-[1.7rem]", img: "h-10" },
+  sm: { big: "text-xs tracking-[0.5em]", name: "text-[1.7rem]", img: "h-10" },
   lg: { big: "text-sm tracking-[0.55em]", name: "text-5xl", img: "h-20" },
 } as const;
 

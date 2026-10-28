@@ -114,7 +114,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
             >
               {label(t)}
               {n ? (
-                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-[11px] leading-none text-brand-pink" data-testid={`count-${t}`}>
+                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-xs leading-none text-brand-pink" data-testid={`count-${t}`}>
                   {n}
                 </span>
               ) : null}

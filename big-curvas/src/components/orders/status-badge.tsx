@@ -23,7 +23,7 @@ const STATUS: Record<OrderStatus, { tone: StatusTone; icon: LucideIcon }> = {
   LISTO_PARA_PREPARAR: { tone: "info", icon: ClipboardList },
   PREPARADO: { tone: "info", icon: PackageCheck },
   DESPACHADO: { tone: "info", icon: Truck },
-  EN_CAMINO_A_TIENDA: { tone: "violet", icon: Truck },
+  EN_CAMINO_A_TIENDA: { tone: "info", icon: Truck },
   LISTO_PARA_RETIRO: { tone: "ok", icon: Store },
   ENTREGADO: { tone: "ok", icon: CheckCheck },
   CANCELADO: { tone: "danger", icon: Ban },

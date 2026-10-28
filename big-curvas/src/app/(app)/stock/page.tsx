@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, PackageX } from "lucide-react";
+import { Lock, MapPin, PackageX } from "lucide-react";
 import { z } from "zod";
 import { requirePageAccess } from "@/modules/auth";
 import { cellFor, getStockMatrix, type StockCell } from "@/modules/inventory";
@@ -17,26 +17,46 @@ const searchSchema = z.object({ q: z.string().trim().max(100).optional().catch(u
 /** Encabezado de columna: el nombre de la ubicación sin el prefijo "Tienda ". */
 const shortName = (name: string) => name.replace(/^Tienda\s+/i, "");
 
-function StockCellView({ cell, threshold }: { cell: StockCell; threshold: number | null }) {
+/** «Reservado» no es un estado de alerta: va en texto neutro con candado, sin badge ni color propio (el violeta es solo «por resolver»). */
+function Reserved({ n }: { n: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 font-semibold text-foreground">
+      <Lock className="size-3" aria-hidden />
+      {n} res.
+    </span>
+  );
+}
+
+function StockCellView({ cell, threshold, align = "center" }: { cell: StockCell; threshold: number | null; align?: "center" | "start" }) {
   const low = cell.available > 0 && threshold !== null && cell.available <= threshold;
   return (
     <div title={`Físico ${cell.onHand} · Reservado ${cell.reserved} · Disponible ${cell.available}`} className="leading-tight">
-      <div className="flex items-center justify-center gap-1.5">
+      <div className={cn("flex items-center gap-1.5", align === "center" ? "justify-center" : "justify-start")}>
         <span className={cn("text-base font-bold tabular-nums", cell.available === 0 && "font-normal text-muted-foreground")}>
           {cell.available}
         </span>
         {low && (
-          <StatusBadge tone="warn" className="px-1.5 py-0 text-[11px] leading-4">
+          <StatusBadge tone="warn" className="px-1.5 py-0 leading-4">
             Bajo
           </StatusBadge>
         )}
       </div>
       {cell.reserved > 0 && (
-        <div className="text-[11px] text-muted-foreground">
-          de {cell.onHand} · <span className="font-semibold text-tone-violet">{cell.reserved} res.</span>
+        <div className="text-xs text-muted-foreground">
+          de {cell.onHand} · <Reserved n={cell.reserved} />
         </div>
       )}
     </div>
+  );
+}
+
+function PendingBadge({ n }: { n: number }) {
+  return (
+    <Link href="/traslados?tab=con-diferencias" className="inline-flex min-h-11 items-center rounded-full sm:min-h-0" title="Ver traslados con diferencias">
+      <StatusBadge tone="violet" className="hover:underline">
+        {n}
+      </StatusBadge>
+    </Link>
   );
 }
 
@@ -70,7 +90,66 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
         </p>
       </div>
 
-      <div className="rounded-3xl border bg-card shadow-soft">
+      {/* Celular (bajo sm): una tarjeta por variante, sin scroll horizontal. */}
+      <ul className="space-y-3 sm:hidden" aria-label="Variantes">
+        {rows.length === 0 && (
+          <li className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">No hay prendas que coincidan con la búsqueda.</li>
+        )}
+        {rows.map((r) => (
+          <li key={r.variantId} className="rounded-2xl border bg-card p-3 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link
+                  href={`/stock/${r.variantId}/kardex`}
+                  className="inline-flex min-h-11 items-center rounded-lg font-mono text-sm font-semibold text-brand-ink underline-offset-4 hover:underline"
+                  title="Ver kardex"
+                >
+                  {r.sku}
+                </Link>
+                <div className="text-sm">
+                  {r.productName} · {r.color} · talla {r.size}
+                </div>
+                {r.total === 0 && (
+                  <StatusBadge tone="danger" icon={PackageX} className="mt-1">
+                    Sin stock
+                  </StatusBadge>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Total</div>
+                <div className="text-2xl leading-none font-bold tabular-nums">{r.total}</div>
+              </div>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-2">
+              {locations.map((l) => (
+                <div key={l.id} className={cn("rounded-xl bg-background p-2", l.id === myLocationId && "bg-primary/10 ring-1 ring-primary/30")}>
+                  <dt className={cn("text-xs font-bold tracking-wider uppercase", l.id === myLocationId ? "text-primary" : "text-muted-foreground")}>
+                    {l.id === myLocationId && <MapPin className="mr-1 inline size-3.5 align-[-2px]" aria-label="Tu ubicación" />}
+                    {shortName(l.name)}
+                  </dt>
+                  <dd>
+                    <StockCellView cell={cellFor(r, l.id)} threshold={r.lowStockThreshold} align="start" />
+                  </dd>
+                </div>
+              ))}
+              <div className="rounded-xl bg-background p-2">
+                <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">En tránsito</dt>
+                <dd className="mt-0.5 tabular-nums">
+                  {r.inTransit > 0 ? <StatusBadge tone="info">{r.inTransit}</StatusBadge> : <span className="text-muted-foreground">—</span>}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-background p-2">
+                <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Por resolver</dt>
+                <dd className="mt-0.5 tabular-nums">
+                  {r.pendingResolution > 0 ? <PendingBadge n={r.pendingResolution} /> : <span className="text-muted-foreground">—</span>}
+                </dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden rounded-3xl border bg-card shadow-soft sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -116,9 +195,6 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                       </StatusBadge>
                     </div>
                   )}
-                  <div className="max-w-[8rem] whitespace-normal font-sans text-[11px] text-muted-foreground sm:hidden">
-                    {r.productName} · {r.color} · talla {r.size} · total {r.total}
-                  </div>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <div className="font-medium">{r.productName}</div>
@@ -136,11 +212,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
                 {showPending && (
                   <TableCell className="text-center tabular-nums" data-testid="pending-resolution">
                     {r.pendingResolution > 0 ? (
-                      <Link href="/traslados?tab=con-diferencias" className="inline-block rounded-full" title="Ver traslados con diferencias">
-                        <StatusBadge tone="violet" className="hover:underline">
-                          {r.pendingResolution}
-                        </StatusBadge>
-                      </Link>
+                      <PendingBadge n={r.pendingResolution} />
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
@@ -156,13 +228,13 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
       <div className="space-y-2 text-xs text-muted-foreground">
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <li className="flex items-center gap-1.5">
-            <StatusBadge tone="warn" className="px-1.5 py-0 text-[11px] leading-4">
+            <StatusBadge tone="warn" className="px-1.5 py-0 leading-4">
               Bajo
             </StatusBadge>
             stock bajo
           </li>
           <li>
-            <span className="font-semibold text-tone-violet">res.</span> reservado para pedidos online
+            <Reserved n={2} /> reservado para pedidos online
           </li>
           <li className="flex items-center gap-1.5">
             <StatusBadge tone="info">3</StatusBadge>

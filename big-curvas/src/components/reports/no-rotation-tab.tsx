@@ -37,7 +37,7 @@ export function NoRotationTab({ report }: { report: NoRotation }) {
                   <TableCell className="text-center">{r.size}</TableCell>
                   <TableCell className="text-center">
                     <div className="font-semibold tabular-nums">{r.totalOnHand}</div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {r.byLocation.map((l) => `${l.name.replace(/^Tienda\s+/i, "")} ${l.onHand}`).join(" · ")}
                     </div>
                   </TableCell>

@@ -39,7 +39,7 @@ export function LowStockTab({ report }: { report: LowStock }) {
                           <span className="font-mono">{r.sku}</span> · {r.color}
                           {r.ownThreshold && ` · umbral propio ${r.threshold}`}
                         </div>
-                        <div className="text-[11px] text-muted-foreground sm:hidden">
+                        <div className="text-xs text-muted-foreground sm:hidden">
                           En mano {r.onHand} · reservado {r.reserved}
                         </div>
                       </TableCell>
@@ -53,7 +53,7 @@ export function LowStockTab({ report }: { report: LowStock }) {
                       </TableCell>
                       <TableCell className="hidden text-center tabular-nums sm:table-cell">{r.onHand}</TableCell>
                       <TableCell className="hidden text-center tabular-nums sm:table-cell">
-                        {r.reserved > 0 ? <span className="text-tone-violet">{r.reserved}</span> : <span className="text-muted-foreground">—</span>}
+                        {r.reserved > 0 ? <span className="font-semibold">{r.reserved}</span> : <span className="text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   ))}

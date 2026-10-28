@@ -1,18 +1,20 @@
-/** Preferencia del riel lateral (sin "use client": la leen el servidor y el cliente). */
-export const RAIL_COOKIE = "bc_rail";
-
 /**
- * Pantallas críticas (caja, escaneo de traslados, picking, aprobaciones): el riel parte en solo íconos
- * para no perder ancho útil. El botón del riel puede expandirlo temporalmente.
+ * Preferencia del riel lateral de escritorio. El estado abierto/contraído lo decide solo la persona con el botón del riel
+ * (nunca la ruta ni el ancho) y se guarda en localStorage. Un script en <head> (ver app/layout.tsx) pone el atributo
+ * `data-rail-collapsed` en <html> antes del primer pintado, y el riel se dibuja con CSS a partir de ese atributo.
  */
-const CRITICAL_ROUTES = [
-  /^\/pos(\/|$)/,
-  /^\/aprobaciones(\/|$)/,
-  /^\/traslados\/nuevo$/,
-  /^\/traslados\/[^/]+\/(editar|recibir)$/,
-  /^\/pedidos\/[^/]+\/preparar$/,
-];
+export const RAIL_ATTR = "data-rail-collapsed";
+export const RAIL_STORAGE_KEY = "bc_rail";
 
-export function isCriticalRoute(pathname: string): boolean {
-  return CRITICAL_ROUTES.some((re) => re.test(pathname));
+/** Script que corre antes de pintar: lee la preferencia guardada. Sin localStorage, el riel queda abierto. */
+export const RAIL_INIT_SCRIPT = `try{if(localStorage.getItem("${RAIL_STORAGE_KEY}")==="collapsed")document.documentElement.setAttribute("${RAIL_ATTR}","")}catch(e){}`;
+
+export function setRailCollapsed(collapsed: boolean): void {
+  if (collapsed) document.documentElement.setAttribute(RAIL_ATTR, "");
+  else document.documentElement.removeAttribute(RAIL_ATTR);
+  try {
+    localStorage.setItem(RAIL_STORAGE_KEY, collapsed ? "collapsed" : "expanded");
+  } catch {
+    /* sin almacenamiento: la preferencia solo dura la visita */
+  }
 }

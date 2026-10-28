@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { cookies } from "next/headers";
 import { Check, LogOut, MapPin } from "lucide-react";
 import type { SessionUser } from "@/lib/access";
 import { isDemoMode } from "@/lib/demo";
@@ -14,12 +13,11 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { DesktopRail, MobileBar } from "./app-nav";
 import { navItemsFor } from "./nav";
-import { RAIL_COOKIE } from "./rail-pref";
 
 const ROLE_LABEL = { ADMIN: "Administradora", VENDEDORA: "Vendedora", BODEGA: "Bodega" } as const;
 
 /**
- * Marco de todas las pantallas autenticadas: riel lateral negro colapsable en escritorio (md+), barra negra con cajón en
+ * Marco de todas las pantallas autenticadas: riel lateral negro en escritorio (md+, se contrae a mano), barra negra con cajón en
  * celular y, arriba del contenido, la barra de contexto (ubicación siempre visible, «Operando en» y sesión).
  */
 export async function AppShell({ user, children }: { user: SessionUser; children: ReactNode }) {
@@ -34,8 +32,6 @@ export async function AppShell({ user, children }: { user: SessionUser; children
     href === "/traslados" ? pendingTransfers : href === "/pedidos" ? ordersToPrepare : href === "/aprobaciones" ? pendingApprovals : undefined;
   const items = navItemsFor(user.role).map(({ href, label }) => ({ href, label, badge: badgeOf(href) }));
   const locations = isAdmin ? await listLocations() : [];
-  // Preferencia del riel en las pantallas de lectura (en las críticas siempre parte en solo íconos).
-  const railExpanded = (await cookies()).get(RAIL_COOKIE)?.value !== "collapsed";
 
   const brand = <Wordmark size="sm" tone="onDark" />;
 
@@ -48,7 +44,7 @@ export async function AppShell({ user, children }: { user: SessionUser; children
         Saltar al contenido
       </a>
 
-      <DesktopRail items={items} brand={brand} initialExpanded={railExpanded} demo={isDemoMode()} />
+      <DesktopRail items={items} brand={brand} demo={isDemoMode()} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <MobileBar items={items} brand={brand}>

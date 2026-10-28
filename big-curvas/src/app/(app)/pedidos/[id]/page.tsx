@@ -204,7 +204,7 @@ export default async function OrderDetailPage({ params }: PageProps<"/pedidos/[i
                       </div>
                     ))
                   )}
-                  {l.inTransit > 0 && <div className="text-tone-violet">En camino a bodega: {l.inTransit}</div>}
+                  {l.inTransit > 0 && <div className="text-tone-info">En camino a bodega: {l.inTransit}</div>}
                   {l.shortage > 0 && o.status === "ESPERANDO_TRASPASO" && <div className="font-medium text-tone-warn">Faltan {l.shortage}</div>}
                   {l.pickedQty > 0 && <div className="text-tone-ok">Preparadas: {l.pickedQty}</div>}
                 </TableCell>

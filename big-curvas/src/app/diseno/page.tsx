@@ -9,8 +9,9 @@ function RailBudgetBlock() {
       <div>
         <h2 id="riel-titulo" className="text-base font-semibold">El riel en las pantallas críticas (PC de caja de 1366 px)</h2>
         <p className="max-w-4xl text-sm text-stone-700">
-          Aplicado en la tanda 1: riel expandido ({RAIL_EXPANDED_PX} px) en las pantallas de lectura y solo íconos ({RAIL_COLLAPSED_PX} px) en POS, caja, escaneo de
-          traslados, picking y aprobaciones. El «carrito» es el espacio del lector y las líneas del POS, que mantiene una columna de pago de 23 rem.
+          Aplicado: el riel parte abierto en todas las pantallas (también POS, caja, escaneo y picking) y solo lo contrae quien usa el botón (se recuerda en
+          localStorage). Ancho abierto en producción: 192 px (aquí {RAIL_EXPANDED_PX} px) y solo íconos {RAIL_COLLAPSED_PX} px. El «carrito» es el espacio del
+          lector y las líneas del POS, que mantiene una columna de pago de 23 rem.
         </p>
       </div>
       <ul className="space-y-2">

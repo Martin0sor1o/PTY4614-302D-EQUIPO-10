@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Dialog } from "@base-ui/react/dialog";
 import { Bell, ChevronsLeft, ChevronsRight, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ICONS } from "./nav-icons";
-import { RAIL_COOKIE, isCriticalRoute } from "./rail-pref";
+import { RAIL_ATTR, setRailCollapsed } from "./rail-pref";
 
 export interface NavEntry {
   href: string;
@@ -23,7 +23,7 @@ function CountPill({ n, active, className }: { n: number; active: boolean; class
       data-testid="nav-badge"
       aria-label={`${n} pendiente${n === 1 ? "" : "s"}`}
       className={cn(
-        "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-bold",
+        "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-5 font-bold",
         active ? "bg-brand-black text-brand-pink" : "bg-brand-pink-strong text-brand-black",
         className,
       )}
@@ -33,90 +33,98 @@ function CountPill({ n, active, className }: { n: number; active: boolean; class
   );
 }
 
-function NavRow({ item, active, collapsed, onNavigate }: { item: NavEntry; active: boolean; collapsed: boolean; onNavigate?: () => void }) {
+/**
+ * En el riel de escritorio el modo «solo íconos» se resuelve con CSS a partir del atributo `data-rail-collapsed` de <html>
+ * (lo pone el script de app/layout.tsx antes de pintar), así no hay parpadeo al cargar. El cajón de celular nunca se contrae.
+ */
+function NavRow({ item, active, rail, onNavigate }: { item: NavEntry; active: boolean; rail?: boolean; onNavigate?: () => void }) {
   const Icon = NAV_ICONS[item.href];
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
+      title={rail ? item.label : undefined}
       className={cn(
-        "relative flex min-h-11 items-center gap-3 rounded-full px-3 text-sm font-semibold",
-        collapsed && "justify-center",
+        "relative flex min-h-11 items-center gap-2.5 rounded-full px-3 text-sm font-semibold",
+        rail && "in-data-[rail-collapsed]:justify-center in-data-[rail-collapsed]:px-0",
         active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "hover:bg-white/10",
       )}
     >
       {Icon && <Icon className="size-5 shrink-0" aria-hidden />}
-      <span className={cn(collapsed && "sr-only")}>{item.label}</span>
-      {item.badge ? <CountPill n={item.badge} active={active} className={collapsed ? "absolute top-0.5 right-0.5" : "ml-auto"} /> : null}
+      <span className={cn(rail && "in-data-[rail-collapsed]:sr-only")}>{item.label}</span>
+      {item.badge ? (
+        <CountPill
+          n={item.badge}
+          active={active}
+          className={
+            rail
+              ? "ml-auto in-data-[rail-collapsed]:absolute in-data-[rail-collapsed]:top-0.5 in-data-[rail-collapsed]:right-0.5 in-data-[rail-collapsed]:ml-0"
+              : "ml-auto"
+          }
+        />
+      ) : null}
     </Link>
   );
 }
 
+const subscribeRail = (notify: () => void) => {
+  const observer = new MutationObserver(notify);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: [RAIL_ATTR] });
+  return () => observer.disconnect();
+};
+const railCollapsed = () => document.documentElement.hasAttribute(RAIL_ATTR);
+
 /**
- * Riel lateral de escritorio (md en adelante), colapsable, sin animación.
- * Lectura: expandido por defecto y la preferencia se recuerda (cookie). Pantallas críticas: parte en solo íconos;
- * el botón lo expande solo mientras se esté en ellas.
+ * Riel lateral de escritorio (md en adelante), sin animación. Parte abierto en todas las pantallas (también POS, caja,
+ * escaneo y picking); solo el botón de contraer lo cambia, y la elección se recuerda en localStorage (ver rail-pref.ts).
  */
-export function DesktopRail({ items, brand, initialExpanded, demo }: { items: NavEntry[]; brand: ReactNode; initialExpanded: boolean; demo: boolean }) {
+export function DesktopRail({ items, brand, demo }: { items: NavEntry[]; brand: ReactNode; demo: boolean }) {
   const pathname = usePathname();
-  const critical = isCriticalRoute(pathname);
-  const [expandedRead, setExpandedRead] = useState(initialExpanded);
-  const [expandedCritical, setExpandedCritical] = useState(false);
-  const expanded = critical ? expandedCritical : expandedRead;
-  const collapsed = !expanded;
+  // El diseño sale del CSS; este estado solo alimenta aria-expanded y el nombre del botón.
+  const collapsed = useSyncExternalStore(subscribeRail, railCollapsed, () => false);
 
-  function toggle() {
-    if (critical) return setExpandedCritical(!expandedCritical);
-    setExpandedRead(!expandedRead);
-    try {
-      document.cookie = `${RAIL_COOKIE}=${expandedRead ? "collapsed" : "expanded"}; path=/; max-age=31536000; samesite=lax`;
-    } catch {
-      /* sin cookies: la preferencia solo dura la visita */
-    }
-  }
-
-  const Toggle = expanded ? ChevronsLeft : ChevronsRight;
   return (
     <aside
       data-rail
-      data-collapsed={collapsed}
-      className={cn(
-        "sticky top-0 hidden h-screen shrink-0 flex-col gap-1 overflow-y-auto bg-sidebar p-2 text-sidebar-foreground md:flex print:hidden",
-        expanded && "w-52 p-3",
-        collapsed && "w-16",
-      )}
+      className="sticky top-0 hidden h-screen w-48 shrink-0 flex-col gap-1 overflow-y-auto bg-sidebar p-2 text-sidebar-foreground in-data-[rail-collapsed]:w-16 md:flex print:hidden"
     >
-      <div className={cn("flex flex-col gap-2 px-1 pt-1 pb-4", collapsed && "items-center px-0")}>
+      <div className="flex flex-col gap-2 px-1 pt-1 pb-4 in-data-[rail-collapsed]:items-center in-data-[rail-collapsed]:px-0">
         <Link href="/" aria-label="Big Curvas, inicio" className="rounded-lg">
-          {collapsed ? (
-            <span aria-hidden className="font-display grid size-10 place-items-center rounded-full bg-sidebar-primary text-lg font-bold text-sidebar-primary-foreground italic">
-              BC
-            </span>
-          ) : (
-            brand
-          )}
+          <span className="in-data-[rail-collapsed]:hidden">{brand}</span>
+          <span
+            aria-hidden
+            className="font-display hidden size-10 place-items-center rounded-full bg-sidebar-primary text-lg font-bold text-sidebar-primary-foreground italic in-data-[rail-collapsed]:grid"
+          >
+            BC
+          </span>
         </Link>
-        {demo && expanded && (
-          <span className="w-fit rounded-full border border-brand-pink/60 px-2 text-[11px] leading-5 font-bold tracking-wider text-brand-pink">DEMO</span>
+        {demo && (
+          <span className="w-fit rounded-full border border-brand-pink/60 px-2 text-xs leading-5 font-bold tracking-wider text-brand-pink in-data-[rail-collapsed]:hidden">
+            DEMO
+          </span>
         )}
       </div>
 
       <nav aria-label="Principal" className="flex flex-col gap-1">
         {items.map((item) => (
-          <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} />
+          <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} rail />
         ))}
       </nav>
 
       <button
         type="button"
-        onClick={toggle}
-        aria-expanded={expanded}
-        title={expanded ? "Contraer menú a solo íconos" : "Expandir menú"}
-        className={cn("mt-auto flex min-h-11 items-center gap-3 rounded-full px-3 text-sm font-semibold hover:bg-white/10", collapsed && "justify-center")}
+        onClick={() => setRailCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
+        title={collapsed ? "Expandir menú" : "Contraer menú a solo íconos"}
+        className="mt-auto flex min-h-11 items-center gap-2.5 rounded-full px-3 text-sm font-semibold hover:bg-white/10 in-data-[rail-collapsed]:justify-center in-data-[rail-collapsed]:px-0"
       >
-        <Toggle className="size-5 shrink-0" aria-hidden />
-        <span className={cn(collapsed && "sr-only")}>{expanded ? "Contraer menú" : "Expandir menú"}</span>
+        <ChevronsLeft className="size-5 shrink-0 in-data-[rail-collapsed]:hidden" aria-hidden />
+        <ChevronsRight className="hidden size-5 shrink-0 in-data-[rail-collapsed]:block" aria-hidden />
+        <span aria-hidden className="in-data-[rail-collapsed]:hidden">
+          Contraer menú
+        </span>
       </button>
     </aside>
   );
@@ -167,7 +175,7 @@ export function MobileBar({ items, brand, children }: { items: NavEntry[]; brand
           </div>
           <nav aria-label="Principal" className="flex flex-col gap-1">
             {items.map((item) => (
-              <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={false} onNavigate={close} />
+              <NavRow key={item.href} item={item} active={isActive(pathname, item.href)} onNavigate={close} />
             ))}
           </nav>
           {children && <div className="mt-auto space-y-3 border-t border-sidebar-border pt-4 text-sm">{children}</div>}

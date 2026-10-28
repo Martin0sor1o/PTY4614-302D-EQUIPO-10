@@ -218,7 +218,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
                     )}
                   </div>
                   {m.refId && m.refType !== "TRANSFER" && (
-                    <div className="font-mono text-[11px] text-muted-foreground" title={m.refId}>
+                    <div className="font-mono text-xs text-muted-foreground" title={m.refId}>
                       {REF_LABEL[m.refType]} {m.refId.slice(-8)}
                     </div>
                   )}

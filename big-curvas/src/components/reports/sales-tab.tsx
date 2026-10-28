@@ -82,7 +82,7 @@ export function SalesTab({ report }: { report: SalesByPaymentMethod }) {
                           <div className="h-full rounded-full bg-brand-pink-strong" style={{ width: `${barPercent(r.total, maxTotal)}%` }} />
                         </div>
                       )}
-                      <div className="mt-1 text-[11px] text-muted-foreground sm:hidden">
+                      <div className="mt-1 text-xs text-muted-foreground sm:hidden">
                         Efec. {formatCLP(r.efectivo)} · Tarj. {formatCLP(r.tarjeta)} · Transf. {formatCLP(r.transferencia)}
                       </div>
                     </TableCell>
