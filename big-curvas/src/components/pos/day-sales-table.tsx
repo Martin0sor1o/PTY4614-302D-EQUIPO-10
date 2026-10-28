@@ -193,7 +193,7 @@ export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow
             <Fragment key={s.id}>
               <TableRow data-testid="day-sale" data-voided={s.voided ? "true" : undefined} className={cn(s.voided && "bg-tone-danger-soft/60 text-muted-foreground")}>
                 <TableCell className="font-mono">
-                  <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline">
+                  <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
                     {s.number}
                   </Link>
                   {s.voided && (
