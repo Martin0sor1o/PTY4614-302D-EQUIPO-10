@@ -52,7 +52,7 @@ function StockCellView({ cell, threshold, align = "center" }: { cell: StockCell;
 
 function PendingBadge({ n }: { n: number }) {
   return (
-    <Link href="/traslados?tab=con-diferencias" className="inline-flex min-h-11 items-center rounded-full sm:min-h-0" title="Ver traslados con diferencias">
+    <Link href="/traslados?tab=con-diferencias" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full sm:min-h-0 sm:min-w-0" title="Ver traslados con diferencias">
       <StatusBadge tone="violet" className="hover:underline">
         {n}
       </StatusBadge>

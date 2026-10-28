@@ -149,7 +149,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
               return (
                 <TableRow key={l.id} data-testid="detail-line">
                   <TableCell className="font-mono text-xs">
-                    <Link href={`/stock/${l.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline">
+                    <Link href={`/stock/${l.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
                       {l.sku}
                     </Link>
                   </TableCell>

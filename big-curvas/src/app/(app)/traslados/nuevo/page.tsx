@@ -22,7 +22,7 @@ export default async function NewTransferPage() {
             ? "Esta pantalla traslada entre dos ubicaciones y hoy hay más (o menos) de dos activas."
             : "Usa “Operando en” (arriba a la derecha) para elegir desde dónde envías la mercadería."}
         </p>
-        <Link href="/traslados" className="mt-3 inline-block text-sm text-brand-ink underline">
+        <Link href="/traslados" className="mt-3 inline-flex items-center text-sm text-brand-ink underline underline-offset-4 max-md:min-h-11">
           Volver a Traslados
         </Link>
       </div>

@@ -24,7 +24,7 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
-          <Link href={`/traslados/${t.id}`} className="text-sm text-brand-ink underline-offset-4 hover:underline">
+          <Link href={`/traslados/${t.id}`} className="inline-flex items-center text-sm text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
             ← {t.number}
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Guía de traslado</h1>
