@@ -16,7 +16,7 @@ const REFERENCE_LABEL: Record<string, string> = { DEBITO: "Voucher", CREDITO: "V
 export function Ticket({ sale }: { sale: SaleView }) {
   const payment = sale.payments[0];
   return (
-    <article className="ticket mx-auto w-[80mm] max-w-full bg-white p-3 font-mono text-[12px] leading-snug text-black shadow-sm ring-1 ring-black/10" aria-label={`Ticket ${sale.number}`}>
+    <article className="ticket mx-auto w-[80mm] max-w-full bg-paper p-3 font-mono text-[12px] leading-snug text-paper-ink shadow-sm ring-1 ring-paper-ink/10" aria-label={`Ticket ${sale.number}`}>
       <div className="text-center">
         <div className="text-lg font-extrabold tracking-[0.12em]">BIG CURVAS</div>
         <div className="font-semibold">{sale.location.name}</div>
@@ -24,7 +24,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
       </div>
 
       {sale.voided && (
-        <div className="my-2 border-2 border-black py-1 text-center text-base font-extrabold tracking-widest" data-testid="ticket-voided">
+        <div className="my-2 border-2 border-paper-ink py-1 text-center text-base font-extrabold tracking-widest" data-testid="ticket-voided">
           VENTA ANULADA
           <div className="text-[10px] font-normal tracking-normal">
             {formatDateTime(sale.voided.at)}
@@ -33,7 +33,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
         </div>
       )}
 
-      <hr className="my-2 border-dashed border-black" />
+      <hr className="my-2 border-dashed border-paper-ink" />
       <div className="flex justify-between">
         <span>Venta N°</span>
         <span className="font-bold" data-testid="ticket-number">
@@ -49,7 +49,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
         <span>{sale.sellerName}</span>
       </div>
 
-      <hr className="my-2 border-dashed border-black" />
+      <hr className="my-2 border-dashed border-paper-ink" />
       <ul className="space-y-1.5">
         {sale.lines.map((l) => (
           <li key={l.variantId + l.unitPrice + l.discountBps}>
@@ -73,7 +73,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
         ))}
       </ul>
 
-      <hr className="my-2 border-dashed border-black" />
+      <hr className="my-2 border-dashed border-paper-ink" />
       <dl className="space-y-0.5">
         <div className="flex justify-between">
           <dt>Subtotal</dt>
@@ -99,7 +99,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
 
       {payment && (
         <>
-          <hr className="my-2 border-dashed border-black" />
+          <hr className="my-2 border-dashed border-paper-ink" />
           <dl className="space-y-0.5">
             <div className="flex justify-between font-semibold">
               <dt>Medio de pago</dt>
@@ -131,7 +131,7 @@ export function Ticket({ sale }: { sale: SaleView }) {
         </>
       )}
 
-      <hr className="my-2 border-dashed border-black" />
+      <hr className="my-2 border-dashed border-paper-ink" />
       <div className="text-center">
         <div className="font-bold">Comprobante interno – no válido como boleta</div>
         <div>¡Gracias por tu compra!</div>

@@ -32,12 +32,20 @@
   --color-tone-warn-soft: var(--tone-warn-soft);
   --color-tone-danger: var(--tone-danger);
   --color-tone-danger-soft: var(--tone-danger-soft);
+  --color-tone-danger-foreground: var(--tone-danger-foreground);
   --color-tone-info: var(--tone-info);
   --color-tone-info-soft: var(--tone-info-soft);
   --color-tone-neutral: var(--tone-neutral);
   --color-tone-neutral-soft: var(--tone-neutral-soft);
   --color-tone-violet: var(--tone-violet);
   --color-tone-violet-soft: var(--tone-violet-soft);
+
+  /* Documentos impresos (ticket y guías): papel blanco y tinta negra, sin importar el tema de la pantalla. */
+  --color-paper: var(--paper);
+  --color-paper-ink: var(--paper-ink);
+  --color-paper-muted: var(--paper-muted);
+  --color-paper-rule: var(--paper-rule);
+  --color-paper-box: var(--paper-box);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -140,12 +148,20 @@
   --tone-warn-soft: #fbebcb;
   --tone-danger: #a32020;
   --tone-danger-soft: #fbe2e0;
+  --tone-danger-foreground: #ffffff; /* texto sobre el botón de peligro sólido */
   --tone-info: #1e4f8a;
   --tone-info-soft: #e1ecf8;
   --tone-neutral: #4a4045;
   --tone-neutral-soft: #efe6e8;
   --tone-violet: #5b2a86;
   --tone-violet-soft: #ede3f6;
+
+  /* Papel: valores idénticos a los grises que usaban el ticket y las guías (neutral-600, 400 y 500). */
+  --paper: #ffffff;
+  --paper-ink: #000000;
+  --paper-muted: oklch(43.9% 0 0);
+  --paper-rule: oklch(70.8% 0 0);
+  --paper-box: oklch(55.6% 0 0);
 }
 
 @layer base {
@@ -208,12 +224,12 @@
 @media print {
   html:has(.ticket),
   body:has(.ticket) {
-    background: #fff !important;
+    background: var(--paper) !important;
     width: 80mm;
   }
   html:has(.guia),
   body:has(.guia) {
-    background: #fff !important;
+    background: var(--paper) !important;
   }
   .no-print {
     display: none !important;

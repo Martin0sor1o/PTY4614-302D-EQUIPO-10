@@ -40,8 +40,8 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
         </div>
       </div>
 
-      <article className="guia mx-auto w-full max-w-[210mm] bg-white p-6 text-black shadow-sm ring-1 ring-black/10" aria-label={`Guía ${t.number}`}>
-        <header className="flex items-start justify-between gap-4 border-b-2 border-black pb-3">
+      <article className="guia mx-auto w-full max-w-[210mm] bg-paper p-6 text-paper-ink shadow-sm ring-1 ring-paper-ink/10" aria-label={`Guía ${t.number}`}>
+        <header className="flex items-start justify-between gap-4 border-b-2 border-paper-ink pb-3">
           <div>
             <div className="text-2xl font-extrabold tracking-[0.12em]">BIG CURVAS</div>
             <div className="text-sm">Guía de traslado de mercadería</div>
@@ -51,33 +51,33 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
               {t.number}
             </div>
             <div className="text-sm">
-              {t.status === "BORRADOR" ? "BORRADOR · sin enviar" : <TransferStatusBadge status={t.status} className="print:border print:border-black print:bg-white print:text-black" />}
+              {t.status === "BORRADOR" ? "BORRADOR · sin enviar" : <TransferStatusBadge status={t.status} className="print:border print:border-paper-ink print:bg-paper print:text-paper-ink" />}
             </div>
           </div>
         </header>
 
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 py-3 text-sm">
           <div>
-            <dt className="text-xs uppercase tracking-wide text-neutral-600">Origen</dt>
+            <dt className="text-xs uppercase tracking-wide text-paper-muted">Origen</dt>
             <dd className="text-base font-semibold">{t.fromLocation.name}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-neutral-600">Destino</dt>
+            <dt className="text-xs uppercase tracking-wide text-paper-muted">Destino</dt>
             <dd className="text-base font-semibold">{t.toLocation.name}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-neutral-600">Fecha de envío</dt>
+            <dt className="text-xs uppercase tracking-wide text-paper-muted">Fecha de envío</dt>
             <dd>{t.sentAt ? formatDateTime(t.sentAt) : `Pendiente (creado ${formatDateTime(t.createdAt)})`}</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-neutral-600">Preparó</dt>
+            <dt className="text-xs uppercase tracking-wide text-paper-muted">Preparó</dt>
             <dd>{t.sentByName ?? t.createdByName}</dd>
           </div>
         </dl>
 
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="border-y-2 border-black text-left">
+            <tr className="border-y-2 border-paper-ink text-left">
               <th className="py-1.5 pr-2">SKU</th>
               <th className="py-1.5 pr-2">Prenda</th>
               <th className="py-1.5 pr-2">Talla</th>
@@ -88,20 +88,20 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
           </thead>
           <tbody>
             {t.lines.map((l) => (
-              <tr key={l.id} className="border-b border-neutral-400" data-testid="guide-line">
+              <tr key={l.id} className="border-b border-paper-rule" data-testid="guide-line">
                 <td className="py-1.5 pr-2 font-mono text-xs">{l.sku}</td>
                 <td className="py-1.5 pr-2">{l.productName}</td>
                 <td className="py-1.5 pr-2">{l.size}</td>
                 <td className="py-1.5 pr-2">{l.color}</td>
                 <td className="py-1.5 text-right font-semibold tabular-nums">{l.qtySent}</td>
                 <td className="py-1.5">
-                  <span className="mx-auto block h-5 w-12 border border-neutral-500" aria-hidden />
+                  <span className="mx-auto block h-5 w-12 border border-paper-box" aria-hidden />
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-black font-semibold">
+            <tr className="border-t-2 border-paper-ink font-semibold">
               <td colSpan={4} className="py-1.5">
                 Total ({t.lines.length} {t.lines.length === 1 ? "prenda" : "prendas"})
               </td>
@@ -114,8 +114,8 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
         </table>
 
         <div className="mt-12 grid grid-cols-2 gap-10 text-sm">
-          <div className="border-t border-black pt-1 text-center">Entrega ({t.fromLocation.name})</div>
-          <div className="border-t border-black pt-1 text-center">Recibe ({t.toLocation.name})</div>
+          <div className="border-t border-paper-ink pt-1 text-center">Entrega ({t.fromLocation.name})</div>
+          <div className="border-t border-paper-ink pt-1 text-center">Recibe ({t.toLocation.name})</div>
         </div>
       </article>
     </div>

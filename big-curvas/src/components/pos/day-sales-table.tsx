@@ -98,7 +98,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
             {isAdmin ? (
               <Button
                 type="button"
-                className="bg-tone-danger text-white hover:bg-tone-danger/90"
+                variant="danger"
                 disabled={pending}
                 onClick={() => {
                   if (reason.trim().length < 3) return setError("Escribe el motivo de la anulación.");

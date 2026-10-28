@@ -48,7 +48,7 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
         <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
           Volver
         </Button>
-        <Button type="button" className="bg-tone-danger text-white hover:bg-tone-danger/90" onClick={submit} disabled={pending}>
+        <Button type="button" variant="danger" onClick={submit} disabled={pending}>
           {pending ? "Cancelando…" : "Confirmar cancelación"}
         </Button>
       </div>

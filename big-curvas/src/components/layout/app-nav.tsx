@@ -48,7 +48,7 @@ function NavRow({ item, active, rail, onNavigate }: { item: NavEntry; active: bo
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-full px-3 text-sm font-semibold",
         rail && "in-data-[rail-collapsed]:justify-center in-data-[rail-collapsed]:px-0",
-        active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "hover:bg-white/10",
+        active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "hover:bg-sidebar-accent",
       )}
     >
       {Icon && <Icon className="size-5 shrink-0" aria-hidden />}
@@ -118,7 +118,7 @@ export function DesktopRail({ items, brand, demo }: { items: NavEntry[]; brand: 
         aria-expanded={!collapsed}
         aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
         title={collapsed ? "Expandir menú" : "Contraer menú a solo íconos"}
-        className="mt-auto flex min-h-11 items-center gap-2.5 rounded-full px-3 text-sm font-semibold hover:bg-white/10 in-data-[rail-collapsed]:justify-center in-data-[rail-collapsed]:px-0"
+        className="mt-auto flex min-h-11 items-center gap-2.5 rounded-full px-3 text-sm font-semibold hover:bg-sidebar-accent in-data-[rail-collapsed]:justify-center in-data-[rail-collapsed]:px-0"
       >
         <ChevronsLeft className="size-5 shrink-0 in-data-[rail-collapsed]:hidden" aria-hidden />
         <ChevronsRight className="hidden size-5 shrink-0 in-data-[rail-collapsed]:block" aria-hidden />
@@ -140,7 +140,7 @@ export function MobileBar({ items, brand, children }: { items: NavEntry[]; brand
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <div data-rail className="flex items-center justify-between gap-2 bg-sidebar px-1.5 py-1 text-sidebar-foreground md:hidden print:hidden">
-        <Dialog.Trigger aria-label="Abrir menú" className="grid size-11 place-items-center rounded-full hover:bg-white/10">
+        <Dialog.Trigger aria-label="Abrir menú" className="grid size-11 place-items-center rounded-full hover:bg-sidebar-accent">
           <Menu className="size-6" aria-hidden />
         </Dialog.Trigger>
         <Link href="/" aria-label="Big Curvas, inicio" className="rounded-lg">
@@ -150,7 +150,7 @@ export function MobileBar({ items, brand, children }: { items: NavEntry[]; brand
           <Link
             href={approvals.href}
             aria-label={approvals.badge ? `Aprobaciones: ${approvals.badge} pendiente${approvals.badge === 1 ? "" : "s"}` : "Aprobaciones"}
-            className="relative grid size-11 place-items-center rounded-full hover:bg-white/10"
+            className="relative grid size-11 place-items-center rounded-full hover:bg-sidebar-accent"
           >
             <Bell className="size-6" aria-hidden />
             {approvals.badge ? <CountPill n={approvals.badge} active={false} className="absolute top-1 right-0.5" /> : null}
@@ -161,7 +161,7 @@ export function MobileBar({ items, brand, children }: { items: NavEntry[]; brand
       </div>
 
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/50 md:hidden" />
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-brand-black/50 md:hidden" />
         <Dialog.Popup
           data-rail
           className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-72 flex-col gap-1 overflow-y-auto bg-sidebar p-3 text-sidebar-foreground shadow-xl md:hidden"
@@ -169,7 +169,7 @@ export function MobileBar({ items, brand, children }: { items: NavEntry[]; brand
           <Dialog.Title className="sr-only">Menú principal</Dialog.Title>
           <div className="flex items-start justify-between gap-2 px-1 pb-3">
             {brand}
-            <Dialog.Close aria-label="Cerrar menú" className="grid size-11 place-items-center rounded-full hover:bg-white/10">
+            <Dialog.Close aria-label="Cerrar menú" className="grid size-11 place-items-center rounded-full hover:bg-sidebar-accent">
               <X className="size-6" aria-hidden />
             </Dialog.Close>
           </div>
