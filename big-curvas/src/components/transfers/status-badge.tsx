@@ -1,5 +1,6 @@
 import type { TransferStatus } from "@/modules/inventory";
-import { Badge } from "@/components/ui/badge";
+import { Ban, CircleCheck, FileText, Lock, TriangleAlert, Truck, type LucideIcon } from "lucide-react";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
 export const TRANSFER_STATUS_LABEL: Record<TransferStatus, string> = {
@@ -11,19 +12,20 @@ export const TRANSFER_STATUS_LABEL: Record<TransferStatus, string> = {
   ANULADO: "Anulado",
 };
 
-const STYLE: Record<TransferStatus, string> = {
-  BORRADOR: "bg-muted text-foreground",
-  EN_TRANSITO: "bg-sky-100 text-sky-900",
-  RECIBIDO: "bg-emerald-100 text-emerald-900",
-  RECIBIDO_CON_DIFERENCIAS: "bg-amber-100 text-amber-900",
-  CERRADO: "bg-zinc-200 text-zinc-800",
-  ANULADO: "bg-red-100 text-red-900 line-through",
+const STATUS: Record<TransferStatus, { tone: StatusTone; icon: LucideIcon }> = {
+  BORRADOR: { tone: "neutral", icon: FileText },
+  EN_TRANSITO: { tone: "info", icon: Truck },
+  RECIBIDO: { tone: "ok", icon: CircleCheck },
+  RECIBIDO_CON_DIFERENCIAS: { tone: "warn", icon: TriangleAlert },
+  CERRADO: { tone: "neutral", icon: Lock },
+  ANULADO: { tone: "danger", icon: Ban },
 };
 
 export function TransferStatusBadge({ status, className }: { status: TransferStatus; className?: string }) {
+  const { tone, icon } = STATUS[status];
   return (
-    <Badge variant="secondary" className={cn(STYLE[status], className)} data-testid="transfer-status">
+    <StatusBadge tone={tone} icon={icon} className={cn(status === "ANULADO" && "line-through", className)} data-testid="transfer-status">
       {TRANSFER_STATUS_LABEL[status]}
-    </Badge>
+    </StatusBadge>
   );
 }

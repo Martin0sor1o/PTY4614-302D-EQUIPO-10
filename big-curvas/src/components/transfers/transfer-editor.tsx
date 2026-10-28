@@ -10,6 +10,7 @@ import {
   updateDraftAction,
 } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ export function TransferEditor({
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [searching, setSearching] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // La misma clave para todos los reintentos de "crear" (doble clic, red lenta): un solo borrador.
   const createKey = useRef(crypto.randomUUID());
@@ -109,10 +111,17 @@ export function TransferEditor({
 
   function cancel() {
     if (!transferId) return router.push("/traslados");
-    if (!window.confirm("¿Anular este borrador? No se puede deshacer.")) return;
+    setConfirmOpen(true);
+  }
+
+  function confirmCancel() {
+    if (!transferId) return;
     startTransition(async () => {
       const res = await cancelDraftAction({ transferId });
-      if (!res.ok) return setMessage({ kind: "error", text: res.message });
+      if (!res.ok) {
+        setConfirmOpen(false);
+        return setMessage({ kind: "error", text: res.message });
+      }
       router.push("/traslados");
       router.refresh();
     });
@@ -149,19 +158,19 @@ export function TransferEditor({
       </form>
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-muted-foreground")}>
+        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-muted-foreground")}>
           {message.text}
         </p>
       )}
 
       {hits?.ok && hits.items.length > 1 && (
-        <ul className="divide-y rounded-xl border bg-card" aria-label="Resultados de la búsqueda">
+        <ul className="divide-y rounded-2xl border bg-card shadow-soft" aria-label="Resultados de la búsqueda">
           {hits.items.map((item) => (
             <li key={item.variantId}>
               <button
                 type="button"
                 onClick={() => add(item)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left outline-none hover:bg-muted focus-visible:bg-muted"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted max-md:min-h-11 focus-visible:bg-muted"
               >
                 <span>
                   <span className="font-mono text-xs">{item.sku}</span>
@@ -176,7 +185,7 @@ export function TransferEditor({
         </ul>
       )}
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -200,7 +209,7 @@ export function TransferEditor({
                 <TableCell>
                   {l.description}
                   {l.available !== null && l.qty > l.available && (
-                    <div className="text-xs text-amber-700">
+                    <div className="text-xs text-tone-warn">
                       Hoy hay {l.available} disponible{l.available === 1 ? "" : "s"} en {fromName}; se valida al enviar.
                     </div>
                   )}
@@ -252,6 +261,17 @@ export function TransferEditor({
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Anular borrador"
+        description="¿Anular este borrador? No se puede deshacer."
+        confirmLabel="Sí, anular"
+        tone="danger"
+        pending={pending}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

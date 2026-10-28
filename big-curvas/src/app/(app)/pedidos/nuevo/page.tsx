@@ -12,10 +12,10 @@ export default async function NewOrderPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link href="/pedidos" className="text-sm text-brand-ink underline-offset-4 hover:underline">
+        <Link href="/pedidos" className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
           ← Pedidos
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Nuevo pedido</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Nuevo pedido</h1>
         <p className="text-sm text-muted-foreground">
           Queda pendiente de pago. Aquí solo se ve el disponible: <strong>no se aparta nada hasta confirmar el pago</strong>.
         </p>

@@ -15,7 +15,39 @@ export function NoRotationTab({ report }: { report: NoRotation }) {
       {rows.length === 0 ? (
         <EmptyState title="Todo lo que tiene stock se vendió en este período">Si quieres ser más exigente, baja los días en la configuración.</EmptyState>
       ) : (
-        <div className="rounded-xl border bg-card">
+        <>
+          <ul className="space-y-3 sm:hidden" aria-label="Variantes sin rotación">
+            {rows.map((r) => (
+              <li key={r.variantId} className="rounded-2xl border bg-card p-3 shadow-soft">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold">{r.productName}</div>
+                    <div className="text-sm text-muted-foreground">
+                      <span className="font-mono">{r.sku}</span> · {r.color} · talla {r.size}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Stock</div>
+                    <div className="text-xl leading-none font-bold tabular-nums">{r.totalOnHand}</div>
+                  </div>
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {r.byLocation.map((l) => `${l.name.replace(/^Tienda\s+/i, "")} ${l.onHand}`).join(" · ")}
+                </div>
+                <div className="mt-1 text-sm">
+                  {r.lastSaleAt ? (
+                    <>
+                      Última venta {formatDate(r.lastSaleAt)} · <span className="text-muted-foreground">hace {pluralize(r.daysSinceLastSale ?? 0, "día", "días")}</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold">Nunca vendida</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+        <div className="hidden rounded-3xl border bg-card shadow-soft sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -37,7 +69,7 @@ export function NoRotationTab({ report }: { report: NoRotation }) {
                   <TableCell className="text-center">{r.size}</TableCell>
                   <TableCell className="text-center">
                     <div className="font-semibold tabular-nums">{r.totalOnHand}</div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {r.byLocation.map((l) => `${l.name.replace(/^Tienda\s+/i, "")} ${l.onHand}`).join(" · ")}
                     </div>
                   </TableCell>
@@ -56,6 +88,7 @@ export function NoRotationTab({ report }: { report: NoRotation }) {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       <Definitions>

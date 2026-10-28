@@ -23,21 +23,21 @@ export function FridayTab({ report, generatedAt }: { report: FridayList; generat
           se está acabando y hay disponible en la bodega.
         </EmptyState>
       ) : (
-        <article className="guia w-full overflow-x-auto bg-white p-4 text-black shadow-sm ring-1 ring-black/10 sm:p-6" aria-label="Lista sugerida del viernes">
-          <header className="flex flex-wrap items-start justify-between gap-2 border-b-2 border-black pb-3">
+        <article className="guia w-full overflow-x-auto bg-paper p-4 text-paper-ink shadow-sm ring-1 ring-paper-ink/10 sm:p-6" aria-label="Lista sugerida del viernes">
+          <header className="flex flex-wrap items-start justify-between gap-2 border-b-2 border-paper-ink pb-3">
             <div>
               <div className="text-2xl font-extrabold tracking-[0.12em]">BIG CURVAS</div>
               <div className="text-sm">Lista sugerida del viernes · {route}</div>
             </div>
             <div className="text-right text-sm">
               <div>Ventas de la tienda: {dayLabel(report.fromDay)} al {dayLabel(report.toDay)}</div>
-              <div className="text-neutral-600">Generada {formatDateTime(generatedAt)}</div>
+              <div className="text-paper-muted">Generada {formatDateTime(generatedAt)}</div>
             </div>
           </header>
 
           <table className="mt-3 w-full min-w-[34rem] border-collapse text-sm">
             <thead>
-              <tr className="border-y-2 border-black text-left">
+              <tr className="border-y-2 border-paper-ink text-left">
                 <th className="py-1.5 pr-2">SKU / prenda</th>
                 <th className="py-1.5 pr-2">Talla</th>
                 <th className="py-1.5 pr-2 text-right">Vendió</th>
@@ -49,12 +49,12 @@ export function FridayTab({ report, generatedAt }: { report: FridayList; generat
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.variantId} className="border-b border-neutral-400" data-testid="friday-row">
+                <tr key={r.variantId} className="border-b border-paper-rule" data-testid="friday-row">
                   <td className="py-1.5 pr-2">
                     <div className="font-medium">{r.productName} · {r.color}</div>
-                    <div className="font-mono text-xs text-neutral-600">{r.sku}</div>
+                    <div className="font-mono text-xs text-paper-muted">{r.sku}</div>
                     {r.inTransitToStore > 0 && (
-                      <div className="text-xs text-neutral-600">Ya en camino a la tienda: {r.inTransitToStore} (no se resta)</div>
+                      <div className="text-xs text-paper-muted">Ya en camino a la tienda: {r.inTransitToStore} (no se resta)</div>
                     )}
                   </td>
                   <td className="py-1.5 pr-2">{r.size}</td>
@@ -63,13 +63,13 @@ export function FridayTab({ report, generatedAt }: { report: FridayList; generat
                   <td className="py-1.5 pr-2 text-right tabular-nums">{r.warehouseAvailable}</td>
                   <td className="py-1.5 pr-2 text-right text-base font-bold tabular-nums">{r.suggested}</td>
                   <td className="py-1.5">
-                    <span className="mx-auto block h-5 w-8 border border-neutral-500" aria-hidden />
+                    <span className="mx-auto block h-5 w-8 border border-paper-box" aria-hidden />
                   </td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
-              <tr className="border-t-2 border-black font-semibold">
+              <tr className="border-t-2 border-paper-ink font-semibold">
                 <td colSpan={5} className="py-1.5">
                   Total ({pluralize(rows.length, "prenda", "prendas")})
                 </td>
@@ -80,7 +80,7 @@ export function FridayTab({ report, generatedAt }: { report: FridayList; generat
               </tr>
             </tfoot>
           </table>
-          <p className="mt-3 text-xs text-neutral-600">Sugerencia: no crea el traslado ni mueve stock. “En bodega” es lo disponible (sin lo reservado para pedidos).</p>
+          <p className="mt-3 text-xs text-paper-muted">Sugerencia: no crea el traslado ni mueve stock. “En bodega” es lo disponible (sin lo reservado para pedidos).</p>
         </article>
       )}
 

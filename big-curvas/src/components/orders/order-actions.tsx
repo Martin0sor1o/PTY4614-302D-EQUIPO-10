@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelOrderAction, markDeliveredAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -14,14 +15,19 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const key = useRef(crypto.randomUUID());
 
   function submit() {
     setMessage(null);
     if (reason.trim().length < 3) return setMessage("Escribe el motivo de la cancelación.");
-    if (!window.confirm(`¿Cancelar el pedido ${number}? ${consequence}`)) return;
+    setConfirmOpen(true);
+  }
+
+  function execute() {
     startTransition(async () => {
       const res = await cancelOrderAction({ orderId, reason: reason.trim(), idempotencyKey: key.current });
+      setConfirmOpen(false);
       if (!res.ok) return setMessage(res.message);
       router.refresh();
     });
@@ -29,18 +35,18 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" className="border-red-300 text-red-800 hover:bg-red-50" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outline" className="border-tone-danger/30 text-tone-danger hover:bg-tone-danger-soft" onClick={() => setOpen(true)}>
         Cancelar pedido
       </Button>
     );
   }
   return (
-    <div className="max-w-lg space-y-2 rounded-xl border border-red-200 bg-red-50/60 p-3">
+    <div className="max-w-lg space-y-2 rounded-2xl border border-tone-danger/30 bg-tone-danger-soft/60 p-3">
       <Label htmlFor="cancel-reason">Motivo de la cancelación *</Label>
       <Textarea id="cancel-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
       <p className="text-xs text-muted-foreground">{consequence}</p>
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {message}
         </p>
       )}
@@ -48,10 +54,20 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
         <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
           Volver
         </Button>
-        <Button type="button" className="bg-red-700 text-white hover:bg-red-800" onClick={submit} disabled={pending}>
+        <Button type="button" variant="danger" onClick={submit} disabled={pending}>
           {pending ? "Cancelando…" : "Confirmar cancelación"}
         </Button>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Cancelar pedido"
+        description={`¿Cancelar el pedido ${number}? ${consequence}`}
+        confirmLabel="Sí, cancelar pedido"
+        tone="danger"
+        pending={pending}
+        onConfirm={execute}
+      />
     </div>
   );
 }
@@ -61,13 +77,14 @@ export function DeliverOrder({ orderId, number }: { orderId: string; number: str
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const key = useRef(crypto.randomUUID());
 
   function submit() {
-    if (!window.confirm(`¿Marcar el pedido ${number} como entregado?`)) return;
     setMessage(null);
     startTransition(async () => {
       const res = await markDeliveredAction({ orderId, idempotencyKey: key.current });
+      setConfirmOpen(false);
       if (!res.ok) return setMessage(res.message);
       router.refresh();
     });
@@ -75,11 +92,20 @@ export function DeliverOrder({ orderId, number }: { orderId: string; number: str
 
   return (
     <div className="space-y-1">
-      <Button type="button" onClick={submit} disabled={pending}>
+      <Button type="button" onClick={() => setConfirmOpen(true)} disabled={pending}>
         {pending ? "Guardando…" : "Marcar como entregado"}
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Marcar como entregado"
+        description={`¿Marcar el pedido ${number} como entregado?`}
+        confirmLabel="Sí, marcar"
+        pending={pending}
+        onConfirm={submit}
+      />
       {message && (
-        <p role="alert" className="text-sm font-medium text-red-700">
+        <p role="alert" className="text-sm font-medium text-tone-danger">
           {message}
         </p>
       )}

@@ -122,6 +122,7 @@ const dateFormatter = new Intl.DateTimeFormat("es-CL", {
   month: "2-digit",
   year: "numeric",
 });
+// Formato de hora del sistema: 24 horas ("23:30"), nunca "11:30 p. m.". Toda hora que se muestre pasa por estas funciones.
 const timeFormatter = new Intl.DateTimeFormat("es-CL", {
   timeZone: SANTIAGO_TZ,
   hour: "2-digit",

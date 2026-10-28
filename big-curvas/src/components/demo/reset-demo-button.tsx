@@ -38,7 +38,7 @@ export function ResetDemoButton() {
   }
 
   return (
-    <div role="alertdialog" aria-labelledby="reset-title" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+    <div role="alertdialog" aria-labelledby="reset-title" className="space-y-3 rounded-xl border border-tone-warn/30 bg-tone-warn-soft p-4 text-sm text-tone-warn">
       <p id="reset-title" className="font-medium">
         ¿Volver los datos de demo al inicio?
       </p>

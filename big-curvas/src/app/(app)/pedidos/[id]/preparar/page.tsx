@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requirePageAccess } from "@/modules/auth";
 import { PickForm } from "@/components/orders/pick-form";
+import { Notice } from "@/components/ui/notice";
 import { loadOrder } from "../../load-order";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +19,10 @@ export default async function PrepareOrderPage({ params }: PageProps<"/pedidos/[
   return (
     <div className="space-y-4">
       <div>
-        <Link href={`/pedidos/${o.id}`} className="text-sm text-brand-ink underline-offset-4 hover:underline">
+        <Link href={`/pedidos/${o.id}`} className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
           ← {o.number}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Preparar {o.number}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Preparar {o.number}</h1>
         <p className="text-sm text-muted-foreground">
           {o.customer.name}. Escanea cada prenda del pedido; al confirmar, el stock de {o.fulfillmentLocation.name} baja. Una prenda que no es del pedido se rechaza.
         </p>
@@ -39,9 +40,9 @@ export default async function PrepareOrderPage({ params }: PageProps<"/pedidos/[
           }))}
         />
       ) : (
-        <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" data-testid="needs-bodega">
+        <Notice tone="warn" role="alert" data-testid="needs-bodega">
           Para preparar el pedido elige <strong>“Operando en: {o.fulfillmentLocation.name}”</strong> en el menú superior.
-        </p>
+        </Notice>
       )}
     </div>
   );

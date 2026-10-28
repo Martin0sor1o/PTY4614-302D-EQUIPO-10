@@ -20,23 +20,23 @@ export function TopSellersTab({ report }: { report: TopSellers }) {
           </p>
           <ol className="space-y-2">
             {models.map((m, i) => (
-              <li key={m.productId} className="rounded-xl border bg-card" data-testid="top-model">
+              <li key={m.productId} className="rounded-2xl border bg-card shadow-soft" data-testid="top-model">
                 <details>
-                  <summary className="grid cursor-pointer grid-cols-[2rem_1fr_auto] items-center gap-x-3 gap-y-1 px-4 py-3">
-                    <span className="text-lg font-semibold text-brand-ink tabular-nums" aria-label={`Puesto ${m.rank}`}>
+                  <summary className="grid cursor-pointer grid-cols-[2rem_1fr_auto] max-md:min-h-11 items-center gap-x-3 gap-y-1 px-4 py-3">
+                    <span className="text-xl font-bold text-primary tabular-nums" aria-label={`Puesto ${m.rank}`}>
                       {m.rank}
                       {i > 0 && models[i - 1].rank === m.rank && <span className="sr-only"> (empate)</span>}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate font-medium">{m.name}</span>
+                      <span className="block truncate font-semibold">{m.name}</span>
                       <span className="block font-mono text-xs text-muted-foreground">{m.modelCode}</span>
                     </span>
                     <span className="text-right">
                       <span className="block font-semibold tabular-nums">{pluralize(m.units, "unidad", "unidades")}</span>
                       <span className="block text-xs text-muted-foreground tabular-nums">{formatCLP(m.revenue)}</span>
                     </span>
-                    <span className="col-span-3 h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
-                      <span className="block h-full rounded-full bg-brand-pink-strong" style={{ width: `${barPercent(m.units, maxUnits)}%` }} />
+                    <span className="col-span-3 h-2 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                      <span className="block h-full rounded-full bg-primary" style={{ width: `${barPercent(m.units, maxUnits)}%` }} />
                     </span>
                   </summary>
                   <table className="w-full border-t text-sm">

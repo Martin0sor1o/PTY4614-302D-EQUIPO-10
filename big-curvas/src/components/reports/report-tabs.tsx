@@ -20,16 +20,16 @@ export function ReportTabs({ active, query }: { active: ReportTabId; query: Reco
     return `/reportes?${params.toString()}`;
   };
   return (
-    <nav aria-label="Reportes" className="-mx-4 overflow-x-auto px-4 print:hidden">
-      <ul className="flex w-max gap-1.5 border-b pb-2">
+    <nav aria-label="Reportes" className="-mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 print:hidden">
+      <ul className="flex w-max gap-2 md:w-auto md:flex-wrap">
         {REPORT_TABS.map((t) => (
           <li key={t.id}>
             <Link
               href={href(t.id)}
               aria-current={t.id === active ? "page" : undefined}
               className={cn(
-                "block whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-brand-pink-strong",
-                t.id === active ? "bg-brand-black text-brand-pink" : "text-brand-black hover:bg-brand-pink",
+                "flex items-center rounded-full border px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors max-md:min-h-11",
+                t.id === active ? "border-brand-black bg-brand-black text-brand-pink" : "border-input bg-card text-foreground hover:bg-secondary",
               )}
             >
               {t.label}

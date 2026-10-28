@@ -30,7 +30,7 @@ export function DispatchForm({ orderId, couriers }: { orderId: string; couriers:
   }
 
   return (
-    <div className="space-y-4 rounded-xl border bg-card p-4">
+    <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-soft">
       <fieldset className="space-y-2">
         <legend className="font-medium">Courier</legend>
         <div className="flex flex-wrap gap-2" role="radiogroup">
@@ -46,7 +46,7 @@ export function DispatchForm({ orderId, couriers }: { orderId: string; couriers:
         <Input id="tracking" autoComplete="off" value={tracking} onChange={(e) => setTracking(e.target.value)} />
       </div>
       {message && (
-        <p role="alert" className={cn("text-sm font-medium text-red-700")}>
+        <p role="alert" className={cn("text-sm font-medium text-tone-danger")}>
           {message}
         </p>
       )}

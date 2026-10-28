@@ -8,6 +8,7 @@ import { getCashClosingTotals, getCashSession, getOpenCashSession } from "@/modu
 import { CloseCashForm, OpenCashForm } from "@/components/pos/cash-forms";
 import { METHOD_LABEL } from "@/components/pos/ticket";
 import { buttonVariants } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { posPageContext } from "../context";
@@ -51,8 +52,9 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
               </dd>
             </>
           )}
-          <dt className="border-t pt-1 font-medium">Efectivo esperado</dt>
-          <dd className="border-t pt-1 text-right font-medium tabular-nums" data-testid="expected-cash">
+          <div className="col-span-2 mt-1 border-t" aria-hidden />
+          <dt className="font-medium">Efectivo esperado</dt>
+          <dd className="text-right font-medium tabular-nums" data-testid="expected-cash">
             {formatCLP(session.expectedCash ?? 0)}
           </dd>
           <dt>Efectivo contado</dt>
@@ -60,15 +62,14 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
             {formatCLP(session.countedCash ?? 0)}
           </dd>
           <dt className="font-semibold">Diferencia</dt>
-          <dd
-            className={cn("text-right text-lg font-bold tabular-nums", diff === 0 ? "text-emerald-700" : "text-red-700")}
-            data-testid="cash-difference"
-          >
-            {diff === 0 ? "Cuadra ($0)" : `${diff > 0 ? "+" : ""}${formatCLP(diff)} ${diff > 0 ? "(sobra)" : "(falta)"}`}
+          <dd className="text-right" data-testid="cash-difference">
+            <StatusBadge tone={diff === 0 ? "ok" : "danger"} className="text-base tabular-nums">
+              {diff === 0 ? "Cuadra ($0)" : `${diff > 0 ? "+" : ""}${formatCLP(diff)} ${diff > 0 ? "(sobra)" : "(falta)"}`}
+            </StatusBadge>
           </dd>
         </dl>
         {session.notes && (
-          <p className="rounded-lg bg-secondary px-3 py-2 text-sm">
+          <p className="rounded-xl bg-secondary px-3 py-2 text-sm">
             <span className="font-medium">Observación:</span> {session.notes}
           </p>
         )}
@@ -98,7 +99,7 @@ export default async function CashPage({ searchParams }: PageProps<"/pos/caja">)
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Caja · {location.name}</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Caja · {location.name}</h1>
 
       {cerrada && <ClosedSummary sessionId={cerrada} />}
 
@@ -112,11 +113,11 @@ export default async function CashPage({ searchParams }: PageProps<"/pos/caja">)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href="/pos" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-10 px-4")}>
+            <Link href="/pos" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-10 px-4 max-md:h-11")}>
               Volver a vender
             </Link>
             <div className="border-t pt-4">
-              <h2 className="mb-3 font-semibold">Cerrar caja</h2>
+              <h2 className="mb-3 text-lg font-bold">Cerrar caja</h2>
               <CloseCashForm locationName={location.name} />
             </div>
           </CardContent>

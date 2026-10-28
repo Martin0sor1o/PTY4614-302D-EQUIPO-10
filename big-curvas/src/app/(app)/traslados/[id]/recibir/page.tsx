@@ -19,10 +19,10 @@ export default async function ReceiveTransferPage({ params }: PageProps<"/trasla
   return (
     <div className="space-y-4">
       <div>
-        <Link href={`/traslados/${t.id}`} className="text-sm text-brand-ink underline-offset-4 hover:underline">
+        <Link href={`/traslados/${t.id}`} className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
           ← {t.number}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Recibir {t.number}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Recibir {t.number}</h1>
         <p className="text-sm text-muted-foreground">
           De <strong>{t.fromLocation.name}</strong> a <strong>{t.toLocation.name}</strong>. Escanea cada prenda que llega: el stock de{" "}
           {t.toLocation.name} sube solo con lo escaneado.

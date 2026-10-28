@@ -63,7 +63,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4" aria-labelledby="resolve-title" data-testid="resolve-panel">
+    <section className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft p-4" aria-labelledby="resolve-title" data-testid="resolve-panel">
       <div>
         <h2 id="resolve-title" className="font-semibold">
           Resolver diferencias
@@ -74,7 +74,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
       </div>
 
       {done && (
-        <p role="status" className="text-sm font-medium text-emerald-800" data-testid="resolve-done">
+        <p role="status" className="text-sm font-medium text-tone-ok" data-testid="resolve-done">
           {done.closed ? "Diferencias resueltas: el traslado quedó cerrado." : "Resolución guardada. Quedan prendas por resolver."}
           {done.reshipTransferId && (
             <>
@@ -97,12 +97,12 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
               const options = d > 0 ? OPTIONS_SHORT : (["ERROR_ENVIO"] as Resolution[]);
               const selected = choice[l.lineId] ?? "";
               return (
-                <li key={l.lineId} className="rounded-lg border bg-card p-3" data-testid="difference-line">
+                <li key={l.lineId} className="rounded-2xl border bg-card p-3" data-testid="difference-line">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div>
                       <span className="font-mono text-xs">{l.sku}</span> <span className="text-sm">{l.description}</span>
                     </div>
-                    <div className="text-sm font-medium text-amber-800">
+                    <div className="text-sm font-medium text-tone-warn">
                       Enviado {l.qtySent} · recibido {l.qtyReceived} → {d > 0 ? `faltan ${d}` : `sobran ${-d}`}
                     </div>
                   </div>
@@ -111,7 +111,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
                   </label>
                   <select
                     id={`res-${l.lineId}`}
-                    className="mt-1 h-9 w-full max-w-md rounded-lg border border-input bg-background px-2 text-sm"
+                    className="mt-1 h-9 w-full max-w-md rounded-2xl border border-input bg-card px-3 text-sm max-md:h-11"
                     value={selected}
                     onChange={(e) => setChoice((prev) => ({ ...prev, [l.lineId]: e.target.value as Resolution | "" }))}
                   >
@@ -135,7 +135,7 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
             <Textarea id="resolve-notes" rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           {error && (
-            <p role="alert" className="text-sm font-medium text-red-700">
+            <p role="alert" className="text-sm font-medium text-tone-danger">
               {error}
             </p>
           )}

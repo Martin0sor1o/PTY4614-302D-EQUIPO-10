@@ -8,6 +8,8 @@ import { changeFor, isDiscountOverLimit, priceSale, quotePayment, type PaymentMe
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
@@ -314,14 +316,14 @@ export function PosTerminal({
             onKeyDown={onScanKeyDown}
           />
           {results.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-lg border bg-card shadow-lg" role="listbox" aria-label="Resultados">
+            <ul className="absolute z-10 mt-1 max-h-80 w-full overflow-auto rounded-2xl border bg-card shadow-lg" role="listbox" aria-label="Resultados">
               {results.map((item) => (
                 <li key={item.variantId} role="option" aria-selected={false}>
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => addItem(item)}
-                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent"
                   >
                     <span>
                       <span className="font-medium">{item.productName}</span>{" "}
@@ -332,9 +334,15 @@ export function PosTerminal({
                     </span>
                     <span className="text-right">
                       <span className="block font-semibold tabular-nums">{formatCLP(item.unitPrice)}</span>
-                      <span className={cn("text-xs", item.here.available > 0 ? "text-emerald-700" : "font-medium text-red-700")}>
-                        {item.here.available > 0 ? `${item.here.available} disp.` : "Sin stock aquí"}
-                      </span>
+                      {item.here.available > 0 ? (
+                        <StatusBadge tone="ok" className="px-1.5 py-0 leading-5">
+                          {item.here.available} disp.
+                        </StatusBadge>
+                      ) : (
+                        <StatusBadge tone="danger" className="px-1.5 py-0 leading-5">
+                          Sin stock aquí
+                        </StatusBadge>
+                      )}
                     </span>
                   </button>
                 </li>
@@ -344,13 +352,16 @@ export function PosTerminal({
         </div>
 
         <div role="status" aria-live="polite">
-          {notice && <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{notice}</p>}
+          {notice && (
+            <Notice tone="warn" className="py-2">
+              {notice}
+            </Notice>
+          )}
         </div>
 
         {blocked && (
-          <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900" data-testid="no-stock-alert">
-            <p className="flex items-start gap-2 font-medium">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <Notice tone="danger" role="alert" data-testid="no-stock-alert">
+            <p className="font-semibold">
               <span>
                 {blocked.productName} · {blocked.color} · talla {blocked.size} ({blocked.sku}): no hay disponible en {locationName}
                 {blocked.here.reserved > 0 &&
@@ -362,18 +373,18 @@ export function PosTerminal({
                 .
               </span>
             </p>
-            <p className="mt-1 pl-6">
+            <p className="mt-1">
               {blocked.others.length > 0
                 ? `Hay en: ${othersText(blocked)}. Es solo consulta: no se puede vender desde otra ubicación.`
                 : "Tampoco hay unidades en otras ubicaciones."}
             </p>
-            <Button type="button" variant="outline" size="sm" className="mt-2 ml-6" onClick={() => (setBlocked(null), focusScan())}>
+            <Button type="button" variant="outline" size="sm" className="mt-2 bg-card" onClick={() => (setBlocked(null), focusScan())}>
               Entendido
             </Button>
-          </div>
+          </Notice>
         )}
 
-        <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-hidden rounded-3xl border bg-card shadow-soft">
           {cart.length === 0 ? (
             <p className="px-4 py-12 text-center text-muted-foreground">El carrito está vacío. Escanea una prenda para empezar.</p>
           ) : (
@@ -383,7 +394,7 @@ export function PosTerminal({
                 const issue = lineIssues[i];
                 const failed = failedVariantId === l.item.variantId;
                 return (
-                  <li key={l.item.variantId} className={cn("grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center", (issue || failed) && "bg-red-50")}>
+                  <li key={l.item.variantId} className={cn("grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center", (issue || failed) && "bg-tone-danger-soft")}>
                     <div className="min-w-0">
                       <div className="truncate font-medium">
                         {l.item.productName} <span className="font-normal text-muted-foreground">· {l.item.color} · talla {l.item.size}</span>
@@ -392,7 +403,8 @@ export function PosTerminal({
                         {l.item.sku} · {formatCLP(l.item.unitPrice)} c/u · disp. {l.item.here.available}
                       </div>
                       {(issue || failed) && (
-                        <div role="alert" className="text-sm font-medium text-red-700">
+                        <div role="alert" className="flex items-center gap-1 text-sm font-semibold text-tone-danger">
+                          <AlertTriangle className="size-4 shrink-0" aria-hidden />
                           {failed ? "Sin stock suficiente" : issue}
                         </div>
                       )}
@@ -441,16 +453,17 @@ export function PosTerminal({
           )}
         </div>
         {overLimitIdx.length > 0 && (
-          <section aria-label="Aprobación de descuento" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50/70 p-3" data-testid="approval-box">
+          <section aria-label="Aprobación de descuento" className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft/70 p-3" data-testid="approval-box">
             {staleApproval && (
-              <p className="text-sm font-medium text-amber-950" role="status" data-testid="approval-stale">
-                El carrito cambió: la solicitud o aprobación anterior ya no corresponde. Pide una nueva.
+              <p className="flex items-start gap-2 text-sm font-semibold text-tone-warn" role="status" data-testid="approval-stale">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>El carrito cambió: la solicitud o aprobación anterior ya no corresponde. Pide una nueva.</span>
               </p>
             )}
             {!activeApproval ? (
               !askOpen ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-amber-950">Los descuentos los da solo Belén: pídele que apruebe el de este carrito.</p>
+                  <p className="text-sm text-tone-warn">Los descuentos los da solo Belén: pídele que apruebe el de este carrito.</p>
                   <Button type="button" onClick={() => setAskOpen(true)} data-testid="ask-approval">
                     Pedir aprobación a Belén
                   </Button>
@@ -463,8 +476,8 @@ export function PosTerminal({
                     void sendRequest();
                   }}
                 >
-                  <p className="text-sm font-medium text-amber-950">Solicitud de descuento para Belén</p>
-                  <ul className="rounded-lg border bg-card px-3 py-2 text-sm" aria-label="Detalle del descuento">
+                  <p className="text-sm font-medium text-tone-warn">Solicitud de descuento para Belén</p>
+                  <ul className="rounded-xl border bg-card px-3 py-2 text-sm" aria-label="Detalle del descuento">
                     {overLimitIdx.map((i) => (
                       <li key={cart[i].item.variantId} className="flex justify-between gap-3">
                         <span>
@@ -479,13 +492,13 @@ export function PosTerminal({
                     </li>
                   </ul>
                   <label className="block text-sm font-medium" htmlFor="approval-reason">
-                    Motivo <span className="text-red-700">*</span>
+                    Motivo <span className="text-tone-danger">*</span>
                   </label>
                   <Textarea id="approval-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Ej. clienta frecuente, prenda con detalle…" />
                   {askError && (
-                    <p role="alert" className="text-sm font-medium text-red-700">
+                    <Notice tone="danger" role="alert" className="py-2">
                       {askError}
-                    </p>
+                    </Notice>
                   )}
                   <div className="flex gap-2">
                     <Button type="submit" disabled={asking} data-testid="send-approval">
@@ -521,7 +534,7 @@ export function PosTerminal({
       </section>
 
       <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start" aria-label="Pago">
-        <div className="space-y-2 rounded-xl border bg-card p-4">
+        <div className="space-y-2 rounded-2xl border bg-card p-4 shadow-soft">
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Subtotal</dt>
@@ -546,7 +559,7 @@ export function PosTerminal({
           </div>
         </div>
 
-        <div className="space-y-3 rounded-xl border bg-card p-4">
+        <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-soft">
           <div role="radiogroup" aria-label="Medio de pago" className="grid grid-cols-2 gap-2">
             {METHODS.map((m) => (
               <button
@@ -560,8 +573,8 @@ export function PosTerminal({
                   focusScan();
                 }}
                 className={cn(
-                  "h-10 rounded-lg border text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                  method === m.code ? "border-brand-black bg-brand-black text-brand-pink" : "bg-card hover:bg-accent",
+                  "h-10 rounded-full border text-sm font-semibold transition-colors max-md:h-11",
+                  method === m.code ? "border-brand-black bg-brand-black text-brand-pink" : "border-input bg-card hover:bg-accent",
                 )}
               >
                 {m.label}
@@ -593,7 +606,7 @@ export function PosTerminal({
                   </Button>
                 ))}
               </div>
-              <div className="flex items-baseline justify-between rounded-lg bg-secondary px-3 py-2">
+              <div className="flex items-baseline justify-between rounded-xl bg-secondary px-3 py-2">
                 <span className="text-sm font-medium">Vuelto</span>
                 <span className="text-xl font-bold tabular-nums" data-testid="change">
                   {change === null ? "—" : formatCLP(change)}
@@ -603,7 +616,7 @@ export function PosTerminal({
           ) : (
             <div className="space-y-2">
               <label className="block text-sm font-medium" htmlFor="reference">
-                {method === "TRANSFERENCIA" ? "Referencia de la transferencia" : "N° de voucher"} <span className="text-red-700">*</span>
+                {method === "TRANSFERENCIA" ? "Referencia de la transferencia" : "N° de voucher"} <span className="text-tone-danger">*</span>
               </label>
               <Input id="reference" autoComplete="off" className="h-11 text-lg md:text-lg" value={reference} onChange={(e) => setReference(e.target.value)} />
             </div>
@@ -611,12 +624,12 @@ export function PosTerminal({
         </div>
 
         {error && (
-          <p role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-900" data-testid="sale-error">
+          <Notice tone="danger" role="alert" className="py-2" data-testid="sale-error">
             {error}
-          </p>
+          </Notice>
         )}
 
-        <Button type="button" size="lg" className="h-14 w-full text-base font-semibold" disabled={!canConfirm} onClick={confirm} data-testid="confirm-sale">
+        <Button type="button" size="lg" className="h-14 w-full text-base font-semibold max-md:h-14" disabled={!canConfirm} onClick={confirm} data-testid="confirm-sale">
           {submitting ? (
             <>
               <Loader2 className="animate-spin" /> Procesando…

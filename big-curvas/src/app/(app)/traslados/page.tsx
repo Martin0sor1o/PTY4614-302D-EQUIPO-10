@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
 import { buttonVariants } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
       </TableCell>
       <TableCell className="text-center tabular-nums">
         {t.unitsSent}
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {t.lineCount} {t.lineCount === 1 ? "prenda" : "prendas"}
         </div>
       </TableCell>
@@ -53,14 +54,12 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <TransferStatusBadge status={t.status} />
           {t.overdue && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900" data-testid="overdue-alert">
-              <AlertTriangle className="size-3" aria-hidden /> {t.daysInTransit} días en tránsito
-            </span>
+            <StatusBadge tone="danger" icon={AlertTriangle} data-testid="overdue-alert">
+              {t.daysInTransit} días en tránsito
+            </StatusBadge>
           )}
           {t.status === "RECIBIDO_CON_DIFERENCIAS" && (
-            <span className="text-xs text-amber-800">
-              {t.unresolvedLines} por resolver
-            </span>
+            <StatusBadge tone="violet">{t.unresolvedLines} por resolver</StatusBadge>
           )}
         </div>
       </TableCell>
@@ -73,6 +72,41 @@ function Row({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
         </Link>
       </TableCell>
     </TableRow>
+  );
+}
+
+/** Celular (bajo md): una tarjeta por traslado (sin scroll horizontal). */
+function TransferCard({ t, bucket }: { t: TransferListItem; bucket: TransferBucket }) {
+  const href = bucket === "por-recibir" ? `/traslados/${t.id}/recibir` : `/traslados/${t.id}`;
+  const cta = { "por-enviar": "Abrir", "por-recibir": "Recibir", "con-diferencias": "Resolver", historial: "Ver" }[bucket];
+  return (
+    <li className="space-y-2 rounded-2xl border bg-card p-3 shadow-soft">
+      <div className="flex items-start justify-between gap-2">
+        <Link href={`/traslados/${t.id}`} className="inline-flex min-h-11 items-center font-mono text-sm font-semibold whitespace-nowrap text-brand-ink underline-offset-4 hover:underline">
+          {t.number}
+        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-1.5 pt-2">
+          <TransferStatusBadge status={t.status} />
+          {t.overdue && (
+            <StatusBadge tone="danger" icon={AlertTriangle}>
+              {t.daysInTransit} días en tránsito
+            </StatusBadge>
+          )}
+          {t.status === "RECIBIDO_CON_DIFERENCIAS" && <StatusBadge tone="violet">{t.unresolvedLines} por resolver</StatusBadge>}
+        </div>
+      </div>
+      <div>
+        <div className="font-semibold">
+          {t.fromLocationName} <span aria-hidden>→</span> <span className="sr-only">hacia</span> {t.toLocationName}
+        </div>
+        <div className="text-sm text-muted-foreground tabular-nums">
+          {t.unitsSent} unidades · {t.lineCount} {t.lineCount === 1 ? "prenda" : "prendas"} · {formatDateTime(t.receivedAt ?? t.sentAt ?? t.createdAt)}
+        </div>
+      </div>
+      <Link href={href} className={buttonVariants({ variant: bucket === "por-recibir" ? "default" : "outline", className: "w-full" })}>
+        {cta}
+      </Link>
+    </li>
   );
 }
 
@@ -98,7 +132,7 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Traslados</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Traslados</h1>
           <p className="text-sm text-muted-foreground">
             Mercadería que va y viene entre la tienda y la bodega.
             {user.activeLocation ? ` Ubicación: ${user.activeLocation.name}.` : " Elige una ubicación en “Operando en” para ver y crear los tuyos."}
@@ -124,13 +158,13 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
               href={`/traslados?tab=${b}`}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong",
+                "-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-semibold max-md:min-h-11",
                 active ? "border-brand-ink text-brand-ink" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
               {TAB_LABEL[b]}
               {n ? (
-                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-[11px] leading-none text-brand-pink" data-testid={`count-${b}`}>
+                <span className="rounded-full bg-brand-black px-1.5 py-0.5 text-xs leading-none text-brand-pink" data-testid={`count-${b}`}>
                   {n}
                 </span>
               ) : null}
@@ -139,7 +173,14 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
         })}
       </nav>
 
-      <div className="rounded-xl border bg-card">
+      <ul className="space-y-3 md:hidden" aria-label="Traslados">
+        {rows.length === 0 && <li className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">{EMPTY[bucket]}</li>}
+        {rows.map((t) => (
+          <TransferCard key={t.id} t={t} bucket={bucket} />
+        ))}
+      </ul>
+
+      <div className="hidden rounded-3xl border bg-card shadow-soft md:block">
         <Table>
           <TableHeader>
             <TableRow>

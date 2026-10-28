@@ -10,7 +10,7 @@ export function DemoScript({ user }: { user: SessionUser }) {
   return (
     <section aria-labelledby="demo-script-title" className="space-y-4" data-testid="demo-script">
       <div className="space-y-1">
-        <h2 id="demo-script-title" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+        <h2 id="demo-script-title" className="flex items-center gap-2 text-lg font-bold tracking-tight">
           Guion de demo <Badge>DEMO</Badge>
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -51,7 +51,7 @@ export function DemoScript({ user }: { user: SessionUser }) {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="rounded-md border px-2.5 py-1 text-xs font-medium text-brand-ink transition-colors hover:border-brand-pink-strong hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink-strong"
+                      className="inline-flex min-h-11 items-center rounded-full border border-input bg-card px-3.5 text-xs font-semibold text-brand-ink transition-colors hover:bg-secondary md:min-h-8"
                     >
                       {link.label}
                     </Link>
@@ -63,7 +63,7 @@ export function DemoScript({ user }: { user: SessionUser }) {
         ))}
       </ol>
 
-      <p className="rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
+      <p className="rounded-2xl border bg-card px-4 py-3 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Números de los documentos.</span> Con el historial cargado, los traslados y pedidos nuevos no parten en{" "}
         <code>TR-000001</code> ni <code>PED-000001</code>: usa el primer número que aparezca. Los casos del plan de demo con esos números solo calzan con el
         seed sin historial (<code>pnpm db:seed</code>).

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
 import { requirePageAccess } from "@/modules/auth";
 import { formatCLP } from "@/lib/money";
 import { PayForm } from "@/components/orders/pay-form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Notice } from "@/components/ui/notice";
 import { loadOrder } from "../../load-order";
 
 export const dynamic = "force-dynamic";
@@ -24,27 +24,26 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
   return (
     <div className="space-y-4">
       <div>
-        <Link href={`/pedidos/${o.id}`} className="text-sm text-brand-ink underline-offset-4 hover:underline">
+        <Link href={`/pedidos/${o.id}`} className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
           ← {o.number}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Confirmar pago de {o.number}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Confirmar pago de {o.number}</h1>
         <p className="text-sm text-muted-foreground">
           {o.customer.name} · {formatCLP(o.total)}. Al confirmar se aparta el stock en <strong>{o.fulfillmentLocation.name}</strong> y se registra la venta.
         </p>
       </div>
 
       {short.length > 0 && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900" data-testid="short-warning">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <Notice tone="danger" role="alert" data-testid="short-warning">
           <span>
             {short.length === 1 ? "Una prenda no alcanza" : `${short.length} prendas no alcanzan`} hoy en {o.fulfillmentLocation.name}:{" "}
             {short.map((l) => l.sku).join(", ")}. Puedes apartarlas en la tienda si tiene disponible (se trae a bodega con un traslado). Si no hay stock al
             confirmar, el pago no se registra y se indica la prenda.
           </span>
-        </div>
+        </Notice>
       )}
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -69,7 +68,7 @@ export default async function PayOrderPage({ params }: PageProps<"/pedidos/[id]/
                   <TableCell className="text-center tabular-nums">{l.quantity}</TableCell>
                   <TableCell className="text-xs">
                     {l.availability.map((a) => (
-                      <div key={a.locationId} className={cn(a.locationId === o.fulfillmentLocation.id && isShort && "font-semibold text-red-700")}>
+                      <div key={a.locationId} className={cn(a.locationId === o.fulfillmentLocation.id && isShort && "font-semibold text-tone-danger")}>
                         {a.name}: <span className="tabular-nums">{a.available}</span>
                       </div>
                     ))}

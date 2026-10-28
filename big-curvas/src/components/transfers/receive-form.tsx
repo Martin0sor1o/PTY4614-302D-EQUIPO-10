@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, ScanLine } from "lucide-react";
 import { receiveTransferAction } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 export interface ReceiveLine {
   variantId: string;
@@ -27,6 +29,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const key = useRef(crypto.randomUUID());
 
@@ -63,11 +66,11 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
   const scanned = lines.reduce((a, l) => a + (counts[l.variantId] ?? 0), 0);
   const expected = lines.reduce((a, l) => a + l.qtySent, 0);
 
+  const summary = diffs.length
+    ? `Hay diferencias en ${diffs.length} prenda${diffs.length === 1 ? "" : "s"}. Al confirmar, el stock sube solo con lo escaneado y Belén resolverá la diferencia. ¿Confirmar la recepción de ${number}?`
+    : `¿Confirmar la recepción de ${number}? El stock subirá con lo escaneado.`;
+
   function confirm() {
-    const summary = diffs.length
-      ? `Hay diferencias en ${diffs.length} prenda${diffs.length === 1 ? "" : "s"}. Al confirmar, el stock sube solo con lo escaneado y Belén resolverá la diferencia. ¿Confirmar la recepción de ${number}?`
-      : `¿Confirmar la recepción de ${number}? El stock subirá con lo escaneado.`;
-    if (!window.confirm(summary)) return;
     setMessage(null);
     startTransition(async () => {
       const res = await receiveTransferAction({
@@ -75,7 +78,10 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
         lines: lines.map((l) => ({ variantId: l.variantId, qty: counts[l.variantId] ?? 0 })),
         idempotencyKey: key.current,
       });
-      if (!res.ok) return setMessage({ kind: "error", text: res.message });
+      if (!res.ok) {
+        setConfirmOpen(false);
+        return setMessage({ kind: "error", text: res.message });
+      }
       router.push(`/traslados/${transferId}`);
       router.refresh();
     });
@@ -83,6 +89,8 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
 
   return (
     <div className="space-y-4">
+      {/* Celular: el campo de escaneo y el último aviso quedan fijos arriba mientras se recorren las tarjetas. */}
+      <div className="space-y-3 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:-mx-4 max-sm:bg-background max-sm:px-4 max-sm:py-2 max-sm:shadow-soft">
       <form
         className="relative w-full sm:max-w-lg"
         onSubmit={(e) => {
@@ -104,12 +112,54 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       </form>
 
       {message && (
-        <p role={message.kind === "error" ? "alert" : "status"} className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-emerald-700")}>
+        <Notice tone={message.kind === "error" ? "danger" : "ok"} role={message.kind === "error" ? "alert" : "status"}>
           {message.text}
-        </p>
+        </Notice>
       )}
+      </div>
 
-      <div className="rounded-xl border bg-card">
+      {/* Celular (bajo sm): una tarjeta por prenda, sin scroll horizontal. */}
+      <ul className="space-y-3 sm:hidden" aria-label="Prendas del traslado">
+        {lines.map((l) => {
+          const n = counts[l.variantId] ?? 0;
+          const diff = n - l.qtySent;
+          return (
+            <li key={l.variantId} className="rounded-2xl border bg-card p-3 shadow-soft">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-mono text-sm font-semibold">{l.sku}</div>
+                  <div className="text-sm">{l.description}</div>
+                </div>
+                {diff === 0 ? (
+                  <StatusBadge tone="ok" icon={Check}>
+                    Cuadra
+                  </StatusBadge>
+                ) : diff < 0 ? (
+                  <StatusBadge tone="warn">Faltan {-diff}</StatusBadge>
+                ) : (
+                  <StatusBadge tone="warn">Sobran {diff}</StatusBadge>
+                )}
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  Enviado <span className="text-base font-bold text-foreground tabular-nums">{l.qtySent}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="outline" size="icon-sm" aria-label={`Quitar una unidad de ${l.sku}`} onClick={() => bump(l.variantId, -1)}>
+                    <Minus />
+                  </Button>
+                  <span className="w-12 text-center text-2xl font-bold tabular-nums">{n}</span>
+                  <Button type="button" variant="outline" size="icon-sm" aria-label={`Sumar una unidad de ${l.sku}`} onClick={() => bump(l.variantId, 1)}>
+                    <Plus />
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden rounded-3xl border bg-card shadow-soft sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -144,13 +194,13 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
                     {diff === 0 ? (
-                      <span className="inline-flex items-center gap-1 text-emerald-700">
-                        <Check className="size-4" /> Cuadra
-                      </span>
+                      <StatusBadge tone="ok" icon={Check}>
+                        Cuadra
+                      </StatusBadge>
                     ) : diff < 0 ? (
-                      <span className="font-medium text-amber-700">Faltan {-diff}</span>
+                      <StatusBadge tone="warn">Faltan {-diff}</StatusBadge>
                     ) : (
-                      <span className="font-medium text-amber-700">Sobran {diff}</span>
+                      <StatusBadge tone="warn">Sobran {diff}</StatusBadge>
                     )}
                   </TableCell>
                 </TableRow>
@@ -163,12 +213,27 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground" data-testid="receive-total">
           Escaneadas {scanned} de {expected} unidades enviadas
-          {diffs.length > 0 && <span className="font-medium text-amber-700"> · {diffs.length} con diferencia</span>}
+          {diffs.length > 0 && (
+            <StatusBadge tone="warn" className="ml-2">
+              {diffs.length} con diferencia
+            </StatusBadge>
+          )}
         </p>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
+        <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending}>
           {pending ? "Recibiendo…" : "Confirmar recepción"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirmar recepción"
+        description={summary}
+        confirmLabel="Sí, recibir"
+        pending={pending}
+        onConfirm={confirm}
+        finalFocusRef={inputRef}
+      />
     </div>
   );
 }

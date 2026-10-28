@@ -177,7 +177,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
   return (
     <div className="space-y-6">
       {/* Canal y clienta */}
-      <section className="space-y-3 rounded-xl border bg-card p-4" aria-labelledby="sec-clienta">
+      <section className="space-y-3 rounded-2xl border bg-card p-4 shadow-soft" aria-labelledby="sec-clienta">
         <h2 id="sec-clienta" className="font-medium">
           Clienta y canal
         </h2>
@@ -280,7 +280,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
               <ul className="divide-y rounded-lg border bg-background" aria-label="Clientas encontradas">
                 {customerHits.map((c) => (
                   <li key={c.id}>
-                    <button type="button" onClick={() => pickCustomer(c)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted">
+                    <button type="button" onClick={() => pickCustomer(c)} className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted max-md:min-h-11 focus-visible:bg-muted">
                       <span className="font-medium">{c.name}</span>
                       <span className="text-muted-foreground">
                         {[c.instagramHandle && `@${c.instagramHandle}`, c.phone, c.commune].filter(Boolean).join(" · ")}
@@ -325,10 +325,10 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
         </form>
 
         {hits?.ok && hits.items.length > 1 && (
-          <ul className="divide-y rounded-xl border bg-card" aria-label="Resultados de la búsqueda">
+          <ul className="divide-y rounded-2xl border bg-card shadow-soft" aria-label="Resultados de la búsqueda">
             {hits.items.map((item) => (
               <li key={item.variantId}>
-                <button type="button" onClick={() => addVariant(item)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left outline-none hover:bg-muted focus-visible:bg-muted">
+                <button type="button" onClick={() => addVariant(item)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted max-md:min-h-11 focus-visible:bg-muted">
                   <span>
                     <span className="font-mono text-xs">{item.sku}</span>
                     <span className="ml-2 text-sm">
@@ -342,7 +342,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
           </ul>
         )}
 
-        <div className="rounded-xl border bg-card">
+        <div className="rounded-3xl border bg-card shadow-soft">
           <Table>
             <TableHeader>
               <TableRow>
@@ -400,11 +400,11 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
                     </TableCell>
                     <TableCell className="text-xs">
                       {l.availability.map((a) => (
-                        <div key={a.locationId} className={cn(a === bodega && short && "font-medium text-amber-700")}>
+                        <div key={a.locationId} className={cn(a === bodega && short && "font-medium text-tone-warn")}>
                           {a.name}: <span className="tabular-nums">{a.available}</span>
                         </div>
                       ))}
-                      {short && <div className="mt-0.5 text-amber-700">Bodega no alcanza hoy</div>}
+                      {short && <div className="mt-0.5 text-tone-warn">Bodega no alcanza hoy</div>}
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{priced ? formatCLP(priced.lineTotal) : "—"}</TableCell>
                     <TableCell>
@@ -421,7 +421,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
       </section>
 
       {/* Envío y totales */}
-      <section className="grid gap-4 rounded-xl border bg-card p-4 md:grid-cols-2" aria-labelledby="sec-envio">
+      <section className="grid gap-4 rounded-2xl border bg-card p-4 shadow-soft md:grid-cols-2" aria-labelledby="sec-envio">
         <div className="space-y-3">
           <h2 id="sec-envio" className="font-medium">
             Envío por courier
@@ -472,7 +472,7 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
       </section>
 
       {message && (
-        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-red-700" : "text-muted-foreground")}>
+        <p role="alert" className={cn("text-sm font-medium", message.kind === "error" ? "text-tone-danger" : "text-muted-foreground")}>
           {message.text}
         </p>
       )}

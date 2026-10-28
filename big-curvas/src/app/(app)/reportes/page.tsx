@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { z } from "zod";
 import { addDaysToKey, santiagoDayKey } from "@/lib/dates";
 import { isAppError } from "@/lib/errors";
+import { Notice } from "@/components/ui/notice";
 import { requirePageAccess } from "@/modules/auth";
 import {
   getFridayList,
@@ -43,9 +44,9 @@ async function load<T>(run: () => Promise<T>): Promise<{ ok: true; data: T } | {
 
 function RangeError({ message }: { message: string }) {
   return (
-    <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+    <Notice tone="danger" role="alert">
       {message}
-    </p>
+    </Notice>
   );
 }
 
@@ -68,7 +69,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
   return (
     <div className="space-y-5">
       <div className="print:hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">Reportes</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Reportes</h1>
         <p className="text-sm text-muted-foreground">Lo que antes llevabas en el Excel: ventas por medio de pago, lo que más se vende y qué reponer.</p>
       </div>
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, FileText, PackageCheck, Pencil } from "lucide-react";
+import { FileText, PackageCheck, Pencil } from "lucide-react";
 import { canAccess } from "@/lib/access";
 import { formatDateTime } from "@/lib/dates";
 import { requirePageAccess } from "@/modules/auth";
@@ -11,16 +11,17 @@ import { ResolvePanel } from "@/components/transfers/resolve-panel";
 import { SendTransferButton } from "@/components/transfers/send-button";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatTimeWithSeconds } from "@/lib/dates";
-import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 function Meta({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{label}</dt>
       <dd className="text-sm font-medium">{children}</dd>
     </div>
   );
@@ -44,10 +45,10 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <Link href="/traslados" className="text-sm text-brand-ink underline-offset-4 hover:underline">
+          <Link href="/traslados" className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">
             ← Traslados
           </Link>
-          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-semibold tracking-tight">
+          <h1 className="flex flex-wrap items-center gap-3 text-3xl font-bold tracking-tight">
             <span className="font-mono" data-testid="transfer-number">
               {t.number}
             </span>
@@ -68,12 +69,12 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
       </div>
 
       {t.overdue && (
-        <p role="alert" className="flex items-center gap-2 rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-900" data-testid="overdue-alert">
-          <AlertTriangle className="size-4" aria-hidden /> Lleva {t.daysInTransit} días en tránsito (alerta desde {t.alertDays}). Revisa si ya llegó.
-        </p>
+        <Notice tone="danger" role="alert" data-testid="overdue-alert">
+          Lleva {t.daysInTransit} días en tránsito (alerta desde {t.alertDays}). Revisa si ya llegó.
+        </Notice>
       )}
 
-      <dl className="grid gap-x-6 gap-y-3 rounded-xl border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-x-6 gap-y-3 rounded-2xl border bg-card p-4 shadow-soft sm:grid-cols-2 lg:grid-cols-4">
         <Meta label="Creado">
           {formatDateTime(t.createdAt)} · {t.createdByName}
         </Meta>
@@ -82,7 +83,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
         <Meta label="Resuelto">{t.resolvedAt ? `${formatDateTime(t.resolvedAt)} · ${t.resolvedByName}` : "—"}</Meta>
         {t.resolutionNotes && (
           <div className="sm:col-span-2 lg:col-span-4">
-            <dt className="text-xs text-muted-foreground">Notas</dt>
+            <dt className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Notas</dt>
             <dd className="text-sm whitespace-pre-line" data-testid="resolution-notes">
               {t.resolutionNotes}
             </dd>
@@ -91,7 +92,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
       </dl>
 
       {t.onlineOrder && (
-        <p className="rounded-lg border bg-card px-3 py-2 text-sm" data-testid="order-link">
+        <p className="rounded-2xl border bg-card px-4 py-3 text-sm shadow-soft" data-testid="order-link">
           Traslado del pedido online{" "}
           {isAdmin ? (
             <Link href={`/pedidos/${t.onlineOrder.id}`} className="font-mono font-medium text-brand-ink underline-offset-4 hover:underline">
@@ -127,11 +128,11 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
           <p className="text-sm text-muted-foreground">Lo recibe {t.toLocation.name}.</p>
         )}
         {t.status === "RECIBIDO_CON_DIFERENCIAS" && !isAdmin && (
-          <p className="text-sm font-medium text-amber-800">Hay diferencias: las resuelve Belén.</p>
+          <StatusBadge tone="violet">Hay diferencias: las resuelve Belén</StatusBadge>
         )}
       </div>
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -148,7 +149,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
               return (
                 <TableRow key={l.id} data-testid="detail-line">
                   <TableCell className="font-mono text-xs">
-                    <Link href={`/stock/${l.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline">
+                    <Link href={`/stock/${l.variantId}/kardex`} className="text-brand-ink underline-offset-4 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
                       {l.sku}
                     </Link>
                   </TableCell>
@@ -161,10 +162,10 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
                     {diff === null || diff === 0 ? (
                       <span className="text-muted-foreground">{diff === 0 ? "Cuadra" : "—"}</span>
                     ) : (
-                      <span className={cn("font-medium", l.differenceResolution ? "text-muted-foreground" : "text-amber-800")}>
+                      <StatusBadge tone={l.differenceResolution ? "neutral" : "violet"}>
                         {diff < 0 ? `Faltan ${-diff}` : `Sobran ${diff}`}
                         {l.differenceResolution && ` · ${RESOLUTION_SHORT[l.differenceResolution]}`}
-                      </span>
+                      </StatusBadge>
                     )}
                   </TableCell>
                 </TableRow>
