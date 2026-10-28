@@ -40,13 +40,13 @@ export function StockSearch({ initial }: { initial: string }) {
         go(value);
       }}
     >
-      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
       <Input
         type="search"
         autoFocus
         aria-label="Buscar prenda"
         placeholder="Buscar por SKU, código de barras o nombre…"
-        className="pl-8"
+        className="pl-9"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />

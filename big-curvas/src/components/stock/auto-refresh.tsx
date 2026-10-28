@@ -22,7 +22,7 @@ export function AutoRefresh({ renderedAt, intervalMs = 3000 }: { renderedAt: str
   }, [enabled, intervalMs, router]);
 
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
+    <div className="flex items-center gap-2 rounded-full border bg-card py-0.5 pr-1 pl-3 text-xs text-muted-foreground" aria-live="polite">
       <span
         aria-hidden
         className={cn("size-2 rounded-full", enabled ? "animate-pulse bg-tone-ok" : "bg-muted-foreground/40")}

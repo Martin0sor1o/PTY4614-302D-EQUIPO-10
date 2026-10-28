@@ -1,7 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  ClipboardCheck,
+  Hourglass,
+  PackageMinus,
+  ShoppingBag,
+  SlidersHorizontal,
+  Truck,
+  Undo2,
+  type LucideIcon,
+} from "lucide-react";
 import { z } from "zod";
 import { requirePageAccess } from "@/modules/auth";
 import { getKardex, type MovementType, type RefType } from "@/modules/inventory";
@@ -10,8 +21,8 @@ import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
 import { isAppError } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const MOVEMENT_LABEL: Record<MovementType, string> = {
@@ -29,6 +40,24 @@ const MOVEMENT_LABEL: Record<MovementType, string> = {
   MERMA_TRASPASO: "Merma de traslado",
   REINGRESO_PEDIDO_CANCELADO: "Reingreso pedido cancelado",
   VENTA_CONTINGENCIA: "Venta en contingencia",
+};
+
+/** Tono e ícono de cada movimiento: entradas en verde, ventas y traslados en azul, ajustes en ámbar, mermas en rojo. */
+const MOVEMENT_STYLE: Record<MovementType, { tone: StatusTone; icon: LucideIcon }> = {
+  CARGA_INICIAL: { tone: "ok", icon: ArrowDownToLine },
+  RECEPCION: { tone: "ok", icon: ArrowDownToLine },
+  VENTA_POS: { tone: "info", icon: ShoppingBag },
+  VENTA_ONLINE: { tone: "info", icon: ShoppingBag },
+  DEVOLUCION: { tone: "ok", icon: Undo2 },
+  ANULACION_VENTA: { tone: "ok", icon: Undo2 },
+  AJUSTE: { tone: "warn", icon: SlidersHorizontal },
+  AJUSTE_CONTEO: { tone: "warn", icon: ClipboardCheck },
+  MERMA: { tone: "danger", icon: PackageMinus },
+  TRASPASO_SALIDA: { tone: "info", icon: Truck },
+  TRASPASO_ENTRADA: { tone: "ok", icon: Truck },
+  MERMA_TRASPASO: { tone: "danger", icon: PackageMinus },
+  REINGRESO_PEDIDO_CANCELADO: { tone: "ok", icon: Undo2 },
+  VENTA_CONTINGENCIA: { tone: "info", icon: ShoppingBag },
 };
 
 const REF_LABEL: Record<RefType, string> = {
@@ -67,13 +96,16 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
 
   return (
     <div className="space-y-4">
-      <Link href="/stock" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href="/stock"
+        className="inline-flex items-center gap-1 rounded-full text-sm font-semibold text-muted-foreground hover:text-foreground max-md:min-h-11"
+      >
         <ArrowLeft className="size-4" aria-hidden /> Volver a stock
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kardex · {variant.sku}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Kardex · {variant.sku}</h1>
           <p className="text-sm text-muted-foreground">
             {variant.productName} · {variant.color} · talla {variant.size} · código {variant.barcode}
           </p>
@@ -87,8 +119,8 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
           return (
             <Card key={l.id} size="sm">
               <CardContent>
-                <div className="text-xs text-muted-foreground">{l.name}</div>
-                <div className="text-2xl font-semibold tabular-nums">{s.available}</div>
+                <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">{l.name}</div>
+                <div className="text-3xl font-bold tabular-nums">{s.available}</div>
                 <div className="text-xs text-muted-foreground">
                   disponible · físico {s.onHand} · reservado {s.reserved}
                 </div>
@@ -98,16 +130,22 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
         })}
         <Card size="sm">
           <CardContent>
-            <div className="text-xs text-muted-foreground">En tránsito</div>
-            <div className="text-2xl font-semibold tabular-nums">{inTransit}</div>
+            <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+              En tránsito
+              {inTransit > 0 && <Truck className="size-3.5 text-tone-info" aria-hidden />}
+            </div>
+            <div className="text-3xl font-bold tabular-nums">{inTransit}</div>
             <div className="text-xs text-muted-foreground">enviado y aún no recibido</div>
           </CardContent>
         </Card>
         {pendingResolution > 0 && (
           <Card size="sm">
             <CardContent>
-              <div className="text-xs text-muted-foreground">Por resolver</div>
-              <div className="text-2xl font-semibold tabular-nums text-tone-warn">{pendingResolution}</div>
+              <div className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                Por resolver
+                <Hourglass className="size-3.5 text-tone-violet" aria-hidden />
+              </div>
+              <div className="text-3xl font-bold tabular-nums">{pendingResolution}</div>
               <div className="text-xs text-muted-foreground">faltantes de traslados sin resolver</div>
             </CardContent>
           </Card>
@@ -123,8 +161,8 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
               href={l.id ? `${base}?ubicacion=${l.id}` : base}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors",
-                active ? "border-brand-pink-strong bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
+                "inline-flex items-center rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors max-md:min-h-11 max-md:px-4 max-md:text-sm",
+                active ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent",
               )}
             >
               {l.name}
@@ -133,7 +171,7 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
         })}
       </nav>
 
-      <div className="rounded-xl border bg-card">
+      <div className="rounded-3xl border bg-card shadow-soft">
         <Table>
           <TableHeader>
             <TableRow>
@@ -159,10 +197,12 @@ export default async function KardexPage({ params, searchParams }: PageProps<"/s
                 <TableCell className="whitespace-nowrap tabular-nums">{formatDateTime(m.createdAt)}</TableCell>
                 <TableCell>{m.locationName}</TableCell>
                 <TableCell>
-                  <Badge variant={m.quantity < 0 ? "outline" : "secondary"}>{MOVEMENT_LABEL[m.type]}</Badge>
+                  <StatusBadge tone={MOVEMENT_STYLE[m.type].tone} icon={MOVEMENT_STYLE[m.type].icon}>
+                    {MOVEMENT_LABEL[m.type]}
+                  </StatusBadge>
                 </TableCell>
                 <TableCell
-                  className={cn("text-right font-medium tabular-nums", m.quantity > 0 ? "text-tone-ok" : "text-tone-danger")}
+                  className={cn("text-right font-bold tabular-nums", m.quantity > 0 ? "text-tone-ok" : "text-tone-danger")}
                 >
                   {m.quantity > 0 ? `+${m.quantity}` : m.quantity}
                 </TableCell>
