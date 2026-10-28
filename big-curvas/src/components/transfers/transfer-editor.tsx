@@ -10,6 +10,7 @@ import {
   updateDraftAction,
 } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ export function TransferEditor({
   const [message, setMessage] = useState<{ kind: "error" | "info"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const [searching, setSearching] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // La misma clave para todos los reintentos de "crear" (doble clic, red lenta): un solo borrador.
   const createKey = useRef(crypto.randomUUID());
@@ -109,10 +111,17 @@ export function TransferEditor({
 
   function cancel() {
     if (!transferId) return router.push("/traslados");
-    if (!window.confirm("¿Anular este borrador? No se puede deshacer.")) return;
+    setConfirmOpen(true);
+  }
+
+  function confirmCancel() {
+    if (!transferId) return;
     startTransition(async () => {
       const res = await cancelDraftAction({ transferId });
-      if (!res.ok) return setMessage({ kind: "error", text: res.message });
+      if (!res.ok) {
+        setConfirmOpen(false);
+        return setMessage({ kind: "error", text: res.message });
+      }
       router.push("/traslados");
       router.refresh();
     });
@@ -252,6 +261,17 @@ export function TransferEditor({
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Anular borrador"
+        description="¿Anular este borrador? No se puede deshacer."
+        confirmLabel="Sí, anular"
+        tone="danger"
+        pending={pending}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

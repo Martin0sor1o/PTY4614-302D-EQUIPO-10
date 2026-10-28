@@ -7,6 +7,7 @@ import { Ban } from "lucide-react";
 import { requestVoidApprovalAction, voidSaleAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -38,6 +39,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const requestKey = useRef(crypto.randomUUID());
   const voidKey = useRef(crypto.randomUUID());
   const executing = useRef(false);
@@ -49,6 +51,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
     startTransition(async () => {
       const res = await voidSaleAction({ saleId: row.id, reason: reason.trim() || "Anulación aprobada", approvalId, idempotencyKey: voidKey.current });
       executing.current = false;
+      setConfirmOpen(false);
       if (!res.ok) return setError(res.message);
       setDone(`La venta ${res.number} quedó anulada y el stock se repuso.`);
       router.refresh();
@@ -102,7 +105,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
                 disabled={pending}
                 onClick={() => {
                   if (reason.trim().length < 3) return setError("Escribe el motivo de la anulación.");
-                  if (window.confirm(`¿Anular la venta ${row.number}? La prenda vuelve al stock.`)) execute();
+                  setConfirmOpen(true);
                 }}
               >
                 {pending ? "Anulando…" : "Anular venta"}
@@ -147,6 +150,16 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
           )}
         </>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Anular venta"
+        description={`¿Anular la venta ${row.number}? La prenda vuelve al stock.`}
+        confirmLabel="Sí, anular"
+        tone="danger"
+        pending={pending}
+        onConfirm={() => execute()}
+      />
     </div>
   );
 }

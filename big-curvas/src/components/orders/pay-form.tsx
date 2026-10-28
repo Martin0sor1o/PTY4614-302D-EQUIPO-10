@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmPaymentAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/money";
@@ -44,11 +45,14 @@ export function PayForm({
   const [reference, setReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // Misma clave para los reintentos de esta pantalla (doble clic): una sola venta y una sola reserva.
   const key = useRef(crypto.randomUUID());
 
   const current = METHODS.find((m) => m.value === method)!;
   const quote = quotePayment(total, method);
+  const what =
+    Object.keys(sources).length > 0 ? "Se apartará el stock (bodega y tienda), se generará el traslado tienda → bodega" : "Se apartará el stock en bodega";
 
   function confirm() {
     setMessage(null);
@@ -57,9 +61,11 @@ export function PayForm({
     if (unresolved.length > 0) {
       return setMessage(`La bodega no alcanza para ${unresolved.map((l) => l.sku).join(", ")}: elige apartarla en la tienda o edita el pedido.`);
     }
-    const viaStore = Object.keys(sources).length;
-    const what = viaStore > 0 ? "Se apartará el stock (bodega y tienda), se generará el traslado tienda → bodega" : "Se apartará el stock en bodega";
-    if (!window.confirm(`¿Confirmar el pago de ${formatCLP(quote.amount)} del pedido ${number}? ${what} y se registrará la venta.`)) return;
+    setConfirmOpen(true);
+  }
+
+  function execute() {
+    setMessage(null);
     startTransition(async () => {
       const res = await confirmPaymentAction({
         orderId,
@@ -71,6 +77,7 @@ export function PayForm({
       if (!res.ok) {
         // STOCK_INSUFICIENTE y compañía: nueva clave para el próximo intento y recarga de la disponibilidad mostrada.
         key.current = crypto.randomUUID();
+        setConfirmOpen(false);
         setMessage(res.message);
         router.refresh();
         return;
@@ -130,6 +137,16 @@ export function PayForm({
       <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
         {pending ? "Confirmando…" : "Confirmar pago"}
       </Button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirmar pago"
+        description={`¿Confirmar el pago de ${formatCLP(quote.amount)} del pedido ${number}? ${what} y se registrará la venta.`}
+        confirmLabel="Sí, confirmar pago"
+        pending={pending}
+        onConfirm={execute}
+      />
     </div>
   );
 }

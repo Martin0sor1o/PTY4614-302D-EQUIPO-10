@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { refundOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCLP } from "@/lib/money";
@@ -20,14 +21,19 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
   const [reference, setReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const key = useRef(crypto.randomUUID());
 
   function submit() {
     setMessage(null);
     if (method.trim().length < 2) return setMessage("Indica el medio del reembolso.");
-    if (!window.confirm(`¿Registrar el reembolso de ${formatCLP(amount)} del pedido ${number}? La venta ${saleNumber} pasará a anulada.`)) return;
+    setConfirmOpen(true);
+  }
+
+  function execute() {
     startTransition(async () => {
       const res = await refundOrderAction({ orderId, method: method.trim(), reference: reference.trim() || undefined, idempotencyKey: key.current });
+      setConfirmOpen(false);
       if (!res.ok) {
         key.current = crypto.randomUUID();
         return setMessage(res.message);
@@ -70,6 +76,15 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
       <Button type="button" onClick={submit} disabled={pending}>
         {pending ? "Registrando…" : "Registrar reembolso"}
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Registrar reembolso"
+        description={`¿Registrar el reembolso de ${formatCLP(amount)} del pedido ${number}? La venta ${saleNumber} pasará a anulada.`}
+        confirmLabel="Sí, registrar"
+        pending={pending}
+        onConfirm={execute}
+      />
     </section>
   );
 }

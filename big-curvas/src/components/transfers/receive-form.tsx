@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, ScanLine } from "lucide-react";
 import { receiveTransferAction } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Notice } from "@/components/ui/notice";
@@ -28,6 +29,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const key = useRef(crypto.randomUUID());
 
@@ -64,11 +66,11 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
   const scanned = lines.reduce((a, l) => a + (counts[l.variantId] ?? 0), 0);
   const expected = lines.reduce((a, l) => a + l.qtySent, 0);
 
+  const summary = diffs.length
+    ? `Hay diferencias en ${diffs.length} prenda${diffs.length === 1 ? "" : "s"}. Al confirmar, el stock sube solo con lo escaneado y Belén resolverá la diferencia. ¿Confirmar la recepción de ${number}?`
+    : `¿Confirmar la recepción de ${number}? El stock subirá con lo escaneado.`;
+
   function confirm() {
-    const summary = diffs.length
-      ? `Hay diferencias en ${diffs.length} prenda${diffs.length === 1 ? "" : "s"}. Al confirmar, el stock sube solo con lo escaneado y Belén resolverá la diferencia. ¿Confirmar la recepción de ${number}?`
-      : `¿Confirmar la recepción de ${number}? El stock subirá con lo escaneado.`;
-    if (!window.confirm(summary)) return;
     setMessage(null);
     startTransition(async () => {
       const res = await receiveTransferAction({
@@ -76,7 +78,10 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
         lines: lines.map((l) => ({ variantId: l.variantId, qty: counts[l.variantId] ?? 0 })),
         idempotencyKey: key.current,
       });
-      if (!res.ok) return setMessage({ kind: "error", text: res.message });
+      if (!res.ok) {
+        setConfirmOpen(false);
+        return setMessage({ kind: "error", text: res.message });
+      }
       router.push(`/traslados/${transferId}`);
       router.refresh();
     });
@@ -214,10 +219,21 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
             </StatusBadge>
           )}
         </p>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
+        <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending}>
           {pending ? "Recibiendo…" : "Confirmar recepción"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirmar recepción"
+        description={summary}
+        confirmLabel="Sí, recibir"
+        pending={pending}
+        onConfirm={confirm}
+        finalFocusRef={inputRef}
+      />
     </div>
   );
 }

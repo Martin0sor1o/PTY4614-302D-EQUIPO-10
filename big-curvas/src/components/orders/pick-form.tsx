@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, ScanLine } from "lucide-react";
 import { prepareOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Notice } from "@/components/ui/notice";
@@ -29,6 +30,7 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const key = useRef(crypto.randomUUID());
 
@@ -65,7 +67,6 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
   const complete = lines.every((l) => (counts[l.variantId] ?? 0) === l.quantity);
 
   function confirm() {
-    if (!window.confirm(`¿Confirmar la preparación de ${number}? El stock de la bodega bajará en ${expected} unidad${expected === 1 ? "" : "es"}.`)) return;
     setMessage(null);
     startTransition(async () => {
       const res = await prepareOrderAction({
@@ -73,7 +74,10 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
         scanned: lines.map((l) => ({ variantId: l.variantId, qty: counts[l.variantId] ?? 0 })),
         idempotencyKey: key.current,
       });
-      if (!res.ok) return setMessage({ kind: "error", text: res.message });
+      if (!res.ok) {
+        setConfirmOpen(false);
+        return setMessage({ kind: "error", text: res.message });
+      }
       router.push(`/pedidos/${orderId}`);
       router.refresh();
     });
@@ -200,10 +204,21 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
         <p className="text-sm text-muted-foreground" data-testid="pick-total">
           Escaneadas {picked} de {expected} unidades
         </p>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending || !complete}>
+        <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending || !complete}>
           {pending ? "Preparando…" : "Confirmar preparación"}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Confirmar preparación"
+        description={`¿Confirmar la preparación de ${number}? El stock de la bodega bajará en ${expected} unidad${expected === 1 ? "" : "es"}.`}
+        confirmLabel="Sí, confirmar"
+        pending={pending}
+        onConfirm={confirm}
+        finalFocusRef={inputRef}
+      />
     </div>
   );
 }

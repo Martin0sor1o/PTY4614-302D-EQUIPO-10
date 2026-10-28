@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { fillShortageAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LineSourcePicker, needsStore, type PickerLine } from "./source-picker";
 
 /** Completar faltante: tras una merma o un error de envío, aparta lo que falta (bodega, o tienda con traslado nuevo). */
@@ -23,6 +24,7 @@ export function FillShortage({
   const [sources, setSources] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const key = useRef(crypto.randomUUID());
   const units = lines.reduce((a, l) => a + l.qty, 0);
 
@@ -30,13 +32,17 @@ export function FillShortage({
     setMessage(null);
     const unresolved = lines.filter((l) => needsStore(l, fulfillmentLocationId) && !sources[l.lineId]);
     if (unresolved.length > 0) return setMessage(`Elige dónde apartar ${unresolved.map((l) => l.sku).join(", ")} (la bodega no alcanza).`);
-    if (!window.confirm(`¿Completar el faltante de ${number} (${units} unidad${units === 1 ? "" : "es"})?`)) return;
+    setConfirmOpen(true);
+  }
+
+  function execute() {
     startTransition(async () => {
       const res = await fillShortageAction({
         orderId,
         lineSources: Object.entries(sources).map(([lineId, locationId]) => ({ lineId, locationId })),
         idempotencyKey: key.current,
       });
+      setConfirmOpen(false);
       if (!res.ok) {
         key.current = crypto.randomUUID();
         setMessage(res.message);
@@ -72,6 +78,15 @@ export function FillShortage({
       <Button type="button" onClick={submit} disabled={pending}>
         {pending ? "Completando…" : "Completar faltante"}
       </Button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Completar faltante"
+        description={`¿Completar el faltante de ${number} (${units} unidad${units === 1 ? "" : "es"})?`}
+        confirmLabel="Sí, completar"
+        pending={pending}
+        onConfirm={execute}
+      />
     </section>
   );
 }
