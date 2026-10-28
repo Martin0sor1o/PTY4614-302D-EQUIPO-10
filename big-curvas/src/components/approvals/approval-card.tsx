@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { formatTime } from "@/lib/dates";
 import { formatCLP } from "@/lib/money";
 
 export interface CardData {
@@ -141,7 +142,7 @@ export function ApprovalCard({ data }: { data: CardData }) {
       {data.expiresAt && (
         <div className="flex justify-center">
           <StatusBadge tone="neutral" icon={Clock}>
-            Vence a las {new Date(data.expiresAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", timeZone: "America/Santiago" })}
+            Vence a las {formatTime(new Date(data.expiresAt))}
           </StatusBadge>
         </div>
       )}
