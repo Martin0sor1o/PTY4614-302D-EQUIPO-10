@@ -6,7 +6,7 @@ import { getFridayList, getLowStock, getNoRotation, getTopSellers } from "@/modu
 import { voidSale } from "@/modules/sales";
 import { confirmTestPayment, registerTestOrder } from "./orders-helpers";
 import { expectAppError, newKey, resetDemo, type Fixtures } from "./helpers";
-import { backdateSale, openRgaCash, posSale, reserveUnits, santiago, stockUp } from "./reports-helpers";
+import { backdateOrderSale, backdateSale, openRgaCash, posSale, reserveUnits, santiago, stockUp } from "./reports-helpers";
 
 let f: Fixtures;
 beforeEach(async () => {
@@ -43,10 +43,12 @@ describe("más vendidos", () => {
     // Pedido online cancelado con reembolso pendiente: la venta sigue COMPLETADA, pero la prenda no salió → no cuenta.
     const order = await registerTestOrder(f, [{ sku: NEG, qty: 3 }]);
     await confirmTestPayment(f, order.id);
+    await backdateOrderSale(order.id, daysAgo(1)); // dentro del período: si no cuenta es por estar cancelado, no por la fecha
     await cancelOrder({ actor: f.actors.belen, orderId: order.id, reason: "No quiere esperar", idempotencyKey: newKey("cancel") });
     // Pedido online vigente: sí cuenta, en el modelo PBA041
     const live = await registerTestOrder(f, [{ sku: PBA, qty: 1 }]);
     await confirmTestPayment(f, live.id);
+    await backdateOrderSale(live.id, daysAgo(1)); // los servicios usan el reloj real: se fecha dentro del período
 
     const top = await getTopSellers({ actor: f.actors.belen, from: "2026-10-01", to: "2026-10-28" });
     expect(top.models.map((m) => [m.rank, m.modelCode, m.units, m.revenue])).toEqual([
