@@ -1,5 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { buildPoolConfig } from "./db-config";
 
 // Prisma solo debe usarse dentro de src/modules/*. Este archivo únicamente construye el cliente.
 
@@ -8,7 +9,7 @@ export type Tx = Prisma.TransactionClient;
 function createClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL no está definida (ver .env.example)");
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  return new PrismaClient({ adapter: new PrismaPg(buildPoolConfig(connectionString)) });
 }
 
 // Reutiliza el cliente entre recargas en desarrollo (hot reload).
