@@ -1,13 +1,7 @@
-# Blueprint de Render para la demo de Big Curvas (planes gratuitos). Guía: big-curvas/docs/DEPLOY_RENDER.md
+# Blueprint de Render para la demo de Big Curvas (plan gratuito del servicio web). Guía: big-curvas/docs/DEPLOY_RENDER.md
 # Va en la raíz del repositorio (requisito de Render); la app vive en la subcarpeta big-curvas/.
-# Sin secretos: DATABASE_URL la entrega la base de datos de Render.
-
-databases:
-  - name: big-curvas-db
-    databaseName: big_curvas
-    user: bigcurvas
-    region: oregon
-    plan: free
+# Sin secretos: las cadenas de conexión de la base (Neon, ADR-019) se pegan a mano en Render → Environment
+# (sync: false) y nunca se versionan. La base de datos ya NO está en el Blueprint.
 
 services:
   - type: web
@@ -23,6 +17,7 @@ services:
     # (Next, TypeScript, Tailwind y Prisma las necesitan para compilar) aunque NODE_ENV sea production.
     buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm build
     # Las migraciones y la siembra van en el arranque: el plan gratuito no tiene "pre-deploy command".
+    # db:deploy usa DIRECT_URL (conexión directa a Neon); demo:bootstrap y la app usan DATABASE_URL (pooled).
     # demo:bootstrap solo siembra si la base está vacía (primera vez); en los demás arranques no hace nada.
     startCommand: corepack pnpm db:deploy && corepack pnpm demo:bootstrap && corepack pnpm start
     healthCheckPath: /api/health
@@ -31,7 +26,9 @@ services:
         value: "24"
       - key: DEMO_MODE
         value: "true"
+      # Neon, cadena POOLED (host con "-pooler"), con sslmode=require. La usa la app.
       - key: DATABASE_URL
-        fromDatabase:
-          name: big-curvas-db
-          property: connectionString
+        sync: false
+      # Neon, cadena DIRECTA (sin "-pooler"), con sslmode=require. La usa prisma migrate deploy.
+      - key: DIRECT_URL
+        sync: false
