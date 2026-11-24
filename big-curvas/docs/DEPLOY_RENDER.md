@@ -66,7 +66,14 @@ El historial de ejemplo (unas 200 ventas y 40 pedidos, pasados por las mismas re
 
 ## Actualizar la demo después
 
-El Blueprint deja activado el **despliegue automático**: cada vez que se sube un cambio (**push**) a la rama `feature/demo`, Render recompila y publica solo (unos minutos). Para forzarlo a mano: servicio → **Manual Deploy** → **Deploy latest commit**.
+El Blueprint deja el **despliegue automático** en **On Commit**: en principio, cada cambio que llega a la rama `feature/demo` dispara un despliegue nuevo (unos minutos). **No hay que darlo por hecho**: tras fusionar un PR a `feature/demo`, Render no siempre lo dispara.
+
+**Después de cada fusión a `feature/demo`:**
+
+1. Abre el servicio `big-curvas-demo` en Render → pestaña **Deploys**.
+2. Comprueba que apareció un despliegue nuevo, con el commit recién fusionado.
+3. Si no aparece en unos minutos, lánzalo a mano: **Manual Deploy** → **Deploy latest commit**.
+4. Cuando el estado sea **Live**, revisa `/api/health`.
 
 - Los **datos se conservan** entre despliegues: la siembra solo corre si la base está vacía.
 - Las **migraciones nuevas** se aplican solas al arrancar.
@@ -91,6 +98,7 @@ Si la sincronización del Blueprint no recrea la base, borra el Blueprint (los r
 | Síntoma | Qué revisar |
 |---|---|
 | El build falla con `EROFS: read-only file system, unlink '/usr/bin/pnpm'` | Es `corepack enable`, que intenta crear un enlace en `/usr/bin`, carpeta de solo lectura en Render. Los comandos del `render.yaml` ya usan `corepack pnpm …`, que ejecuta el pnpm fijado en `package.json` (`packageManager`) sin instalar enlaces. Si ves este error, revisa que el **Build Command** y el **Start Command** del servicio no tengan `corepack enable` ni `npm install -g` (el segundo tampoco sirve: también escribe en carpetas del sistema); deben ser los del `render.yaml`. |
+| El build falla con `Module not found: Can't resolve '@/generated/prisma/client'` | El cliente de Prisma no se generó. Pasa cuando Render reutiliza su caché de `node_modules`: el install termina en milisegundos y no ejecuta el script `postinstall` (que es el que corre `prisma generate`). Desde el arreglo, el script `build` ejecuta `prisma generate` antes de `next build`, así que ya no depende del install y no debería repetirse. Si aparece de nuevo, en el servicio → **Manual Deploy** → **Clear build cache & deploy**, y avisa a quien mantiene el código. |
 | El build falla con un error de versión de Node | Verifica que `NODE_VERSION` esté en `24` (servicio → **Environment**). |
 | Pantalla "Application loading" por más de dos minutos | El servicio se está despertando; espera. Si no avanza, revisa Logs. |
 | `/api/health` responde `{"status":"error","database":"down"}` | La base no responde: revisa que `big-curvas-db` esté **Available** y que no haya expirado. |
