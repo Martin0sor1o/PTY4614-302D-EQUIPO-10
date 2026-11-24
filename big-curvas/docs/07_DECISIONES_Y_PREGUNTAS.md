@@ -33,7 +33,7 @@ Precio base igual en todos los canales; las ofertas pueden ser **solo online o d
 ### ADR-009 · Stock online se descuenta al preparar en bodega — *Aceptada*
 
 ### ADR-010 · Hosting de bajo costo: Render (app + Postgres) — *Aceptada*
-~13 USD al mes.
+~13 USD al mes. Es el hosting de **producción**. La demo y el staging usan Neon para la base de datos (ADR-019).
 
 ### ADR-011 · Promociones configurables simples, por canal — *Aceptada*
 % o monto con vigencia; canal **solo online o ambos**. NxM después del MVP.
@@ -65,6 +65,18 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 - Contexto: solo los jeans traen código del proveedor.
 - Decisión: toda prenda se etiqueta con código propio (Code 128 con el SKU) si no trae uno. Impresora de etiquetas obligatoria.
 - Consecuencias: venta, conteos y traslados rápidos y sin errores; trabajo inicial de etiquetado antes de la salida (R-01).
+
+### ADR-019 · Neon (Postgres gratis) para la demo y el staging — *Aceptada (2026-11-24)*
+- **Contexto:** la base gratuita de Render expira a los 30 días y, si no se pasa a un plan pagado, se borra a los 14 días siguientes. Eso obligaba a recrear la demo cada mes. La base de Render era PostgreSQL 18.
+- **Decisión:** la **demo y el staging** usan una base en **Neon**, plan Free: proyecto `big-curvas-demo`, región **AWS US West 2 (Oregon)**, **PostgreSQL 17**. El servicio web sigue en Render (plan gratis, Oregon).
+  - **Región Oregon y no São Paulo:** la que consulta la base es la app (Render, Oregon). En la misma región cada consulta tarda ~1 ms; en São Paulo serían ~170 ms y el seed (miles de consultas) y cada pantalla se sentirían lentos. La región no se puede cambiar después de crear el proyecto.
+  - **Dos cadenas:** la app usa la cadena **pooled** (`DATABASE_URL`) y las migraciones la **directa** (`DIRECT_URL`), porque `prisma migrate deploy` usa un advisory lock que no funciona a través del pooler. Prisma 7 ya no tiene `directUrl` en el esquema: `prisma.config.ts` elige `DIRECT_URL`, y si no existe `DATABASE_URL`.
+  - **Pool de `pg`** (`src/lib/db-config.ts`): máximo 5 conexiones, 20 s de espera al conectar (cold start) y 10 s de inactividad.
+  - **Secretos:** las cadenas se pegan solo en Render (`sync: false`) y en un `.env.neon` local ignorado por Git. La base ya no se declara en `render.yaml`. Procedimiento de rotación en `docs/DEPLOY_RENDER.md`.
+- **Lo que NO cambia:** la **producción real sigue siendo la del ADR-010** (Render Postgres de pago, con respaldo diario externo). Pasar a producción con otro proveedor o plan es una decisión futura de Belén y el equipo; este ADR no la toma.
+- **Limitaciones aceptadas** (por ser solo demo): *cold start* (el cómputo se suspende a los 5 min sin consultas, fijo en el plan Free; la primera consulta tarda unos segundos); **1 GB** de almacenamiento por proyecto; **100 CU-horas** de cómputo al mes; **sin SLA**; historial de restauración corto (6 horas). Mitigación: respaldo con `pg_dump`/`pg_restore` probado (`docs/DEPLOY_RENDER.md`, RNF-06).
+- **Verificación (2026-11-24):** migraciones y `scripts/verify-db.sql` en Neon (24 tablas, 25 CHECK, 38 índices, 2 triggers de inmutabilidad, todo OK); flujo de la demo en la URL pública (venta POS, aprobación de descuento, traslado con diferencia resuelta, pedido hasta entregado); respaldo de 183 KB restaurado en un Postgres local con los mismos conteos.
+- **Pendiente:** consumir una aprobación de descuento en una venta desde **dos dispositivos** (la sesión de la demo es una cookie por navegador; está cubierto por los tests de integración de `approvals`).
 
 ## 2. Preguntas abiertas
 
@@ -118,3 +130,4 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 | 2026-09-29 | v0.2: respuestas de negocio; hosting Render; promociones |
 | 2026-09-29 | v0.3: 2 tiendas + bodega (información de segunda mano) |
 | 2026-10-02 | **v0.4: validación con la clienta.** 1 tienda + bodega (ADR-017), se aparta al pagar (ADR-004 v3), solo Belén da descuentos, etiquetado total (ADR-018), boletas con su app (ADR-007 v2). Cambios y devoluciones vuelven a 🟡 hasta validarlos |
+| 2026-11-24 | **ADR-019:** la demo y el staging pasan a Neon (Postgres 17, Oregon) por el vencimiento de la base gratuita de Render. La producción sigue en ADR-010 |

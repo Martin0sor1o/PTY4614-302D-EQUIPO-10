@@ -16,7 +16,7 @@
 | 05 | `05_PLAN_DE_TRABAJO.md` | Fases, hitos, entregables, criterios de aceptación, riesgos | Dev + negocio |
 | 06 | `06_DESARROLLO_CON_IA.md` | Herramientas, flujo de trabajo con Claude Code, plantillas de prompt | Dev |
 | 07 | `07_DECISIONES_Y_PREGUNTAS.md` | Registro de decisiones (ADR) y preguntas abiertas | Todos |
-| — | `CLAUDE.md` | Reglas para Claude Code; va en la **raíz del repositorio** | IA |
+| — | `CLAUDE.md` | Reglas para Claude Code; va en la **raíz del proyecto** (en este repositorio: `big-curvas/CLAUDE.md`) | IA |
 
 ## Convenciones de IDs
 

@@ -6,7 +6,7 @@ import type { PoolConfig } from "pg";
 // Pensado para Neon (plan gratis): la app se conecta por el pooler (PgBouncer) y el cómputo se suspende
 // tras 5 min sin actividad, así que:
 // - connectionTimeoutMillis alto: la primera conexión después de una suspensión despierta el cómputo
-//   (1 a 3 s normalmente); sin límite explícito `pg` esperaría para siempre.
+//   (unos segundos); sin límite explícito `pg` esperaría para siempre.
 // - idleTimeoutMillis bajo: se cierran las conexiones ociosas antes de que el servidor las corte.
 // - max pequeño: el plan gratis tiene pocas conexiones y la app es de baja concurrencia.
 export const DB_POOL_MAX = 5;
