@@ -60,6 +60,16 @@ export async function backdateSale(saleId: string, at: Date) {
   await db.payment.updateMany({ where: { saleId }, data: { createdAt: at } });
 }
 
+/**
+ * Cambia la fecha de la venta que se creó al confirmar el pago de un pedido online. Los servicios usan el reloj real,
+ * así que sin esto la venta queda con la fecha de hoy y cae fuera de los períodos fijos de los tests de reportes
+ * (y un pedido cancelado quedaría excluido por fecha y no por estar cancelado).
+ */
+export async function backdateOrderSale(orderId: string, at: Date) {
+  const sale = await db.sale.findUniqueOrThrow({ where: { onlineOrderId: orderId }, select: { id: true } });
+  await backdateSale(sale.id, at);
+}
+
 /** Fecha en hora de Chile: `santiago("2026-10-27", "23:30")`. Usa el desfase real de ese día. */
 export function santiago(day: string, time = "12:00"): Date {
   // Se prueba UTC-3 y UTC-4 y se elige el que, vuelto a Chile, da la misma fecha y hora.
