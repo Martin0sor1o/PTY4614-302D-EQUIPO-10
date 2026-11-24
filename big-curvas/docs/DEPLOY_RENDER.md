@@ -71,7 +71,7 @@ Guía paso a paso para dejar la demo de Big Curvas en internet y abrirla desde c
 **Neon (base de datos), plan Free:**
 
 - **Sin vencimiento.** A diferencia de la base gratuita de Render (expiraba a los 30 días y se borraba a los 14 días siguientes), el proyecto de Neon no expira.
-- **Cold start:** el cómputo se **suspende a los 5 minutos sin consultas** (fijo en el plan Free). La primera consulta después de una suspensión tarda **1 a 3 segundos** extra. El pool de la app espera hasta 20 s al conectar (`src/lib/db-config.ts`) y cierra las conexiones ociosas a los 10 s, antes de que Neon suspenda. El health check de Render consulta la base (`/api/health`), así que mientras el servicio esté despierto es probable que la base no llegue a suspenderse (no se midió).
+- **Cold start:** el cómputo se **suspende a los 5 minutos sin consultas** (fijo en el plan Free). La primera consulta después de una suspensión tarda unos segundos extra. El pool de la app espera hasta 20 s al conectar (`src/lib/db-config.ts`) y cierra las conexiones ociosas a los 10 s, antes de que Neon suspenda.
 - **1 GB de almacenamiento por proyecto.** La demo con historial ocupa muy poco (el respaldo comprimido pesa ~180 KB). Si se supera el límite, las escrituras que aumenten el almacenamiento fallan.
 - **100 horas de cómputo (CU-hrs) por proyecto al mes.** No hay cobro por exceso en el plan Free.
 - **Sin SLA** y con **historial de restauración corto** (6 horas en el plan Free): no reemplaza a un respaldo. Ver "Respaldo".

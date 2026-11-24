@@ -45,7 +45,7 @@
 - **Vercel queda descartado para producción**: su plan gratuito (Hobby) es solo para uso personal y no comercial, y el plan Pro cuesta 20 USD por usuario al mes.
 - Supabase gratuito no se recomienda para producción: no incluye backups descargables y el plan pagado supera el presupuesto.
 - Render no tiene región en Sudamérica. La latencia desde Chile a EE.UU. (~150 ms) es aceptable para este POS.
-- **Demo y staging (ADR-019):** servicio web en Render (plan gratis) y base en **Neon** (plan Free, PostgreSQL 17, AWS US West 2 Oregon, junto al servicio). Costo 0, sin vencimiento de la base. Limitaciones: cold start (autosuspend a los 5 min, 1 a 3 s en la primera consulta), 1 GB, 100 CU-horas al mes y sin SLA. **No es la base de producción**: esa sigue siendo la de esta tabla (ADR-010) y es una decisión futura de Belén y el equipo. El detalle operativo (cadenas pooled y directa, respaldo, rotación de contraseña) está en `docs/DEPLOY_RENDER.md`.
+- **Demo y staging (ADR-019):** servicio web en Render (plan gratis) y base en **Neon** (plan Free, PostgreSQL 17, AWS US West 2 Oregon, junto al servicio). Costo 0, sin vencimiento de la base. Limitaciones: cold start (autosuspend a los 5 min; la primera consulta tarda unos segundos), 1 GB, 100 CU-horas al mes y sin SLA. **No es la base de producción**: esa sigue siendo la de esta tabla (ADR-010) y es una decisión futura de Belén y el equipo. El detalle operativo (cadenas pooled y directa, respaldo, rotación de contraseña) está en `docs/DEPLOY_RENDER.md`.
 - Alternativa más barata: Railway (Hobby, 5 USD incluidos en uso), con un costo menos predecible.
 - Un proveedor de boletas electrónicas (P-04) tendría un costo adicional.
 - Precios verificados en septiembre de 2026. Revisarlos antes de contratar.
