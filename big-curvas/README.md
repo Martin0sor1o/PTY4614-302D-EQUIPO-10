@@ -42,7 +42,8 @@ Variables de `.env` (ver `.env.example`):
 
 | Variable | Para qué sirve |
 |---|---|
-| `DATABASE_URL` | Base de datos de la app. |
+| `DATABASE_URL` | Base de datos de la app. En Neon, la cadena **pooled** (host con `-pooler`). |
+| `DIRECT_URL` | Opcional. Cadena **directa** de Neon: la usan `prisma migrate deploy` y el seed del CLI. Si no existe, se usa `DATABASE_URL` (local, tests). |
 | `TEST_DATABASE_URL` | Base de datos de los tests de integración (no se mezcla con la de desarrollo). |
 | `DEMO_MODE` | `true` habilita el acceso sin contraseña, el guion de demo y el botón de reinicio. En cualquier otro caso la demo queda deshabilitada. |
 | `DEMO_SEED_HISTORY` | Opcional. `false` hace que la primera siembra y el reinicio carguen solo los datos base, sin el historial de ventas. |
@@ -105,7 +106,7 @@ Next.js (App Router) · TypeScript · Tailwind CSS + shadcn/ui · Prisma + Postg
 
 ## Publicar la demo en internet
 
-La demo se publica en Render con planes gratuitos. El archivo `render.yaml` está en la raíz del repositorio y la guía paso a paso en [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md).
+La demo se publica con planes gratuitos: el servicio web en Render y la base de datos en Neon (ADR-019). El archivo `render.yaml` está en la raíz del repositorio y la guía paso a paso, con el respaldo y las limitaciones, en [`docs/DEPLOY_RENDER.md`](docs/DEPLOY_RENDER.md). Las cadenas de conexión son secretos: se pegan en Render y nunca van en el repositorio.
 
 ## Documentación
 

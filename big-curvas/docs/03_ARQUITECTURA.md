@@ -16,7 +16,7 @@
 | Lenguaje | **TypeScript** (strict) en todo el stack | Un solo lenguaje; tipos que atrapan errores de la IA |
 | Framework web | **Next.js** (App Router) + React | Front y back en un proyecto; Server Actions y Route Handlers |
 | UI | **Tailwind CSS + shadcn/ui** | Componentes accesibles, la IA los domina |
-| Base de datos | **PostgreSQL** gestionado (**Render Postgres**, plan pagado básico) | Transacciones ACID, constraints, backups incluidos en planes pagados |
+| Base de datos | **PostgreSQL** gestionado (**Render Postgres**, plan pagado básico) en producción; **Neon** (plan gratis, Postgres 17) en demo y staging (ADR-019) | Transacciones ACID, constraints, backups incluidos en planes pagados |
 | ORM / migraciones | **Prisma** | Esquema declarativo legible, migraciones versionadas, muy conocido por la IA |
 | Validación | **Zod** | Mismo esquema para formularios y servidor |
 | Autenticación | **Better Auth** (alternativa: Auth.js) con credenciales + PIN | Control total de roles; sin costo por usuario |
@@ -45,6 +45,7 @@
 - **Vercel queda descartado para producción**: su plan gratuito (Hobby) es solo para uso personal y no comercial, y el plan Pro cuesta 20 USD por usuario al mes.
 - Supabase gratuito no se recomienda para producción: no incluye backups descargables y el plan pagado supera el presupuesto.
 - Render no tiene región en Sudamérica. La latencia desde Chile a EE.UU. (~150 ms) es aceptable para este POS.
+- **Demo y staging (ADR-019):** servicio web en Render (plan gratis) y base en **Neon** (plan Free, PostgreSQL 17, AWS US West 2 Oregon, junto al servicio). Costo 0, sin vencimiento de la base. Limitaciones: cold start (autosuspend a los 5 min, 1 a 3 s en la primera consulta), 1 GB, 100 CU-horas al mes y sin SLA. **No es la base de producción**: esa sigue siendo la de esta tabla (ADR-010) y es una decisión futura de Belén y el equipo. El detalle operativo (cadenas pooled y directa, respaldo, rotación de contraseña) está en `docs/DEPLOY_RENDER.md`.
 - Alternativa más barata: Railway (Hobby, 5 USD incluidos en uso), con un costo menos predecible.
 - Un proveedor de boletas electrónicas (P-04) tendría un costo adicional.
 - Precios verificados en septiembre de 2026. Revisarlos antes de contratar.
@@ -280,7 +281,7 @@ Una sola transacción: `returnToStock(loc = TIENDA_RANCAGUA)` (o `writeOff()`) +
 | Ambiente | Uso | BD |
 |----------|-----|----|
 | Local | Desarrollo con Claude Code | Postgres en Docker (seed con tienda + bodega) |
-| Staging | Pruebas con Belén y vendedoras | Render gratuito (con sus límites) |
+| Demo / Staging | Pruebas con Belén y vendedoras | Servicio en Render gratis + base en Neon Free (ADR-019): cadena pooled para la app y directa para migraciones (`DIRECT_URL`); con sus límites (cold start, 1 GB, sin SLA) |
 | Producción | Operación | Render pagado + backups del proveedor + `pg_dump` diario externo |
 
 Pipeline: rama `feature/*` → PR a `develop` → GitHub Actions (lint, typecheck, tests) → staging → promoción manual a producción. `main` se reserva para las entregas del curso. Migraciones revisadas por una persona.
