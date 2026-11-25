@@ -57,7 +57,7 @@ export const DEMO_STEPS: readonly DemoStep[] = [
     ],
     show: [
       "La vendedora agrega PBA041-NEG-XL y pone 10 % de descuento: el POS responde “Requiere aprobación de Belén” y ella la pide.",
-      "Belén abre Aprobaciones en el celular y aprueba (o usa “Belén está aquí” con el PIN 2468). La caja sigue sola y la aprobación sirve una sola vez.",
+      "Belén abre Aprobaciones en el celular y aprueba (o usa “Belén está aquí” con su PIN, que la pantalla muestra como pista). La caja sigue sola y la aprobación sirve una sola vez.",
     ],
     problem: "Solo Belén da descuentos, aunque no esté en la tienda, y todo queda registrado.",
   },
@@ -102,7 +102,7 @@ export const DEMO_STEPS: readonly DemoStep[] = [
       { label: "Pedidos", href: "/pedidos" },
     ],
     show: [
-      "La vendedora anula una venta de hoy con motivo; Belén, estando presente, la aprueba con su PIN (2468). El stock vuelve y el kardex lo muestra.",
+      "La vendedora anula una venta de hoy con motivo; Belén, estando presente, la aprueba con su PIN (la pantalla lo muestra como pista). El stock vuelve y el kardex lo muestra.",
       "Belén cancela un pedido pagado (la prenda vuelve a estar libre) y registra el reembolso desde el detalle del pedido.",
     ],
     problem: "Corregir errores y devolver dinero con el respaldo de Belén, dejando todo registrado.",

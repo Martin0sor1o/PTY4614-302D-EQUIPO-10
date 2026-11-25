@@ -16,8 +16,16 @@ export const LOCATIONS: LocationDef[] = [
   { code: "BODEGA", name: "Bodega", type: "WAREHOUSE", sellsPos: false, fulfillsOnline: true, salePrefix: "BOD" },
 ];
 
-/** DEMO: PIN de la administradora para la aprobación presencial. La pantalla lo muestra como pista solo con DEMO_MODE. */
-export const DEMO_ADMIN_PIN = "2468";
+/**
+ * DEMO: PIN de la administradora para la aprobación presencial. NO está en el repositorio (es público): sale de la
+ * variable de entorno DEMO_ADMIN_PIN (4 a 6 dígitos). Sin ella, el seed deja a Belén sin PIN y la aprobación con PIN
+ * no está disponible en la demo (la aprobación remota sigue funcionando). La pantalla lo muestra como pista solo con
+ * DEMO_MODE. Se guarda hasheado (scrypt); nunca en claro en la BD.
+ */
+export function demoAdminPin(): string | null {
+  const pin = process.env.DEMO_ADMIN_PIN?.trim();
+  return pin && /^\d{4,6}$/.test(pin) ? pin : null;
+}
 
 export interface UserDef {
   key: string;
@@ -25,13 +33,12 @@ export interface UserDef {
   email: string;
   role: "ADMIN" | "VENDEDORA" | "BODEGA";
   locationCode: LocationDef["code"] | null;
-  /** DEMO: PIN de aprobación presencial (RF-AUT-05). Se guarda hasheado (scrypt); nunca en claro en la BD. */
-  pin?: string;
+  /** DEMO: este usuario recibe el PIN de DEMO_ADMIN_PIN (aprobación presencial, RF-AUT-05), si está definido. */
+  usesDemoAdminPin?: boolean;
 }
 
 export const USERS: UserDef[] = [
-  // DEMO: PIN de Belén 2468 (solo para la demo; en producción cada administradora define el suyo).
-  { key: "belen", name: "Belén", email: "belen@bigcurvas.demo", role: "ADMIN", locationCode: null, pin: DEMO_ADMIN_PIN },
+  { key: "belen", name: "Belén", email: "belen@bigcurvas.demo", role: "ADMIN", locationCode: null, usesDemoAdminPin: true },
   { key: "vend-rga", name: "Vendedora Rancagua", email: "rancagua@bigcurvas.demo", role: "VENDEDORA", locationCode: "TIENDA_RANCAGUA" },
   { key: "vend-rga-2", name: "Vendedora 2 Rancagua", email: "rancagua2@bigcurvas.demo", role: "VENDEDORA", locationCode: "TIENDA_RANCAGUA" },
 ];

@@ -8,6 +8,7 @@ import {
   CATEGORIES,
   COLORS,
   DEMO_SETTINGS,
+  demoAdminPin,
   LOCATIONS,
   PRODUCTS,
   SIZES,
@@ -24,6 +25,9 @@ import { hashString, seededRandom } from "./random";
 
 const ALL_TABLES = [
   "audit_log",
+  "sessions",
+  "pos_devices",
+  "auth_throttles",
   "document_counters",
   "settings",
   "payments",
@@ -136,7 +140,7 @@ async function seedBaseData(
             email: u.email,
             role: u.role,
             locationId: u.locationCode ? locationByCode.get(u.locationCode)! : null,
-            pinHash: u.pin ? hashPin(u.pin) : null,
+            pinHash: u.usesDemoAdminPin && demoAdminPin() ? hashPin(demoAdminPin()!) : null,
           },
         });
         userIds.set(u.key, row.id);

@@ -6,7 +6,8 @@ import { newKey, type Fixtures } from "./helpers";
 
 export const PBA_XL = "PBA041-NEG-XL"; // $8.990 · Rancagua 5 · Bodega 20
 export const JMT_AZU = "JMT012-AZU-48"; // $29.990 · Rancagua 1
-export const PIN = "2468"; // DEMO: PIN de Belén en el seed
+// PIN de Belén en el seed de los tests: lo genera vitest.config.mts en cada corrida (variable DEMO_ADMIN_PIN).
+export const PIN = process.env.DEMO_ADMIN_PIN!;
 
 export type CartSpec = { sku: string; qty?: number; discountBps?: number };
 

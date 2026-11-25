@@ -7,7 +7,11 @@ async function main() {
   const result = await seedDemoDataIfEmpty();
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (!result.seeded) {
-    console.log(`[demo:bootstrap] La BD ya tiene datos de demo; no se siembra (${seconds} s).`);
+    console.log(
+      result.reason === "not-demo"
+        ? "[demo:bootstrap] DEMO_MODE no está activo: no se siembra nada."
+        : `[demo:bootstrap] La BD ya tiene datos de demo; no se siembra (${seconds} s).`,
+    );
     return;
   }
   const h = result.summary.history;
