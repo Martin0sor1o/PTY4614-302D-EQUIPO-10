@@ -30,6 +30,13 @@ enum UserRole {
   @@map("user_role")
 }
 
+enum SessionKind {
+  WEB // administradora (o bodega) con email + contraseña
+  POS // vendedora en un dispositivo POS vinculado, con su PIN
+
+  @@map("session_kind")
+}
+
 enum BarcodeSource {
   PROVEEDOR
   INTERNO
@@ -216,6 +223,7 @@ model Location {
   fulfilledOrders    OnlineOrder[]       @relation("OrderFulfillment")
   pickupOrders       OnlineOrder[]       @relation("OrderPickup")
   orderLinesAtSource OnlineOrderLine[]
+  posDevices         PosDevice[]
 
   @@map("locations")
 }
@@ -230,6 +238,11 @@ model User {
   pinHash           String?   @map("pin_hash")
   failedPinAttempts Int       @default(0) @map("failed_pin_attempts")
   pinLockedUntil    DateTime? @map("pin_locked_until")
+  // Contraseña (ADMIN y BODEGA; VENDEDORA solo usa PIN). scrypt: "scrypt$N$r$p$salt$hash". Nunca en claro.
+  passwordHash       String?   @map("password_hash")
+  mustChangePassword Boolean   @default(false) @map("must_change_password") // contraseña temporal: se fuerza el cambio
+  passwordChangedAt  DateTime? @map("password_changed_at")
+  lastLoginAt        DateTime? @map("last_login_at")
   active            Boolean   @default(true)
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
@@ -256,6 +269,9 @@ model User {
   salesVoided          Sale[]              @relation("SaleVoidedBy")
   orderEvents          OnlineOrderEvent[]
   auditLogs            AuditLog[]
+  sessions             Session[]
+  posDevicesRegistered PosDevice[]         @relation("PosDeviceRegisteredBy")
+  posDevicesRevoked    PosDevice[]         @relation("PosDeviceRevokedBy")
 
   @@map("users")
 }
@@ -749,6 +765,67 @@ model AuditLog {
 
   @@index([entity, entityId])
   @@map("audit_log")
+}
+
+// ───────────────────────── Autenticación (ADR-020) ─────────────────────────
+// Solo se guardan hashes: del token de sesión (SHA-256), del token del dispositivo, del código de vinculación y de
+// las contraseñas/PIN (scrypt). Los intentos fallidos se llevan por clave HMAC (AUTH_SECRET), nunca por email en claro.
+
+/** Equipo de caja vinculado a una tienda (RF-USR-02). Solo una administradora lo vincula y lo revoca. */
+model PosDevice {
+  id                String    @id @default(cuid())
+  locationId        String    @map("location_id")
+  name              String // "Caja Tienda Rancagua"
+  deviceTokenHash   String?   @unique @map("device_token_hash") // null hasta que se canjea el código de vinculación
+  pairingCodeHash   String?   @unique @map("pairing_code_hash") // código de un solo uso; se borra al vincular
+  pairingExpiresAt  DateTime? @map("pairing_expires_at")
+  registeredBy      String    @map("registered_by")
+  pairedAt          DateTime? @map("paired_at")
+  lastSeenAt        DateTime? @map("last_seen_at")
+  active            Boolean   @default(true)
+  revokedAt         DateTime? @map("revoked_at")
+  revokedBy         String?   @map("revoked_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  location         Location  @relation(fields: [locationId], references: [id])
+  registeredByUser User      @relation("PosDeviceRegisteredBy", fields: [registeredBy], references: [id])
+  revokedByUser    User?     @relation("PosDeviceRevokedBy", fields: [revokedBy], references: [id])
+  sessions         Session[]
+
+  @@index([locationId, active])
+  @@map("pos_devices")
+}
+
+/** Sesión de un usuario. El token solo existe en la cookie del navegador; aquí va su SHA-256. */
+model Session {
+  id          String      @id @default(cuid())
+  tokenHash   String      @unique @map("token_hash")
+  userId      String      @map("user_id")
+  kind        SessionKind
+  posDeviceId String?     @map("pos_device_id") // obligatorio si kind = POS (CHECK en la migración)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  lastSeenAt  DateTime    @default(now()) @map("last_seen_at")
+  expiresAt   DateTime    @map("expires_at") // vencimiento absoluto; la inactividad se calcula con last_seen_at
+  revokedAt   DateTime?   @map("revoked_at")
+
+  user      User       @relation(fields: [userId], references: [id])
+  posDevice PosDevice? @relation(fields: [posDeviceId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([posDeviceId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+/** Intentos fallidos por clave (HMAC): login:<hmac del email>, pair, ip:<hmac>. Se purga a mano (pnpm auth:purge). */
+model AuthThrottle {
+  key            String    @id
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedUntil    DateTime? @map("locked_until")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@map("auth_throttles")
 }
 
 model DocumentCounter {
