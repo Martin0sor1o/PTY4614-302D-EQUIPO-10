@@ -6,6 +6,7 @@ import { isDemoMode } from "@/lib/demo";
 import { AppError } from "@/lib/errors";
 import { assertAccess, canAccess, type AccessRequirement, type Role, type SessionLocation, type SessionUser } from "@/lib/access";
 import { auditAuth } from "./audit";
+import { demoAccessEnabled } from "./demo-guard";
 import {
   activeLocationCookieName,
   clearActiveLocationCookie,
@@ -73,7 +74,8 @@ export async function resolveUser(store: CookieReader): Promise<SessionUser | nu
     const session = await resolveSession(token);
     if (session) return fromSession(session, store);
   }
-  if (isDemoMode()) return fromDemoCookie(store);
+  // La cookie demo es solo un id de usuario: con cuentas reales en la base no se honra (cualquiera podría falsificarla).
+  if (isDemoMode() && (await demoAccessEnabled())) return fromDemoCookie(store);
   return null;
 }
 

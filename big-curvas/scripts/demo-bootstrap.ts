@@ -7,11 +7,12 @@ async function main() {
   const result = await seedDemoDataIfEmpty();
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (!result.seeded) {
-    console.log(
-      result.reason === "not-demo"
-        ? "[demo:bootstrap] DEMO_MODE no está activo: no se siembra nada."
-        : `[demo:bootstrap] La BD ya tiene datos de demo; no se siembra (${seconds} s).`,
-    );
+    const messages = {
+      "not-demo": "[demo:bootstrap] DEMO_MODE no está activo: no se siembra nada.",
+      "real-accounts": "[demo:bootstrap] La base tiene cuentas reales (usuarios con contraseña): no se siembra nada y el servicio sigue.",
+      "already-seeded": `[demo:bootstrap] La BD ya tiene datos de demo; no se siembra (${seconds} s).`,
+    } as const;
+    console.log(messages[result.reason]);
     return;
   }
   const h = result.summary.history;

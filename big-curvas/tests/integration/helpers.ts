@@ -3,6 +3,7 @@ import { expect } from "vitest";
 import { db, type Tx } from "@/lib/db";
 import type { Actor } from "@/lib/access";
 import { AppError, type AppErrorCode } from "@/lib/errors";
+import { resetDemoGuardCache } from "@/modules/auth";
 import { resetAndSeedDemoData } from "@/modules/demo";
 import { findLedgerMismatches, findReservationMismatches } from "@/modules/inventory";
 
@@ -24,6 +25,7 @@ export interface Fixtures {
 /** Reinicia la BD de tests con el seed de la demo y devuelve ids útiles. */
 export async function resetDemo(): Promise<Fixtures> {
   await resetAndSeedDemoData();
+  resetDemoGuardCache(); // el chequeo de cuentas reales del modo demo se cachea: cada test parte sin resultado previo
   const locations = await db.location.findMany();
   const loc = Object.fromEntries(locations.map((l) => [l.code, l.id])) as Record<LocationCode, string>;
   await db.user.create({ data: { name: "Bodega (test)", email: "bodega@bigcurvas.test", role: "BODEGA", locationId: loc.BODEGA } });

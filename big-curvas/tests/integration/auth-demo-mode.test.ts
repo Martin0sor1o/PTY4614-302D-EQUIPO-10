@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { verifyPin } from "@/modules/approvals";
-import { demoLogin, listDemoLoginOptions, resolveUser } from "@/modules/auth";
+import { demoAccessEnabled, demoLogin, listDemoLoginOptions, resolveUser } from "@/modules/auth";
 import { demoPinHint, resetAndSeedDemoData, resetDemoData, seedDemoDataIfEmpty } from "@/modules/demo";
 import { expectAppError, resetDemo, type Fixtures } from "./helpers";
 import { createWebUser, jar, SESSION_COOKIE } from "./auth-helpers";
@@ -77,6 +77,84 @@ describe("con DEMO_MODE=true la demo sigue igual", () => {
       location: { code: "TIENDA_RANCAGUA" },
     });
     expect(await resolveUser(jar({ demo_user_id: "no-existe" }))).toBeNull();
+  });
+});
+
+describe("la demo nunca crea contraseñas (así la guardia de cuentas reales no la afecta)", () => {
+  const withHash = () => db.user.count({ where: { passwordHash: { not: null } } });
+
+  it("el seed demo no deja ningún password_hash", async () => {
+    await resetAndSeedDemoData({ history: true });
+    expect(await db.user.count()).toBeGreaterThan(0);
+    expect(await withHash()).toBe(0);
+  });
+
+  it('"Reiniciar datos de demo" tampoco crea ninguno', async () => {
+    await resetDemoData({ actor: f.actors.belen });
+    expect(await db.user.count()).toBeGreaterThan(0);
+    expect(await withHash()).toBe(0);
+    expect(await listDemoLoginOptions()).not.toHaveLength(0); // la demo sigue entrando como siempre
+  });
+});
+
+describe("DEMO_MODE=true con cuentas reales en la base: el acceso demo se deshabilita (el servicio sigue)", () => {
+  const BLOCKED = /Acceso demo deshabilitado: la base tiene cuentas reales/;
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+  afterEach(() => warn.mockRestore());
+
+  it("listDemoLoginOptions y demoLogin se niegan con un mensaje claro y queda una advertencia en el log", async () => {
+    const real = await createWebUser();
+    await expectAppError(listDemoLoginOptions(), "FORBIDDEN", BLOCKED);
+    await expectAppError(demoLogin(f.actors.belen.id), "FORBIDDEN", BLOCKED);
+    expect(warn).toHaveBeenCalled();
+    expect(String(warn.mock.calls[0][0])).toContain("DEMO_MODE=true");
+    expect(String(warn.mock.calls[0][0])).not.toContain(real.email); // la advertencia no filtra datos
+  });
+
+  it("la cookie demo no identifica a nadie (era solo un id de usuario, cualquiera podría falsificarla)", async () => {
+    const real = await createWebUser();
+    expect(await resolveUser(jar({ demo_user_id: real.id }))).toBeNull();
+    expect(await resolveUser(jar({ demo_user_id: f.actors.belen.id }))).toBeNull();
+  });
+
+  it("el login real sigue funcionando con DEMO_MODE=true", async () => {
+    const real = await createWebUser();
+    const { session } = await loginWithPassword({ email: real.email, password: real.password });
+    expect(await resolveUser(jar({ [SESSION_COOKIE]: session.token }))).toMatchObject({ id: real.id, sessionKind: "WEB" });
+  });
+
+  it("el reinicio y la siembra no tocan nada (no vacían las cuentas reales) y no fallan el arranque", async () => {
+    await createWebUser();
+    const users = await db.user.count();
+    await expectAppError(resetDemoData({ actor: f.actors.belen }), "FORBIDDEN", /cuentas reales/);
+    expect(await seedDemoDataIfEmpty()).toEqual({ seeded: false, reason: "real-accounts" });
+    expect(await db.user.count()).toBe(users);
+  });
+
+  it("el chequeo se cachea: no consulta en cada petición y se refresca al vencer", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      expect(await demoAccessEnabled()).toBe(true); // sin cuentas reales; queda en caché
+      await createWebUser();
+      expect(await demoAccessEnabled()).toBe(true); // dentro de la ventana: todavía no se entera
+      vi.setSystemTime(Date.now() + 4 * 60_000);
+      expect(await demoAccessEnabled()).toBe(false); // pasada la ventana: se refresca y se deshabilita
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(await demoAccessEnabled()).toBe(false); // y vuelve a cachearse (no repite la advertencia)
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("sin DEMO_MODE la guardia no consulta nada ni advierte", async () => {
+    await createWebUser();
+    vi.stubEnv("DEMO_MODE", "");
+    expect(await demoAccessEnabled()).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 
