@@ -5,7 +5,7 @@
 // transacción de quien llama, igual que stock_levels / inventory_movements.
 
 export { issueVoucher } from "./issue";
-export { redeemVoucher, restoreRedemption, resolveVoucherCode } from "./redeem";
+export { redeemVoucher, restoreRedemption, resolveVoucherCode, assertVoucherUsable } from "./redeem";
 export { lookupVoucher, listVouchers, getVoucherLedger, findVoucherLedgerMismatches, type VoucherFilter, type VoucherLedgerMismatch } from "./queries";
 export { deactivateVoucher } from "./manage";
 export { generateVoucherCode, normalizeVoucherCode, formatVoucherCode, VOUCHER_CODE_BITS, VOUCHER_CODE_CHARS } from "./code";

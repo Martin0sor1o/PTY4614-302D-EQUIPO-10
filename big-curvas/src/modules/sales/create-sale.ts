@@ -9,7 +9,7 @@ import { SaleChannel } from "@/generated/prisma/client";
 import { consumeApproval } from "@/modules/approvals";
 import { sell } from "@/modules/inventory";
 import { nextDocumentNumber } from "@/modules/numbering";
-import { redeemVoucher, resolveVoucherCode } from "@/modules/vouchers";
+import { assertVoucherUsable, redeemVoucher, resolveVoucherCode } from "@/modules/vouchers";
 import { cartBinding } from "./approvals";
 import { getDiscountLimitBps, getPosLocation, loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
 import { assertDiscountWithinLimit, effectivePrice, isDiscountOverLimit, priceSale, quotePayment, type PaymentQuote } from "./pricing";
@@ -54,10 +54,16 @@ export async function createSale(input: CreateSaleInput): Promise<IdempotentResu
       return existing;
     },
     execute: async () => {
-      const { saleId } = await db.$transaction(
-        (tx) => createSaleInTx(tx, input.actor, { ...data, voucher: data.voucherCode ? { code: data.voucherCode } : undefined }),
-        TX_OPTIONS,
-      );
+      // El código se busca ANTES de abrir la transacción (el límite de intentos usa otra conexión del pool: dentro de la
+      // transacción, varias ventas simultáneas con vale podrían agotar el pool). La validación previa solo da un mensaje
+      // temprano; el canje lo decide, ya dentro de la transacción, el UPDATE atómico de redeemVoucher.
+      let voucher: { id: string } | undefined;
+      if (data.voucherCode) {
+        const found = await resolveVoucherCode(db, input.actor, data.voucherCode);
+        await assertVoucherUsable(db, found.id);
+        voucher = { id: found.id };
+      }
+      const { saleId } = await db.$transaction((tx) => createSaleInTx(tx, input.actor, { ...data, voucher }), TX_OPTIONS);
       // Se lee con el pool, ya confirmada: dentro de la transacción Prisma resolvería las relaciones en paralelo
       // sobre una sola conexión.
       const view = await loadSaleView(db, { id: saleId });

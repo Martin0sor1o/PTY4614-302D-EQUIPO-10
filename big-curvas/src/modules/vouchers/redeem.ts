@@ -39,6 +39,28 @@ const redeemSchema = z.object({
   idempotencyKey: z.string().trim().min(8, "idempotencyKey inválida").max(200),
 });
 
+/** Por qué un vale no se puede usar ahora (null si se puede). Lo comparten la validación previa y el canje. */
+function unusableReason(v: { code: string; balance: number; active: boolean; expired: boolean; expires_at: Date }): string | null {
+  if (!v.active) return `El vale …${codeTail(v.code)} está desactivado y no se puede usar.`;
+  if (v.expired) return `El vale …${codeTail(v.code)} venció el ${formatDate(v.expires_at)}.`;
+  if (v.balance <= 0) return `El vale …${codeTail(v.code)} no tiene saldo.`;
+  return null;
+}
+
+/**
+ * VALIDACIÓN PREVIA (solo lectura, sin bloqueos): sirve únicamente para dar un mensaje temprano antes de abrir la transacción
+ * de la venta. NO decide nada: entre esta lectura y la transacción el vale puede gastarse, vencer o desactivarse. Quien decide
+ * es `redeemVoucher` dentro de la transacción (bloqueo + UPDATE atómico `balance >= monto`) y, como red final, los CHECK de la base.
+ */
+export async function assertVoucherUsable(reader: Pick<Tx, "$queryRaw">, voucherId: string): Promise<void> {
+  const rows = await reader.$queryRaw<LockedVoucher[]>`
+    SELECT code, balance, active, expires_at, (expires_at <= now()) AS expired FROM vouchers WHERE id = ${voucherId}`;
+  const v = rows[0];
+  if (!v) throw new AppError("NOT_FOUND", "El vale no existe.");
+  const reason = unusableReason(v);
+  if (reason) throw new AppError("VALIDATION", reason);
+}
+
 interface LockedVoucher {
   code: string;
   balance: number;
@@ -66,9 +88,8 @@ export async function redeemVoucher(
     FROM vouchers WHERE id = ${data.voucherId} FOR UPDATE`;
   const v = rows[0];
   if (!v) throw new AppError("NOT_FOUND", "El vale no existe.");
-  if (!v.active) throw new AppError("VALIDATION", `El vale …${codeTail(v.code)} está desactivado y no se puede usar.`);
-  if (v.expired) throw new AppError("VALIDATION", `El vale …${codeTail(v.code)} venció el ${formatDate(v.expires_at)}.`);
-  if (v.balance <= 0) throw new AppError("VALIDATION", `El vale …${codeTail(v.code)} no tiene saldo.`);
+  const reason = unusableReason(v);
+  if (reason) throw new AppError("VALIDATION", reason);
 
   const amount = Math.min(v.balance, data.maxAmount);
   const updated = await tx.$queryRaw<{ balance: number }[]>`
