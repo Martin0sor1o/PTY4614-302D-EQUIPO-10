@@ -17,7 +17,7 @@ import {
 } from "./policy";
 import { createSession, revokeUserSessions, type CreatedSession } from "./sessions";
 import { resolveDevice, type ResolvedDevice } from "./pos-devices";
-import { clearFailures, lockedUntil, registerFailure } from "./throttle";
+import { clearFailures, reserveAttempt } from "./throttle";
 
 // Caja compartida (RF-USR-02, RN-29): el equipo ya está vinculado a una tienda; cada vendedora se identifica con su PIN
 // de 6 dígitos y solo ve su ubicación. Los fallos de PIN usan los mismos contadores y límites que la aprobación
@@ -67,24 +67,30 @@ export async function loginWithPin(input: { deviceToken: string | undefined; use
   const maxAttempts = await intSetting(SETTING_PIN_MAX, PIN_MAX_ATTEMPTS_DEFAULT);
   const lockMinutes = await intSetting(SETTING_PIN_LOCK, PIN_LOCK_MINUTES_DEFAULT);
 
-  // Un bloqueo ya terminado se limpia antes de contar.
-  await db.$executeRaw`UPDATE users SET failed_pin_attempts = 0, pin_locked_until = NULL
-    WHERE id = ${user.id} AND pin_locked_until IS NOT NULL AND pin_locked_until <= now()`;
-  const state = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { pinLockedUntil: true } });
-  if (state.pinLockedUntil && state.pinLockedUntil > new Date()) {
+  // El intento se cuenta ANTES de verificar el PIN, en un solo UPDATE atómico (la fila queda bloqueada mientras se lee el
+  // estado anterior): las peticiones simultáneas no esquivan el bloqueo. Con un bloqueo vigente no se cuenta ni se verifica.
+  const [after] = await db.$queryRaw<{ allowed: boolean; failed_pin_attempts: number; pin_locked_until: Date | null }[]>`
+    UPDATE users u
+    SET failed_pin_attempts = CASE
+          WHEN o.old_locked IS NOT NULL AND o.old_locked > now() THEN u.failed_pin_attempts
+          WHEN o.old_locked IS NOT NULL THEN 1
+          ELSE u.failed_pin_attempts + 1 END,
+        pin_locked_until = CASE
+          WHEN o.old_locked IS NOT NULL AND o.old_locked > now() THEN o.old_locked
+          WHEN (CASE WHEN o.old_locked IS NOT NULL THEN 1 ELSE u.failed_pin_attempts + 1 END) >= ${maxAttempts}
+            THEN now() + make_interval(mins => ${lockMinutes}::int)
+          ELSE NULL END
+    FROM (SELECT id, pin_locked_until AS old_locked FROM users WHERE id = ${user.id} FOR UPDATE) o
+    WHERE u.id = o.id
+    RETURNING (o.old_locked IS NULL OR o.old_locked <= now()) AS allowed, u.failed_pin_attempts, u.pin_locked_until`;
+  if (!after.allowed) {
     throw new AppError("FORBIDDEN", "Demasiados intentos. Tu PIN está bloqueado por unos minutos; pide ayuda a la administradora.", {
-      lockedUntil: state.pinLockedUntil.toISOString(),
+      lockedUntil: after.pin_locked_until?.toISOString() ?? null,
     });
   }
 
   if (!verifyPin(input.pin, user.pinHash)) {
-    const [after] = await db.$queryRaw<{ failed_pin_attempts: number; pin_locked_until: Date | null }[]>`
-      UPDATE users
-      SET failed_pin_attempts = failed_pin_attempts + 1,
-          pin_locked_until = CASE WHEN failed_pin_attempts + 1 >= ${maxAttempts} THEN now() + make_interval(mins => ${lockMinutes}::int) ELSE pin_locked_until END
-      WHERE id = ${user.id}
-      RETURNING failed_pin_attempts, pin_locked_until`;
-    const locked = after.pin_locked_until !== null;
+    const locked = after.pin_locked_until !== null; // este era el último intento permitido
     await auditAuth({
       action: locked ? "POS_PIN_LOCKED" : "POS_PIN_FAILED",
       userId: user.id,
@@ -178,15 +184,15 @@ export async function setOwnApprovalPin(input: { actor: Actor; password: string;
   if (!user?.passwordHash) throw new AppError("FORBIDDEN", "Esta cuenta no tiene contraseña.");
 
   const key = `pwchange:${hmac("pwchange", user.id)}`;
-  if (await lockedUntil(key)) throw new AppError("FORBIDDEN", "Demasiados intentos. Intenta de nuevo en unos minutos.");
+  const attempt = await reserveAttempt(key, PASSWORD_CHANGE_MAX_ATTEMPTS, PASSWORD_CHANGE_LOCK_MINUTES);
+  if (!attempt.allowed) throw new AppError("FORBIDDEN", "Demasiados intentos. Intenta de nuevo en unos minutos.");
   const ok = input.password.length <= PASSWORD_MAX_LENGTH && (await verifySecret(input.password, user.passwordHash));
   if (!ok) {
-    const failure = await registerFailure(key, PASSWORD_CHANGE_MAX_ATTEMPTS, PASSWORD_CHANGE_LOCK_MINUTES);
     await auditAuth({
-      action: failure.justLocked ? "AUTH_LOCKED" : "AUTH_LOGIN_FAILED",
+      action: attempt.isLastAttempt ? "AUTH_LOCKED" : "AUTH_LOGIN_FAILED",
       userId: user.id,
       entity: "auth",
-      data: { context: "approval_pin", attempts: failure.attempts },
+      data: { context: "approval_pin", attempts: attempt.attempts },
     });
     throw new AppError("VALIDATION", "La contraseña no es correcta.");
   }
