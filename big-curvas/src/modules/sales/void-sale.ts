@@ -6,7 +6,8 @@ import { runIdempotent, type IdempotentResult } from "@/lib/idempotency";
 import { parseInput } from "@/lib/validation";
 import { consumeApproval } from "@/modules/approvals";
 import { findOperationMovements, reverseSale } from "@/modules/inventory";
-import { assertVoidable, voidBinding } from "./approvals";
+import { restoreRedemption } from "@/modules/vouchers";
+import { assertNoReturns, assertVoidable, voidBinding } from "./approvals";
 import { loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
 import type { SaleView } from "./types";
 
@@ -46,11 +47,16 @@ export async function voidSale(input: {
     find: async () => ((await findOperationMovements(data.idempotencyKey)) ? loadSaleView(db, { id: data.saleId }) : null),
     execute: async () => {
       await db.$transaction(async (tx) => {
+        // Orden de bloqueo: VENTA → caja → stock (el mismo de returns). La venta se toma FOR UPDATE antes de revisar su estado y
+        // sus devoluciones: así una devolución simultánea de la misma venta (que la toma FOR SHARE) espera, ve el resultado ya
+        // confirmado y falla limpio; sin esto, las dos podían pasar (DEVOLUCION suma y ANULACION_VENTA repone todo).
+        await tx.$queryRaw`SELECT id FROM sales WHERE id = ${data.saleId} FOR UPDATE`;
         const sale = await tx.sale.findUniqueOrThrow({
           where: { id: data.saleId },
           include: { payments: true, lines: { select: { variantId: true, quantity: true } } },
         });
         assertVoidable(sale);
+        await assertNoReturns(tx, sale);
 
         const amountPaid = sale.payments.reduce((a, p) => a + p.amount, 0);
         const cashPaid = sale.payments.filter((p) => p.method === "EFECTIVO").reduce((a, p) => a + p.amount, 0);
@@ -103,6 +109,19 @@ export async function voidSale(input: {
           idempotencyKey: data.idempotencyKey,
         });
 
+        // 3b. Si parte de lo pagado fue con vale, el saldo vuelve al vale (REPOSICION; no extiende el vencimiento, S-11).
+        const voucherPayments = sale.payments.filter((p) => p.method === "VALE" && p.voucherId);
+        for (const p of voucherPayments) {
+          await restoreRedemption(tx, {
+            actor: input.actor,
+            locationId: sale.locationId,
+            voucherId: p.voucherId!,
+            amount: p.amount,
+            saleId: sale.id,
+            idempotencyKey: data.idempotencyKey,
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             userId: input.actor.id,
@@ -115,6 +134,7 @@ export async function voidSale(input: {
               saleNumber: sale.number,
               amountPaid,
               cashRefunded: cashPaid,
+              voucherRestored: voucherPayments.reduce((a, p) => a + p.amount, 0),
               reason: data.reason,
               // Directa del ADMIN (sin solicitud) o con aprobación de Belén pedida por una vendedora.
               direct: isAdmin,

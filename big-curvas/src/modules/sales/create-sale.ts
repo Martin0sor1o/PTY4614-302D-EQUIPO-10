@@ -9,21 +9,27 @@ import { SaleChannel } from "@/generated/prisma/client";
 import { consumeApproval } from "@/modules/approvals";
 import { sell } from "@/modules/inventory";
 import { nextDocumentNumber } from "@/modules/numbering";
+import { assertVoucherUsable, redeemVoucher, resolveVoucherCode } from "@/modules/vouchers";
 import { cartBinding } from "./approvals";
 import { getDiscountLimitBps, getPosLocation, loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
-import { assertDiscountWithinLimit, effectivePrice, isDiscountOverLimit, priceSale, quotePayment } from "./pricing";
+import { assertDiscountWithinLimit, effectivePrice, isDiscountOverLimit, priceSale, quotePayment, type PaymentQuote } from "./pricing";
 import { createSaleSchema } from "./schemas";
 import type { SaleView } from "./types";
+
+/** Medio de pago de lo que no cubre el vale. El monto lo calcula el servidor. */
+export type SalePaymentInput =
+  | { method: "EFECTIVO"; cashReceived: number }
+  | { method: "DEBITO" | "CREDITO" | "TRANSFERENCIA"; reference: string };
 
 export interface CreateSaleInput {
   actor: Actor;
   locationId: string;
   /** Cantidad y descuento por línea; el precio lo pone el servidor. */
   lines: { variantId: string; qty: number; discountBps: number }[];
-  /** Un medio de pago por venta en la demo. El monto lo calcula el servidor. */
-  payment:
-    | { method: "EFECTIVO"; cashReceived: number }
-    | { method: "DEBITO" | "CREDITO" | "TRANSFERENCIA"; reference: string };
+  /** Un medio de pago por venta (más el vale, si lo hay). Obligatorio salvo que el vale cubra todo. */
+  payment?: SalePaymentInput;
+  /** Código de un vale a canjear (ADR-021): cubre hasta su saldo; el resto va por `payment`. */
+  voucherCode?: string;
   /** Aprobación de Belén para los descuentos de una VENDEDORA que superan su límite (uso único, ligada a este carrito). */
   approvalId?: string;
   idempotencyKey: string;
@@ -48,7 +54,16 @@ export async function createSale(input: CreateSaleInput): Promise<IdempotentResu
       return existing;
     },
     execute: async () => {
-      const saleId = await db.$transaction((tx) => executeSale(tx, input.actor, data), TX_OPTIONS);
+      // El código se busca ANTES de abrir la transacción (el límite de intentos usa otra conexión del pool: dentro de la
+      // transacción, varias ventas simultáneas con vale podrían agotar el pool). La validación previa solo da un mensaje
+      // temprano; el canje lo decide, ya dentro de la transacción, el UPDATE atómico de redeemVoucher.
+      let voucher: { id: string } | undefined;
+      if (data.voucherCode) {
+        const found = await resolveVoucherCode(db, input.actor, data.voucherCode);
+        await assertVoucherUsable(db, found.id);
+        voucher = { id: found.id };
+      }
+      const { saleId } = await db.$transaction((tx) => createSaleInTx(tx, input.actor, { ...data, voucher }), TX_OPTIONS);
       // Se lee con el pool, ya confirmada: dentro de la transacción Prisma resolvería las relaciones en paralelo
       // sobre una sola conexión.
       const view = await loadSaleView(db, { id: saleId });
@@ -58,8 +73,31 @@ export async function createSale(input: CreateSaleInput): Promise<IdempotentResu
   });
 }
 
-async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createSaleSchema.parse>): Promise<string> {
-  const { locationId, lines, payment, idempotencyKey } = data;
+export interface SaleTxInput {
+  locationId: string;
+  lines: { variantId: string; qty: number; discountBps: number }[];
+  payment?: SalePaymentInput;
+  /** Vale a canjear: por código (lo escribió la vendedora; se busca con límite de intentos) o por id (el cambio, que lo emite en la misma transacción). */
+  voucher?: { code: string } | { id: string };
+  approvalId?: string;
+  idempotencyKey: string;
+}
+
+export interface SaleTxResult {
+  saleId: string;
+  number: string;
+  total: number;
+  /** Lo que cubrió el vale (0 si no hubo). */
+  voucherAmount: number;
+}
+
+/**
+ * Cuerpo de la venta POS DENTRO de la transacción de quien llama: `createSale` y el cambio de `returns` (que emite el vale,
+ * canjea y vende en una sola transacción). Valida acceso (rol + ubicación) igual que `createSale`.
+ */
+export async function createSaleInTx(tx: Tx, actor: Actor, input: SaleTxInput): Promise<SaleTxResult> {
+  assertAccess(actor, { roles: ["ADMIN", "VENDEDORA"], locationId: input.locationId });
+  const { locationId, lines, payment, idempotencyKey } = input;
   const location = await getPosLocation(tx, locationId);
 
   // 1. Caja abierta (bloqueada FOR SHARE: un cierre simultáneo espera a esta venta).
@@ -87,7 +125,7 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
   const overLimit = lines.filter((l) => isDiscountOverLimit(l.discountBps, limitBps));
   // Una VENDEDORA con descuentos sobre su límite necesita la aprobación de Belén (regla 10b); sin ella, se bloquea.
   const needsApproval = !isAdmin && overLimit.length > 0;
-  if (needsApproval && !data.approvalId) {
+  if (needsApproval && !input.approvalId) {
     for (const line of lines) assertDiscountWithinLimit(line.discountBps, limitBps, variantById.get(line.variantId)!.sku);
   }
 
@@ -99,14 +137,6 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
     }),
   );
   if (priced.total <= 0) throw new AppError("VALIDATION", "El total de la venta debe ser mayor a $0.");
-  const quote = quotePayment(priced.total, payment.method);
-  if (quote.amount <= 0) throw new AppError("VALIDATION", "El monto a cobrar debe ser mayor a $0.");
-  if (payment.method === "EFECTIVO" && payment.cashReceived < quote.amount) {
-    throw new AppError(
-      "VALIDATION",
-      `El monto recibido (${formatCLP(payment.cashReceived)}) es menor al total a cobrar (${formatCLP(quote.amount)}).`,
-    );
-  }
 
   // 4b. Aprobación de Belén: uso único, del mismo tipo, ubicación, MONTO de descuento y CARRITO (huella). Se consume en esta
   //     misma transacción: si la venta falla, la aprobación sigue disponible.
@@ -114,7 +144,7 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
   if (needsApproval) {
     await consumeApproval(tx, {
       actor,
-      approvalId: data.approvalId!,
+      approvalId: input.approvalId!,
       type: "DESCUENTO_SOBRE_LIMITE",
       locationId,
       amount: priced.discountTotal,
@@ -122,6 +152,37 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
       usedRefType: "SALE",
       usedRefId: saleId,
     });
+  }
+
+  // 4c. Vale (ADR-021): cubre min(saldo, total); el resto va por el medio de pago. El canje bloquea el vale y es atómico
+  //     (dos ventas simultáneas con el mismo vale no gastan más que su saldo). Si algo falla después, todo se revierte.
+  let voucherId: string | null = null;
+  let voucherAmount = 0;
+  if (input.voucher) {
+    voucherId = "id" in input.voucher ? input.voucher.id : (await resolveVoucherCode(tx, actor, input.voucher.code)).id;
+    const redeemed = await redeemVoucher(tx, { actor, locationId, voucherId, maxAmount: priced.total, saleId, idempotencyKey });
+    voucherAmount = redeemed.amount;
+  }
+  const remainder = priced.total - voucherAmount;
+
+  let quote: PaymentQuote = { amount: 0, roundingAdjustment: 0 };
+  if (remainder > 0) {
+    if (!payment) {
+      throw new AppError(
+        "VALIDATION",
+        `El vale cubre ${formatCLP(voucherAmount)} de ${formatCLP(priced.total)}: elige un medio de pago para los ${formatCLP(remainder)} restantes.`,
+        { voucherAmount, remainder },
+      );
+    }
+    quote = quotePayment(remainder, payment.method);
+    // Con vale, el resto en efectivo puede redondearse a $0 (RN-19): entonces no hay pago en efectivo y el ajuste queda en la venta.
+    if (quote.amount <= 0 && voucherAmount === 0) throw new AppError("VALIDATION", "El monto a cobrar debe ser mayor a $0.");
+    if (payment.method === "EFECTIVO" && payment.cashReceived < quote.amount) {
+      throw new AppError(
+        "VALIDATION",
+        `El monto recibido (${formatCLP(payment.cashReceived)}) es menor al total a cobrar (${formatCLP(quote.amount)}).`,
+      );
+    }
   }
 
   // 5. Stock: si una línea no alcanza, sell lanza STOCK_INSUFICIENTE nombrando la prenda y se revierte todo.
@@ -161,19 +222,25 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
       unitPrice: priced.lines[i].unitPrice,
       manualDiscountBps: l.discountBps,
       manualDiscount: priced.lines[i].discount,
-      discountApprovalId: needsApproval && isDiscountOverLimit(l.discountBps, limitBps) ? data.approvalId : null,
+      discountApprovalId: needsApproval && isDiscountOverLimit(l.discountBps, limitBps) ? input.approvalId : null,
       lineTotal: priced.lines[i].lineTotal,
     })),
   });
-  await tx.payment.create({
-    data: {
-      saleId,
-      method: payment.method,
-      amount: quote.amount,
-      reference: payment.method === "EFECTIVO" ? null : payment.reference,
-      cashReceived: payment.method === "EFECTIVO" ? payment.cashReceived : null,
-    },
-  });
+  // Invariante: Σ pagos = total + rounding_adjustment (el vale + lo cobrado por el otro medio).
+  if (voucherAmount > 0) {
+    await tx.payment.create({ data: { saleId, method: "VALE", amount: voucherAmount, voucherId, reference: null, cashReceived: null } });
+  }
+  if (payment && quote.amount > 0) {
+    await tx.payment.create({
+      data: {
+        saleId,
+        method: payment.method,
+        amount: quote.amount,
+        reference: payment.method === "EFECTIVO" ? null : payment.reference,
+        cashReceived: payment.method === "EFECTIVO" ? payment.cashReceived : null,
+      },
+    });
+  }
 
   if (needsApproval) {
     await tx.auditLog.create({
@@ -185,7 +252,7 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
         entityId: saleId,
         after: {
           saleNumber: number,
-          approvalId: data.approvalId,
+          approvalId: input.approvalId,
           discountTotal: priced.discountTotal,
           lines: overLimit.map((l) => ({ sku: variantById.get(l.variantId)!.sku, discountBps: l.discountBps })),
         },
@@ -211,5 +278,5 @@ async function executeSale(tx: Tx, actor: Actor, data: ReturnType<typeof createS
     });
   }
 
-  return saleId;
+  return { saleId, number, total: priced.total, voucherAmount };
 }

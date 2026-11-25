@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { assertAccess, type Actor } from "@/lib/access";
 import { AppError } from "@/lib/errors";
 import { santiagoDayKey } from "@/lib/dates";
@@ -126,6 +126,17 @@ export function assertVoidable(
   }
 }
 
+/**
+ * Una venta con devoluciones, o que es la venta nueva de un cambio, no se anula (S-11, ADR-021): anularla dejaría la
+ * devolución sin respaldo. Lectura de solo-lectura sobre `returns` (no se importa el módulo: returns depende de sales).
+ */
+export async function assertNoReturns(reader: Pick<Tx, "return">, sale: { id: string; number: string }): Promise<void> {
+  const linked = await reader.return.count({ where: { OR: [{ originalSaleId: sale.id }, { newSaleId: sale.id }] } });
+  if (linked > 0) {
+    throw new AppError("CONFLICT", `La venta ${sale.number} tiene una devolución o es el cambio de una devolución: ya no se puede anular.`);
+  }
+}
+
 /** La vendedora pide a Belén anular una venta del día. El monto aprobado es lo cobrado (suma de los pagos). */
 export async function requestVoidApproval(input: { actor: Actor; saleId: string; reason: string; idempotencyKey: string }) {
   assertAccess(input.actor, { roles: ["VENDEDORA"] });
@@ -137,6 +148,7 @@ export async function requestVoidApproval(input: { actor: Actor; saleId: string;
   if (!sale) throw new AppError("NOT_FOUND", "La venta no existe.");
   assertAccess(input.actor, { roles: ["VENDEDORA"], locationId: sale.locationId });
   assertVoidable(sale);
+  await assertNoReturns(db, sale);
 
   const amountPaid = sale.payments.reduce((a, p) => a + p.amount, 0);
   return createApprovalRequest({

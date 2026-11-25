@@ -24,6 +24,10 @@ import { hashString, seededRandom } from "./random";
 // DEMO: reinicia y carga los datos de ejemplo. Vacía las tablas de la app: solo con DEMO_MODE=true.
 
 const ALL_TABLES = [
+  "voucher_movements",
+  "vouchers",
+  "return_lines",
+  "returns",
   "audit_log",
   "sessions",
   "pos_devices",

@@ -32,7 +32,11 @@ expected_tables(name) AS (VALUES
     ('stock_levels'),
     ('transfer_lines'),
     ('transfers'),
-    ('users')
+    ('users'),
+    ('return_lines'),
+    ('returns'),
+    ('voucher_movements'),
+    ('vouchers')
 ),
 expected_checks(name) AS (VALUES
     ('approval_requests_amount_chk'),
@@ -66,7 +70,19 @@ expected_checks(name) AS (VALUES
     ('transfers_from_to_chk'),
     ('users_email_lower_chk'),
     ('users_failed_pin_attempts_chk'),
-    ('users_must_change_chk')
+    ('users_must_change_chk'),
+    ('payments_voucher_chk'),
+    ('return_lines_amount_chk'),
+    ('return_lines_quantity_chk'),
+    ('returns_cash_chk'),
+    ('returns_kind_chk'),
+    ('returns_money_chk'),
+    ('returns_voucher_chk'),
+    ('sale_lines_returned_chk'),
+    ('voucher_movements_amount_chk'),
+    ('voucher_movements_balance_after_chk'),
+    ('voucher_movements_type_sign_chk'),
+    ('vouchers_amounts_chk')
 ),
 expected_indexes(name) AS (VALUES
     ('approval_requests_idempotency_key_key'),
@@ -113,11 +129,36 @@ expected_indexes(name) AS (VALUES
     ('transfers_number_key'),
     ('transfers_status_from_location_id_idx'),
     ('transfers_status_to_location_id_idx'),
-    ('users_email_key')
+    ('users_email_key'),
+    ('payments_voucher_id_idx'),
+    ('return_lines_return_id_sale_line_id_key'),
+    ('return_lines_sale_line_id_idx'),
+    ('returns_approval_id_key'),
+    ('returns_idempotency_key_key'),
+    ('returns_location_id_created_at_idx'),
+    ('returns_new_sale_id_key'),
+    ('returns_number_key'),
+    ('returns_original_sale_id_idx'),
+    ('returns_voucher_id_key'),
+    ('voucher_movements_idempotency_key_key'),
+    ('voucher_movements_voucher_id_created_at_idx'),
+    ('vouchers_code_key'),
+    ('vouchers_expires_at_idx'),
+    ('vouchers_issued_location_id_created_at_idx')
 ),
 expected_triggers(name, tbl) AS (VALUES
     ('inventory_movements_immutable', 'inventory_movements'),
-    ('online_order_events_immutable', 'online_order_events')
+    ('online_order_events_immutable', 'online_order_events'),
+    ('voucher_movements_immutable', 'voucher_movements'),
+    ('vouchers_protect', 'vouchers')
+),
+voucher_ledger AS (
+  SELECT v.code,
+         (v.balance = v.initial_amount + COALESCE((SELECT sum(m.amount) FROM voucher_movements m WHERE m.voucher_id = v.id AND m.type <> 'EMISION'), 0)
+          AND v.balance = COALESCE((SELECT sum(m.amount) FROM voucher_movements m WHERE m.voucher_id = v.id), 0)
+          AND (SELECT count(*) FROM voucher_movements m WHERE m.voucher_id = v.id AND m.type = 'EMISION' AND m.amount = v.initial_amount) = 1
+         ) AS ok
+  FROM vouchers v
 ),
 results AS (
   SELECT 'tablas' AS check_name,
@@ -152,8 +193,13 @@ results AS (
             SELECT 1 FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid
              WHERE g.tgname = e.name AND c.relname = e.tbl AND g.tgenabled = 'O' AND NOT g.tgisinternal)), '')
   UNION ALL
+  SELECT 'vales: saldo = monto inicial + movimientos',
+         (SELECT count(*) FROM voucher_ledger)::int,
+         (SELECT count(*) FROM voucher_ledger WHERE ok)::int,
+         COALESCE((SELECT string_agg(code, ', ') FROM voucher_ledger WHERE NOT ok), '')
+  UNION ALL
   SELECT 'migraciones aplicadas (terminadas, sin revertir)',
-         5,
+         6,
          (SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL)::int,
          ''
 )

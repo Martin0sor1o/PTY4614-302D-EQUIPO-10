@@ -2,7 +2,7 @@
 // importan solo desde aquí. `approvals` NO ejecuta la acción aprobada: la ejecuta el módulo solicitante con el
 // approvalId como credencial de un solo uso (`consumeApproval`, dentro de su transacción).
 
-export { createApprovalRequest, type CreateApprovalInput } from "./requests";
+export { createApprovalRequest, REQUESTABLE_TYPES, type CreateApprovalInput, type RequestableType } from "./requests";
 export { approveRequest, rejectRequest, approveWithPin } from "./decisions";
 export { consumeApproval } from "./consume";
 export { getApprovalStatus, listApprovals, countPendingApprovals, listApprovers } from "./queries";

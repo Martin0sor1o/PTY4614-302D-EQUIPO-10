@@ -5,5 +5,6 @@ export const TYPE_LABEL: Record<string, string> = {
   ANULACION: "Anulación de venta",
   REEMBOLSO: "Reembolso",
   CAMBIO_FUERA_PLAZO: "Cambio fuera de plazo",
+  VALE_SOBRE_TOPE: "Vale sobre el tope",
   CAMBIO_SIN_BOLETA: "Cambio sin boleta",
 };
