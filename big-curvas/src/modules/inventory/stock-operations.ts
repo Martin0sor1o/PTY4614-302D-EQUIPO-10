@@ -6,8 +6,18 @@ import { parseInput } from "@/lib/validation";
 import { MovementType, RefType } from "@/generated/prisma/client";
 import { assertVariantsExist, getActiveLocation, insufficientStock, recordMovement } from "./internal";
 import { normalizeLines } from "./lines";
-import { adjustSchema, loadInitialStockSchema, receiveSchema, returnOrderSchema, reverseSaleSchema, sellSchema } from "./schemas";
-import { addOnHand, takeAvailable } from "./stock-sql";
+import {
+  adjustSchema,
+  loadInitialStockSchema,
+  lockStockSchema,
+  receiveSchema,
+  returnOrderSchema,
+  returnToStockSchema,
+  reverseSaleSchema,
+  sellSchema,
+  writeOffSchema,
+} from "./schemas";
+import { addOnHand, lockStockRows, takeAvailable } from "./stock-sql";
 import type { Actor, MovementRecord, StockOperationResult } from "./types";
 
 // Operaciones de stock de UNA ubicación. Todas reciben el `tx` de quien llama (regla: sales/orders pasan el
@@ -250,4 +260,95 @@ export async function returnOrderToStock(
     );
   }
   return { movements };
+}
+
+const RETURN_ROLES = ["ADMIN", "VENDEDORA", "BODEGA"] as const;
+
+/**
+ * Devolución o cambio (ADR-021, RN-24): la prenda que vuelve entra al stock de la ubicación QUE LA RECIBE, con movimiento
+ * DEVOLUCION (+qty, ref RETURN). Lo llama `returns` dentro de su transacción. La vendedora y la bodega solo operan en la
+ * suya; el ADMIN en cualquiera. No exige que la ubicación venda en POS: Belén también recibe devoluciones en la bodega.
+ */
+export async function returnToStock(
+  tx: Tx,
+  input: WithActor<{ locationId: string; lines: { variantId: string; qty: number }[]; returnId: string; reason?: string; idempotencyKey: string }>,
+): Promise<StockOperationResult> {
+  const { locationId, lines, returnId, reason, idempotencyKey } = parseInput(returnToStockSchema, input);
+  assertAccess(input.actor, { roles: RETURN_ROLES, locationId });
+  await getActiveLocation(tx, locationId);
+  const sorted = normalizeLines(lines);
+  await assertVariantsExist(tx, sorted.map((l) => l.variantId));
+
+  const movements: MovementRecord[] = [];
+  for (const [n, line] of sorted.entries()) {
+    const row = await addOnHand(tx, line.variantId, locationId, line.qty);
+    movements.push(
+      await recordMovement(tx, {
+        variantId: line.variantId,
+        locationId,
+        type: MovementType.DEVOLUCION,
+        quantity: line.qty,
+        onHandAfter: row.onHand,
+        at: row.at,
+        refType: RefType.RETURN,
+        refId: returnId,
+        reason: reason ?? "Devolución de cliente",
+        userId: input.actor.id,
+        idempotencyKey: lineKey(idempotencyKey, n),
+      }),
+    );
+  }
+  return { movements };
+}
+
+/**
+ * Merma de una prenda devuelta en mal estado (RN-11): sale del stock vendible con movimiento MERMA (−qty, ref RETURN).
+ * Descuenta solo lo DISPONIBLE (nunca lo reservado para pedidos). En una devolución de prenda dañada `returns` la llama
+ * justo después de `returnToStock`: el stock queda igual y los dos movimientos dejan la historia completa.
+ */
+export async function writeOff(
+  tx: Tx,
+  input: WithActor<{ locationId: string; lines: { variantId: string; qty: number }[]; returnId: string; reason: string; idempotencyKey: string }>,
+): Promise<StockOperationResult> {
+  const { locationId, lines, returnId, reason, idempotencyKey } = parseInput(writeOffSchema, input);
+  assertAccess(input.actor, { roles: RETURN_ROLES, locationId });
+  await getActiveLocation(tx, locationId);
+  const sorted = normalizeLines(lines);
+  await assertVariantsExist(tx, sorted.map((l) => l.variantId));
+
+  const movements: MovementRecord[] = [];
+  for (const [n, line] of sorted.entries()) {
+    const row = await takeAvailable(tx, line.variantId, locationId, line.qty);
+    if (!row) throw await insufficientStock(tx, line.variantId, locationId, line.qty);
+    movements.push(
+      await recordMovement(tx, {
+        variantId: line.variantId,
+        locationId,
+        type: MovementType.MERMA,
+        quantity: -line.qty,
+        onHandAfter: row.onHand,
+        at: row.at,
+        refType: RefType.RETURN,
+        refId: returnId,
+        reason,
+        userId: input.actor.id,
+        idempotencyKey: lineKey(idempotencyKey, n),
+      }),
+    );
+  }
+  return { movements };
+}
+
+/**
+ * Bloqueo previo de filas de stock en orden canónico (ubicación, variante), para una transacción que toca VARIOS
+ * conjuntos de variantes (un cambio: lo que entra y lo que sale). No cambia cantidades ni deja movimientos; solo crea con
+ * 0 las filas que falten y las bloquea. El actor debe poder operar en cada ubicación tocada.
+ */
+export async function lockStock(tx: Tx, input: { actor: Actor; keys: { locationId: string; variantId: string }[] }): Promise<void> {
+  const { keys } = parseInput(lockStockSchema, input);
+  for (const locationId of new Set(keys.map((k) => k.locationId))) {
+    assertAccess(input.actor, { roles: RETURN_ROLES, locationId });
+  }
+  await assertVariantsExist(tx, keys.map((k) => k.variantId));
+  await lockStockRows(tx, keys);
 }

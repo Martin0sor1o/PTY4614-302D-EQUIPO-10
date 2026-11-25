@@ -53,6 +53,28 @@ export const reverseSaleSchema = z.object({
   idempotencyKey,
 });
 
+/** Prenda que vuelve por una devolución o un cambio (ADR-021): entra al stock de la ubicación que la recibe. */
+export const returnToStockSchema = z.object({
+  locationId: id,
+  lines,
+  returnId: id,
+  reason: z.string().trim().min(3).max(200).optional(),
+  idempotencyKey,
+});
+
+/** Prenda devuelta en mal estado: sale del stock vendible como MERMA. */
+export const writeOffSchema = z.object({
+  locationId: id,
+  lines,
+  returnId: id,
+  reason: z.string().trim().min(3, "El motivo es obligatorio").max(200),
+  idempotencyKey,
+});
+
+export const lockStockSchema = z.object({
+  keys: z.array(z.object({ locationId: id, variantId: id })).min(1).max(500),
+});
+
 export const reserveSchema = z.object({
   lines: z.array(z.object({ variantId: id, locationId: id, qty, orderLineId: id.optional() })).min(1),
   expiresAt: z.date().nullable().optional(),
