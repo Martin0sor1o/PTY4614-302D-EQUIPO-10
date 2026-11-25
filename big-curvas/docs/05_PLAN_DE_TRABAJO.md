@@ -1,6 +1,6 @@
 # 05 – Plan de trabajo (v0.4 – 1 tienda + bodega)
 
-Supuesto de capacidad: **1 desarrollador ~20 h/semana con Claude Code** (más el apoyo del Equipo 10).
+Supuesto de capacidad: **1 desarrollador ~20 h/semana con desarrollo asistido** (más el apoyo del Equipo 10).
 
 ## 1. Qué cambió respecto a v0.3 (reunión del 2026-10-02)
 
@@ -12,18 +12,29 @@ Supuesto de capacidad: **1 desarrollador ~20 h/semana con Claude Code** (más el
 - **Boletas**: ya las emiten con una app (probablemente Vessi). En el MVP el POS registra el N° de boleta; baja el riesgo tributario.
 - Esfuerzo: **−1 a 2 semanas** respecto a v0.3.
 
-## 2. Estado actual (demo funcional, rama `feature/demo`)
+## 2. Estado actual (noviembre de 2026, rama `feature/demo`)
+
+La demo está completa y publicada (Render + Neon), con **551 pruebas automáticas** aprobadas. Lo único que queda del alcance de la demo son los **cambios y devoluciones**, que esperan las respuestas de Belén (sección 8).
 
 | Etapa de la demo | Estado |
 |------------------|--------|
 | 1. Base, login de demo, datos de ejemplo | ✅ |
 | 2. InventoryService (concurrencia), stock y kardex | ✅ |
 | 3. Identidad visual y POS (caja, ticket, ventas del día) | ✅ |
-| 3.5 Ajuste a v0.4 (sin Providencia, descuento 0 %, reserva al pagar) | ⏳ Siguiente |
-| 4. Traslados tienda ↔ bodega | Pendiente |
-| 5. Pedidos online desde bodega | Pendiente |
-| 6. Aprobaciones remotas de Belén | Pendiente |
-| 7. Pulido y publicación | Pendiente |
+| 3.5 Ajuste a v0.4 (sin Providencia, descuento 0 %, reserva al pagar) | ✅ |
+| 4. Traslados tienda ↔ bodega | ✅ |
+| 5. Pedidos online desde bodega | ✅ |
+| 6. Aprobaciones remotas de Belén | ✅ |
+| 6.5 Reportes y dashboard | ✅ |
+| 7. Pulido y publicación en Render | ✅ |
+| 8. Rediseño visual (dirección D) | ✅ |
+
+| Otros avances | Estado |
+|---------------|--------|
+| Base de datos de la demo en Neon (ADR-019): conexión directa para migraciones, respaldo y restauración probados, `scripts/verify-db.sql` | ✅ |
+| Autenticación real (ADR-020): contraseña de la administradora, dispositivo de caja + PIN, sesiones, bloqueo por intentos, auditoría; la demo sigue igual con `DEMO_MODE` | ✅ |
+| Cambios y devoluciones (módulo `returns`) | ⏳ Pendiente (reglas por validar con Belén) |
+| Bootstrap de datos y servicio con login real para producción | ⏳ Pendiente (ver F1) |
 
 ## 3. Hoja de ruta
 
@@ -57,12 +68,14 @@ gantt
 
 ## 4. Fases
 
-### Demo (octubre)
-- **3.5 Ajuste a v0.4**: quitar Providencia del seed y de los tests, límite de descuento de la vendedora en 0 %, regla "se aparta al pagar" para la Etapa 5.
-- **4 Traslados**: envío y recepción entre tienda y bodega, diferencias.
-- **5 Pedidos online**: registro sin reserva → pago (aparta en bodega o en tienda + traslado) → picking → despacho.
-- **6 Aprobaciones**: descuentos, reembolsos y anulaciones desde el celular de Belén o con su PIN.
-- **7 Pulido y publicación** en Render para mostrarla.
+### Demo (octubre – noviembre) ✅
+- ✅ **3.5 Ajuste a v0.4**: quitar Providencia del seed y de los tests, límite de descuento de la vendedora en 0 %, regla "se aparta al pagar" para la Etapa 5.
+- ✅ **4 Traslados**: envío y recepción entre tienda y bodega, diferencias.
+- ✅ **5 Pedidos online**: registro sin reserva → pago (aparta en bodega o en tienda + traslado) → picking → despacho.
+- ✅ **6 Aprobaciones**: descuentos, reembolsos y anulaciones desde el celular de Belén o con su PIN.
+- ✅ **6.5 Reportes y dashboard** para la administradora.
+- ✅ **7 Pulido y publicación** en Render (con la base en Neon, ADR-019).
+- ✅ **8 Rediseño visual** (dirección D, `DISENO.md`).
 
 ### F1 – Fundaciones del sistema real
 Autenticación real (Belén con contraseña, vendedoras con PIN), backups, staging, permisos de BD de producción.
@@ -119,3 +132,22 @@ Alternativa para ahorrar: una sola impresora de etiquetas en la tienda, y Belén
 | R-14 | **Belén concentra todo** (Instagram, bodega, traslados, todos los descuentos y aprobaciones) | **Alta** | Alto | Aprobación en un toque desde el celular; promociones configuradas de antemano (no requieren aprobación); a futuro, delegar un límite pequeño a las vendedoras |
 | R-15 | Salir a producción en temporada alta | Media | Alto | Salir la primera semana de enero |
 | R-17 | Pedidos online pagados sin stock (se aparta recién al pagar) | Media | Medio | Al registrar se muestra el disponible; al pagar se valida y se avisa si falta |
+
+## 8. Preguntas abiertas con Belén
+
+Cada pregunta tiene su detalle en `07_DECISIONES_Y_PREGUNTAS.md`. Mientras no se respondan, la demo usa el supuesto indicado (marcado como 🟡 en los documentos).
+
+| ID | Pregunta | Qué bloquea | Supuesto actual |
+|----|----------|-------------|-----------------|
+| P-09 | Cambios y devoluciones: plazo, ¿dinero o vale?, vigencia del vale, envío de cambios online | Módulo de devoluciones (RN-10, 15, 16, 17) | Sin implementar; supuestos en 🟡 |
+| P-16 | Cambio con diferencia a favor de la clienta: ¿vale o dinero? | RF-DEV-02 | Sin implementar |
+| P-17 | Reembolso de una compra con tarjeta: ¿anulación en la máquina, transferencia o efectivo? | RF-DEV-03 | Sin implementar (los reembolsos de pedidos online se registran con aprobación) |
+| P-22 | ¿Quién registra las devoluciones de pedidos online que llegan por courier a la bodega? | RF-DEV-07 | Sin implementar |
+| P-24 | ¿Qué reportes quiere ver Belén a diario o semanalmente? | Dashboards y reportes definitivos | La demo trae cinco reportes propuestos (etapa 6.5) |
+| P-11 | Envíos: couriers (Starken, Blue Express o Chilexpress), cómo se cobra, envío gratis, ¿hay retiro y dónde? | Pedidos online (RF-PED-06/07/08) | Despacho solo por courier, costo de envío ingresado a mano |
+| P-28 | ¿Cómo se resuelven las diferencias de traslado (RN-30)? ¿Hace falta registrar también "error de recepción" (se escaneó de más en destino)? | Cierre de traslados | Merma, reenvío o error de envío; el sobrante solo se resuelve como error de envío |
+
+### Otras decisiones pendientes
+
+- **Licencia y propiedad del código:** el repositorio es público y hoy **no tiene licencia**. Falta acordar con la clienta quién es dueña del código y revisar la política de propiedad intelectual de Duoc UC antes de elegir una licencia (o de dejarlo sin ella). No se agrega ningún archivo `LICENSE` hasta que se decida.
+- **Servicio con login real y datos de producción:** definir cuándo se despliega, con qué base (la demo es pública y se reinicia) y quién administra las cuentas.
