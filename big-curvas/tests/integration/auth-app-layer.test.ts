@@ -32,6 +32,9 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => undefined }));
 
+/** Cookies que se fijaron CON valor (los borrados son sets vacíos con Max-Age=0 y se comprueban en auth-cookies.test.ts). */
+const liveSets = () => mocks.sets.filter((s) => s.value !== "");
+
 let f: Fixtures;
 beforeEach(async () => {
   f = await resetDemo();
@@ -210,8 +213,9 @@ describe("login por las acciones y cookies", () => {
     expect(mocks.sets).toHaveLength(0);
 
     await rejects(passwordLoginAction({ email: u.email, password: u.password }), "/");
-    expect(mocks.sets).toHaveLength(1);
-    expect(mocks.sets[0]).toMatchObject({ name: "bc_session", options: { httpOnly: true, secure: false, sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 } });
+    const created = liveSets();
+    expect(created).toHaveLength(1); // una sola cookie con valor: la de sesión (el resto son borrados de cookies anteriores)
+    expect(created[0]).toMatchObject({ name: "bc_session", options: { httpOnly: true, secure: false, sameSite: "lax", path: "/", maxAge: 7 * 24 * 60 * 60 } });
     expect(await getCurrentUser()).toMatchObject({ id: u.id, sessionKind: "WEB" });
   });
 
@@ -226,19 +230,19 @@ describe("login por las acciones y cookies", () => {
     const u = await createWebUser();
     const { passwordLoginAction, pinLoginAction } = await import("@/app/login/actions");
     await rejects(passwordLoginAction({ email: u.email, password: u.password }), "/");
-    expect(mocks.sets[0]).toMatchObject({ name: "__Host-bc_session", options: { httpOnly: true, secure: true, sameSite: "lax", path: "/" } });
-    expect(mocks.sets[0].options).not.toHaveProperty("domain");
+    expect(liveSets()[0]).toMatchObject({ name: "__Host-bc_session", options: { httpOnly: true, secure: true, sameSite: "lax", path: "/" } });
+    expect(liveSets()[0].options).not.toHaveProperty("domain");
     expect(await getCurrentUser()).toMatchObject({ id: u.id });
 
     // Caja: la cookie del dispositivo también lleva __Host-.
     const { linkDeviceAction } = await import("@/app/vincular/actions");
     const created = await createPairingCode({ actor: f.actors.belen, locationId: f.loc.TIENDA_RANCAGUA, name: "Caja" });
     await rejects(linkDeviceAction({ code: created.code }), "/login?vinculado=1");
-    const device = mocks.sets.at(-1)!;
+    const device = liveSets().at(-1)!;
     expect(device).toMatchObject({ name: "__Host-bc_device", options: { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 180 * 24 * 60 * 60 } });
     const pin = await setPinFor(f, f.actors.vendRga.id);
     await rejects(pinLoginAction({ userId: f.actors.vendRga.id, pin }), "/pos");
-    expect(mocks.sets.at(-1)).toMatchObject({ name: "__Host-bc_session", options: { secure: true, maxAge: 12 * 60 * 60 } });
+    expect(liveSets().at(-1)).toMatchObject({ name: "__Host-bc_session", options: { secure: true, maxAge: 12 * 60 * 60 } });
     expect(await getCurrentUser()).toMatchObject({ id: f.actors.vendRga.id, sessionKind: "POS" });
   });
 
@@ -249,16 +253,16 @@ describe("login por las acciones y cookies", () => {
     expect(mocks.sets).toHaveLength(0);
     const created = await createPairingCode({ actor: f.actors.belen, locationId: f.loc.TIENDA_RANCAGUA, name: "Caja" });
     await rejects(linkDeviceAction({ code: created.code }), "/login?vinculado=1");
-    expect(mocks.sets[0]).toMatchObject({ name: "bc_device", options: { httpOnly: true, maxAge: 180 * 24 * 60 * 60 } });
+    expect(liveSets()[0]).toMatchObject({ name: "bc_device", options: { httpOnly: true, maxAge: 180 * 24 * 60 * 60 } });
     // El token de la cookie no es el código, y en la BD solo está su hash.
-    expect(mocks.sets[0].value).not.toContain(created.code.replace("-", ""));
+    expect(liveSets()[0].value).not.toContain(created.code.replace("-", ""));
   });
 
   it("PIN en el equipo vinculado: entra, y la sesión anterior del navegador se cierra (se rota el token)", async () => {
     const { token: oldToken, deviceToken, pin } = await asSeller();
     const { pinLoginAction } = await import("@/app/login/actions");
     await rejects(pinLoginAction({ userId: f.actors.vendRga.id, pin }), "/pos");
-    const fresh = mocks.sets.at(-1)!;
+    const fresh = liveSets().at(-1)!;
     expect(fresh.name).toBe("bc_session");
     expect(fresh.value).not.toBe(oldToken);
     expect(await resolveUser(jar({ [SESSION_COOKIE]: oldToken }))).toBeNull(); // la anterior quedó revocada
@@ -306,8 +310,10 @@ describe("cerrar sesión", () => {
     await rejects(logoutAction(), "/login");
 
     expect((await sessionRow(token)).revokedAt).not.toBeNull();
-    expect(mocks.deletes).toEqual(expect.arrayContaining(["bc_session", "bc_location", "demo_user_id"]));
-    expect(mocks.deletes).not.toContain("bc_device");
+    // Las cookies se borran sobrescribiéndolas vacías con las mismas opciones y Max-Age=0 (ver auth-cookies.test.ts).
+    const expired = mocks.sets.filter((s) => s.value === "" && s.options.maxAge === 0).map((s) => s.name);
+    expect(expired).toEqual(expect.arrayContaining(["bc_session", "bc_location", "demo_user_id"]));
+    expect(expired).not.toContain("bc_device");
     expect(mocks.jar[DEVICE_COOKIE]).toBe(deviceToken);
     expect(await getCurrentUser()).toBeNull();
     expect(await resolveUser(jar({ [SESSION_COOKIE]: token }))).toBeNull(); // el token robado tampoco sirve
