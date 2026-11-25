@@ -8,6 +8,7 @@ WITH
 expected_tables(name) AS (VALUES
     ('approval_requests'),
     ('audit_log'),
+    ('auth_throttles'),
     ('cash_sessions'),
     ('categories'),
     ('colors'),
@@ -19,11 +20,13 @@ expected_tables(name) AS (VALUES
     ('online_order_lines'),
     ('online_orders'),
     ('payments'),
+    ('pos_devices'),
     ('product_variants'),
     ('products'),
     ('reservations'),
     ('sale_lines'),
     ('sales'),
+    ('sessions'),
     ('settings'),
     ('sizes'),
     ('stock_levels'),
@@ -33,6 +36,7 @@ expected_tables(name) AS (VALUES
 ),
 expected_checks(name) AS (VALUES
     ('approval_requests_amount_chk'),
+    ('auth_throttles_failed_chk'),
     ('cash_sessions_opening_cash_chk'),
     ('document_counters_last_value_chk'),
     ('inventory_movements_on_hand_after_chk'),
@@ -43,12 +47,16 @@ expected_checks(name) AS (VALUES
     ('online_orders_total_chk'),
     ('payments_amount_chk'),
     ('payments_cash_received_chk'),
+    ('pos_devices_pairing_chk'),
+    ('pos_devices_revoked_chk'),
     ('reservations_quantity_chk'),
     ('sale_lines_quantity_chk'),
     ('sales_amounts_chk'),
     ('sales_shipping_chk'),
     ('sales_total_chk'),
     ('sales_void_chk'),
+    ('sessions_expiry_chk'),
+    ('sessions_kind_device_chk'),
     ('settings_value_chk'),
     ('stock_levels_on_hand_chk'),
     ('stock_levels_reserved_chk'),
@@ -56,7 +64,9 @@ expected_checks(name) AS (VALUES
     ('transfer_lines_qty_received_chk'),
     ('transfer_lines_qty_sent_chk'),
     ('transfers_from_to_chk'),
-    ('users_failed_pin_attempts_chk')
+    ('users_email_lower_chk'),
+    ('users_failed_pin_attempts_chk'),
+    ('users_must_change_chk')
 ),
 expected_indexes(name) AS (VALUES
     ('approval_requests_idempotency_key_key'),
@@ -76,6 +86,9 @@ expected_indexes(name) AS (VALUES
     ('online_orders_number_key'),
     ('online_orders_pickup_location_id_status_idx'),
     ('online_orders_status_created_at_idx'),
+    ('pos_devices_device_token_hash_key'),
+    ('pos_devices_location_id_active_idx'),
+    ('pos_devices_pairing_code_hash_key'),
     ('product_variants_barcode_key'),
     ('product_variants_product_id_size_id_color_id_key'),
     ('product_variants_sku_key'),
@@ -89,6 +102,10 @@ expected_indexes(name) AS (VALUES
     ('sales_number_key'),
     ('sales_online_order_id_key'),
     ('sales_void_approval_id_key'),
+    ('sessions_expires_at_idx'),
+    ('sessions_pos_device_id_idx'),
+    ('sessions_token_hash_key'),
+    ('sessions_user_id_idx'),
     ('sizes_code_key'),
     ('stock_levels_location_id_variant_id_idx'),
     ('transfer_lines_transfer_id_variant_id_key'),
@@ -136,7 +153,7 @@ results AS (
              WHERE g.tgname = e.name AND c.relname = e.tbl AND g.tgenabled = 'O' AND NOT g.tgisinternal)), '')
   UNION ALL
   SELECT 'migraciones aplicadas (terminadas, sin revertir)',
-         4,
+         5,
          (SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL)::int,
          ''
 )

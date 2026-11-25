@@ -23,6 +23,9 @@ Guía paso a paso para dejar la demo de Big Curvas en internet y abrirla desde c
   | `DEMO_MODE` | `true` | `render.yaml` |
   | `DATABASE_URL` | Cadena **pooled** de Neon (el host lleva `-pooler`) | Se pega a mano en Render (`sync: false`) |
   | `DIRECT_URL` | Cadena **directa** de Neon (sin `-pooler`) | Se pega a mano en Render (`sync: false`) |
+  | `DEMO_ADMIN_PIN` | Opcional. PIN (4 a 6 dígitos que tú eliges) de Belén en la demo; **no está en el repositorio** | Se pega a mano en Render (ver "PIN de la demo") |
+
+  `AUTH_SECRET` **no** hace falta en este servicio: solo se exige donde hay login real (ver `docs/CREDENCIALES.md`).
 
   **Las cadenas de conexión son secretos:** nunca van en el repositorio (es público), en commits, en el chat ni en capturas de pantalla. Las dos llevan `sslmode=require`.
 - **Cuál se usa para qué:** la app y la siembra usan `DATABASE_URL` (pooled). `prisma migrate deploy` usa `DIRECT_URL` (`prisma.config.ts`), porque las migraciones toman un *advisory lock* que no funciona a través del pooler de Neon. Si `DIRECT_URL` no existe, el CLI usa `DATABASE_URL` (así funciona en local).
@@ -93,6 +96,26 @@ El historial de ejemplo (unas 200 ventas y 40 pedidos, pasados por las mismas re
 | Más de varios minutos | Avisa a quien mantiene el código: habrá que reducir la cantidad de ventas del historial. |
 
 **Riesgo de la siembra al arrancar:** la siembra inicial ocurre **antes** de que la app abra su puerto. Render no publica cuánto espera para detectar el puerto (en su documentación solo figuran los 15 minutos que espera un despliegue nuevo para quedar saludable). Si en los logs aparece `Port scan timeout reached, no open ports detected` justo después de la siembra, define `DEMO_SEED_HISTORY=false` como arriba. La siembra solo ocurre la primera vez; los reinicios y despertares posteriores arrancan en segundos.
+
+## PIN de la demo (`DEMO_ADMIN_PIN`) y la migración de autenticación
+
+El PIN de Belén en la demo (para "Belén está aquí", la aprobación presencial) **ya no está en el repositorio** (es público): sale de la variable `DEMO_ADMIN_PIN`. La pantalla de la demo lo sigue mostrando como pista, así que quien presenta no necesita recordarlo.
+
+**Orden para ponerlo o cambiarlo** (la variable primero, el deploy después, y recién entonces la prueba):
+
+1. **Elige un PIN** de 4 a 6 dígitos y no lo escribas en el repositorio, los docs ni el chat.
+2. En Render → servicio `big-curvas-demo` → **Environment** → agrega `DEMO_ADMIN_PIN` con el PIN elegido.
+3. **Despliega** (con "Save, rebuild, and deploy", o Manual Deploy → Deploy latest commit). Al arrancar se aplica la migración de autenticación (`prisma migrate deploy`, por la conexión directa).
+4. Con el servicio **Live**, entra como Belén y pulsa **Reiniciar datos de demo** (Inicio): el seed vuelve a correr y le pone el PIN nuevo. *Sin este paso Belén conserva el PIN anterior en la base.*
+5. **Prueba la aprobación remota de Belén** (guion de la demo, paso 3): la vendedora pide un descuento y Belén lo aprueba desde Aprobaciones. Si quieres probar el PIN, "Belén está aquí" y el PIN que muestra la pantalla.
+
+Si no defines `DEMO_ADMIN_PIN`, Belén queda **sin PIN** en la demo: la aprobación remota sigue funcionando y la presencial no está disponible.
+
+**La migración de autenticación solo agrega** (3 tablas, 4 columnas nuevas en `users`, 7 CHECK y 7 índices, y pasa los emails a minúsculas). No toca los triggers de inmutabilidad ni los CHECK existentes (verifícalo con `scripts/verify-db.sql`: 27 tablas, 32 CHECK, 45 índices y 2 triggers). **Si hubiera que volver al código anterior no hace falta revertir la migración**: el código viejo ignora las tablas y columnas nuevas y sigue funcionando con el esquema nuevo.
+
+**La demo no cambia:** sin tocar `DEMO_MODE` (sigue en `true`) la pantalla de login es la de siempre ("Entrar como…"), el guion y el reinicio siguen igual, y "Ajustes" no aparece. El login real **no se prueba en este servicio**: se prueba en local con Docker (`DEMO_MODE=false`). Un segundo servicio de Render para probarlo compartiría las 750 horas gratuitas del workspace y podría suspender la demo; si algún día hace falta, se decide aparte.
+
+Para un servicio con **login real** (sin `DEMO_MODE`), la orden de inicio puede ser la misma: `demo:bootstrap` no hace nada si `DEMO_MODE` no es `true`. Necesita además `AUTH_SECRET`. Ver `docs/CREDENCIALES.md`.
 
 ## Actualizar la demo después
 

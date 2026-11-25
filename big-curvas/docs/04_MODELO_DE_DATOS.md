@@ -47,10 +47,17 @@ erDiagram
 
 **locations**: `id`, `code` (único: `TIENDA_RANCAGUA`, `BODEGA`; el modelo admite más), `name`, `type` (`STORE` | `WAREHOUSE`), `address`, `sells_pos` (bool), `fulfills_online` (bool; solo BODEGA = true), `receives_suppliers` (bool; ambas = true), `sale_prefix` (`RGA`, `BOD`), `sii_branch_code` (nullable, futuro), `active`.
 
-**users**: `id`, `name`, `email` (único, nullable para vendedoras solo-PIN), `password_hash` (nullable), `pin_hash`, `role` (`ADMIN` | `VENDEDORA` | `BODEGA`), `location_id` (**obligatorio para VENDEDORA y BODEGA**; null para ADMIN), `active`, `failed_pin_attempts`, `pin_locked_until` (bloqueo tras `pin_max_attempts` fallos).
-- Constraint: `role = 'ADMIN' OR location_id IS NOT NULL`.
+**users**: `id`, `name`, `email` (único, **en minúsculas**, nullable para vendedoras solo-PIN), `password_hash` (nullable; `scrypt$N$r$p$salt$hash`), `must_change_password` (contraseña temporal), `password_changed_at`, `last_login_at`, `pin_hash`, `role` (`ADMIN` | `VENDEDORA` | `BODEGA`), `location_id` (**obligatorio para VENDEDORA y BODEGA**; null para ADMIN), `active`, `failed_pin_attempts`, `pin_locked_until` (bloqueo tras `pin_max_attempts` fallos).
+- Constraints: `role = 'ADMIN' OR location_id IS NOT NULL`; `email IS NULL OR email = lower(email)` (`users_email_lower_chk`); `NOT must_change_password OR password_hash IS NOT NULL` (`users_must_change_chk`).
+- La vendedora no entra por email: su acceso es dispositivo + PIN. El PIN de la administradora (`pin_hash`) es el de la aprobación presencial.
 
-**pos_devices**: `id`, `location_id`, `name` ("Caja Tienda Rancagua"), `device_token_hash`, `registered_by`, `active`. La sesión POS queda ligada a la tienda del dispositivo.
+**pos_devices** (ADR-020): `id`, `location_id` (una tienda que vende en el POS), `name` ("Caja Tienda Rancagua"), `device_token_hash` (SHA-256 del token de la cookie del equipo; null hasta vincular), `pairing_code_hash` y `pairing_expires_at` (HMAC del código de un solo uso y su vencimiento; se limpian al vincular), `registered_by`, `paired_at`, `last_seen_at`, `active`, `revoked_at`, `revoked_by`, `created_at`, `updated_at`. Solo hashes: nunca el token ni el código. Se revoca, no se borra. La sesión POS queda ligada a la tienda del dispositivo.
+- Constraints: `active OR revoked_at IS NOT NULL` (`pos_devices_revoked_chk`); `(pairing_code_hash IS NULL) = (pairing_expires_at IS NULL)` (`pos_devices_pairing_chk`). Índices únicos sobre `device_token_hash` y `pairing_code_hash`.
+
+**sessions** (ADR-020): `id`, `token_hash` (único; SHA-256 del token de la cookie), `user_id`, `kind` (`WEB` | `POS`), `pos_device_id` (obligatorio si `POS`), `created_at`, `last_seen_at`, `expires_at` (vencimiento absoluto), `revoked_at`. La inactividad se calcula con `last_seen_at` y la hora de la BD.
+- Constraints: `(kind = 'POS') = (pos_device_id IS NOT NULL)` (`sessions_kind_device_chk`); `expires_at > created_at` (`sessions_expiry_chk`). Índices por `user_id`, `pos_device_id` y `expires_at`.
+
+**auth_throttles** (ADR-020): `key` (clave HMAC: `login:<hmac del email>`, `pwchange:<hmac del usuario>`, `pair`), `failed_attempts`, `locked_until`, `updated_at`. Cuenta intentos fallidos sin guardar emails ni ids en claro. Constraint: `failed_attempts >= 0`. `pnpm auth:purge` (manual) borra sesiones y contadores viejos: excepción acotada a la regla de no borrado físico, por ser datos técnicos.
 
 ### 2.2 Catálogo (sin cambios de fondo)
 

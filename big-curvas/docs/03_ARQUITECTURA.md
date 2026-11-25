@@ -19,7 +19,7 @@
 | Base de datos | **PostgreSQL** gestionado (**Render Postgres**, plan pagado básico) en producción; **Neon** (plan gratis, Postgres 17) en demo y staging (ADR-019) | Transacciones ACID, constraints, backups incluidos en planes pagados |
 | ORM / migraciones | **Prisma** | Esquema declarativo legible, migraciones versionadas, muy conocido por la IA |
 | Validación | **Zod** | Mismo esquema para formularios y servidor |
-| Autenticación | **Better Auth** (alternativa: Auth.js) con credenciales + PIN | Control total de roles; sin costo por usuario |
+| Autenticación | **Propia con `node:crypto`** (ADR-020; reemplaza la idea inicial de Better Auth, para no sumar dependencias): contraseña `scrypt` para la administradora, dispositivo POS + PIN de 6 dígitos para la caja, sesiones en la BD | Control total de roles y ubicaciones; sin costo por usuario ni dependencias nuevas |
 | Tablas / formularios | TanStack Table, React Hook Form | Listados grandes, filtros, formularios complejos |
 | Gráficos (post-MVP) | Recharts | Dashboards |
 | Códigos de barra | `bwip-js` (generación), lector USB HID (lectura = teclado) | Sin drivers |
@@ -274,7 +274,17 @@ Una sola transacción: `returnToStock(loc = TIENDA_RANCAGUA)` (o `writeOff()`) +
 - Consultar el stock de otras ubicaciones es una acción de solo lectura, separada.
 - Dispositivo POS registrado a la tienda; las vendedoras se identifican con su PIN en la caja compartida.
 - Acciones sensibles → aprobación de Belén (remota o con PIN) + `audit_log`.
-- Secretos en Render y GitHub Secrets.
+- Secretos en el panel de Render y en el de Neon; nunca en el repositorio (ver `docs/CREDENCIALES.md`).
+
+### 8.1 Autenticación (ADR-020)
+
+- **Un solo punto de identidad:** `getCurrentUser()` (`src/modules/auth`). Orden: sesión real (cookie → BD) → solo con `DEMO_MODE=true`, la cookie de la demo → `null`. `requireAccess` (acciones) y `requirePageAccess` (páginas) validan rol + ubicación; con contraseña temporal rechazan todo salvo cambiarla. No hay `proxy.ts`: cada página y cada acción se valida en el servidor, y el layout `(app)` redirige a `/login` sin sesión.
+- **Administradora (y bodega): email + contraseña.** Hash `scrypt` (N=2^15, r=8, p=1, parámetros dentro del hash, asíncrono). Bloqueo de 5 fallos / 15 min por **email escrito** (exista o no), con clave HMAC-SHA256 (`AUTH_SECRET`); mensajes genéricos y mismo trabajo de hash con email desconocido. La vendedora **no** entra por email.
+- **Sesiones** (`sessions`): token aleatorio en cookie httpOnly, `SameSite=Lax`, `Secure` + prefijo `__Host-` en producción; solo el SHA-256 en la BD. Vencen por inactividad y de forma absoluta con la hora de la BD (web 12 h / 7 días; caja **60 min** / 12 h) y se revocan al cerrar sesión, al cambiar la contraseña y al revocar un dispositivo.
+- **Caja:** el equipo se vincula a **una tienda** con un código de un solo uso (10 min) que genera una administradora (`pos_devices`, solo hashes); la vendedora entra con su PIN de 6 dígitos y solo ve su ubicación. Si la sesión vence con una venta a medias, el POS pide el PIN en la misma pantalla y conserva el carrito.
+- **Demo:** el login sin contraseña, el guion, el reinicio y el PIN demo (`DEMO_ADMIN_PIN`) existen solo con `DEMO_MODE=true` (`src/lib/demo.ts`); el módulo `auth` los aísla en `demo-login.ts`.
+- **Auditoría:** `audit_log` (login, fallo, bloqueo, cierre de sesión, cambios de contraseña y PIN, vinculación y revocación de dispositivos), sin secretos.
+- **Operación:** scripts `auth:create-admin`, `auth:reset-password`, `auth:create-user` y `auth:purge` (esta última, manual, borra solo datos técnicos viejos: excepción acotada a la regla 7).
 
 ## 9. Ambientes y despliegue
 

@@ -67,6 +67,12 @@ gantt
 ### F1 – Fundaciones del sistema real
 Autenticación real (Belén con contraseña, vendedoras con PIN), backups, staging, permisos de BD de producción.
 
+- ✅ **Autenticación real** (ADR-020): contraseña de la administradora, dispositivo POS + PIN de la caja, sesiones, bloqueo, auditoría y scripts de cuentas. Demo intacta con `DEMO_MODE`.
+- ✅ **Backups de la demo:** respaldo y restauración de `pg_dump` probados (ADR-019). El respaldo diario externo de **producción** sigue pendiente.
+- ⏳ **Bootstrap de datos para producción real (pendiente):** hoy ubicaciones, `settings` y catálogo solo los crea el seed de la demo. Falta un bootstrap propio de producción (ubicaciones `TIENDA_RANCAGUA` y `BODEGA`, `settings` y carga inicial del catálogo, sin usuarios ni datos de ejemplo) que corra **antes** de `auth:create-admin` y de vincular el primer equipo de caja.
+- ⏳ **Staging con login real y permisos de BD de producción:** pendientes. Probar el login real en Render sin tocar la demo exige un segundo servicio (comparte las 750 horas gratis del workspace): se decide aparte.
+- ⏳ Fuera de alcance de la autenticación por ahora: 2FA, recuperación por email, límite por IP, cambio de PIN por la propia vendedora y cabeceras de seguridad HTTP.
+
 ### F2–F3 – Completar inventario y POS
 Importación desde el Excel actual, impresión de etiquetas, conteos, cambios y devoluciones (según las reglas que confirme Belén), promociones por canal, reportes por medio de pago.
 

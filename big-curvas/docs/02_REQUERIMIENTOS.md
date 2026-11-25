@@ -42,8 +42,8 @@ Regla transversal: un usuario Vendedora o Bodega **solo puede ejecutar operacion
 
 | ID | Requerimiento | Prio |
 |----|---------------|:----:|
-| RF-USR-01 | Login con email + contraseña (Belén) | M |
-| RF-USR-02 | Equipo de caja: sesión de "dispositivo POS" **ligada a una tienda** + PIN por vendedora | M |
+| RF-USR-01 | Login con email + contraseña (Belén). **✅ Implementado (ADR-020):** hash `scrypt`, sesión en la BD con cookie httpOnly, bloqueo temporal por intentos, cambio de contraseña y primera contraseña temporal creada por script con cambio forzado. Sin recuperación por email (se reinicia por script) | M |
+| RF-USR-02 | Equipo de caja: sesión de "dispositivo POS" **ligada a una tienda** + PIN por vendedora. **✅ Implementado (ADR-020):** el equipo se vincula con un código de un solo uso que genera solo una administradora y se puede revocar; PIN de 6 dígitos con hash y bloqueo tras 5 fallos; la vendedora solo ve su ubicación | M |
 | RF-USR-03 | Activar/desactivar usuarios (nunca borrar) | M |
 | RF-USR-04 | Toda operación de stock o dinero guarda usuario y ubicación | M |
 | RF-USR-05 | Cada usuario Vendedora/Bodega tiene **una ubicación asignada** | M |
@@ -270,7 +270,7 @@ Nota: hoy emiten boletas con una app ("Veci"; probablemente **Vessi – Boleta F
 | RNF-01 | **Consistencia de stock**: operaciones concurrentes sobre la última unidad (POS + pedido online + traslado) → solo una tiene éxito |
 | RNF-02 | **Rendimiento POS**: escanear < 500 ms; confirmar venta < 2 s |
 | RNF-03 | **Disponibilidad**: horario comercial; contingencia sin internet por ubicación (ADR-005) |
-| RNF-04 | **Seguridad**: HTTPS, hash de contraseñas y PIN, permisos por rol **y por ubicación** validados en el servidor |
+| RNF-04 | **Seguridad**: HTTPS, hash de contraseñas y PIN, permisos por rol **y por ubicación** validados en el servidor. *Estado:* hash de contraseñas y PIN, permisos por rol y ubicación, cookies `Secure` en producción y auditoría de accesos ✅ (ADR-020); HTTPS lo da Render; sin 2FA ni cabeceras de seguridad HTTP todavía |
 | RNF-05 | **Auditoría**: usuario, ubicación y fecha en toda operación sensible |
 | RNF-06 | **Respaldo**: backup diario del proveedor + `pg_dump` externo (≥ 30 días) y prueba de restauración mensual |
 | RNF-07 | **Usabilidad**: POS con lector y teclado; vista móvil para las aprobaciones de Belén |

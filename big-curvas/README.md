@@ -47,6 +47,24 @@ Variables de `.env` (ver `.env.example`):
 | `TEST_DATABASE_URL` | Base de datos de los tests de integración (no se mezcla con la de desarrollo). |
 | `DEMO_MODE` | `true` habilita el acceso sin contraseña, el guion de demo y el botón de reinicio. En cualquier otro caso la demo queda deshabilitada. |
 | `DEMO_SEED_HISTORY` | Opcional. `false` hace que la primera siembra y el reinicio carguen solo los datos base, sin el historial de ventas. |
+| `DEMO_ADMIN_PIN` | Solo demo. PIN (4 a 6 dígitos que eliges tú) de Belén para la aprobación presencial. No está en el repositorio. |
+| `AUTH_SECRET` | Login real. Secreto del servidor (≥ 32 caracteres) para las huellas HMAC. Genera uno propio por entorno; ver `docs/CREDENCIALES.md`. |
+
+Todas las variables, quién las maneja y cómo rotarlas: [`docs/CREDENCIALES.md`](docs/CREDENCIALES.md). El repositorio es público: no se versiona ningún secreto.
+
+### Acceso (autenticación real)
+
+Sin `DEMO_MODE=true` el sistema pide credenciales (ADR-020): la administradora entra con **email y contraseña**, y cada vendedora con su **PIN de 6 dígitos en el equipo de caja vinculado** a su tienda. La primera administradora se crea por script, con una contraseña temporal que debe cambiar al primer ingreso:
+
+```powershell
+$env:DEMO_MODE=''   # los scripts se niegan a correr con DEMO_MODE=true
+pnpm auth:create-admin --email belen@ejemplo.cl --name "Belén"   # pide la contraseña temporal con un prompt oculto
+pnpm auth:reset-password --email belen@ejemplo.cl                # recuperación sin correo
+pnpm auth:create-user --name "Vendedora Rancagua" --location TIENDA_RANCAGUA --no-pin
+pnpm auth:purge                                                  # manual: borra sesiones e intentos viejos
+```
+
+Luego, en **Ajustes**: la administradora define el PIN de cada vendedora (Equipo) y genera el código para vincular el equipo de la caja (Dispositivos), que se escribe en `/vincular`. Para probar el login real en local, pon `DEMO_MODE=false` en tu `.env`.
 
 ### Datos de ejemplo
 
@@ -61,7 +79,7 @@ La pantalla de login (`/login`) muestra "Entrar como…":
 
 | Usuario | Rol | Ubicación | Qué hace |
 |---|---|---|---|
-| Belén | Administradora | Todas (elige dónde opera) | Bodega, pedidos, aprobaciones, reportes. PIN de aprobación presencial: `2468` |
+| Belén | Administradora | Todas (elige dónde opera) | Bodega, pedidos, aprobaciones, reportes. PIN de aprobación presencial: el de la variable `DEMO_ADMIN_PIN` (la pantalla lo muestra como pista en modo demo) |
 | Vendedora Rancagua | Vendedora | Tienda Rancagua | POS, caja, traslados de su tienda |
 | Vendedora 2 Rancagua | Vendedora | Tienda Rancagua | Igual que la anterior; comparte la caja |
 
