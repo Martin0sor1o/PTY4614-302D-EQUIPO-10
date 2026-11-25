@@ -186,6 +186,24 @@ export const DEMO_SETTINGS: { key: string; valueInt?: number; valueText?: string
     isDemoValue: true,
   },
   {
+    key: "return_window_days",
+    valueInt: 30,
+    description: "Cambios y devoluciones: días desde la venta (o la entrega, en pedidos online) para cambiar o devolver sin aprobación. Supuesto S-01 (P-09, pendiente de validar con Belén).",
+    isDemoValue: true,
+  },
+  {
+    key: "store_credit_validity_days",
+    valueInt: 90,
+    description: "Vales: días de vigencia desde que se emiten (RN-16, 3 meses). Supuesto S-08 (P-09, pendiente de validar con Belén).",
+    isDemoValue: true,
+  },
+  {
+    key: "voucher_seller_cap",
+    valueInt: 50000,
+    description: "Vales: monto máximo (CLP) que una vendedora puede entregar por operación sin la aprobación de Belén. Supuesto S-08 (P-09, pendiente de validar con Belén).",
+    isDemoValue: true,
+  },
+  {
     key: "couriers",
     valueText: "Starken,Blue Express,Chilexpress",
     description: "Couriers disponibles al despachar un pedido online (separados por coma). Lista de la clienta; cómo se cobra el envío sigue pendiente (P-11).",

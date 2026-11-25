@@ -8,6 +8,13 @@ import { hashString, seededRandom } from "./random";
 // de prueba de DEMO_PLAN.md. La ejecución (history.ts) pasa por los servicios reales.
 
 export const HISTORY_DAYS = 56;
+
+/**
+ * Escenario de devoluciones de la demo (ADR-021): una devolución en efectivo con aprobación, una devolución a vale (queda un vale
+ * vigente) y un cambio con diferencia a pagar. Netas, consume 1 PBA041-NEG-XL (la devolución a vale deja 1 de 2 unidades) y 1
+ * POV042-BLA-XL (la prenda nueva del cambio). Se suman a la carga inicial para que el stock final siga siendo el de DEMO_PLAN.md.
+ */
+export const RETURNS_SCENARIO_EXTRA: Record<string, number> = { "PBA041-NEG-XL": 1, "POV042-BLA-XL": 1 };
 const OPEN_MIN = 10 * 60; // la tienda abre la caja a las 10:00
 const FIRST_SALE_MIN = 10 * 60 + 30;
 const LAST_SALE_MIN = 19 * 60 + 30;
@@ -231,6 +238,8 @@ export function buildHistoryPlan(now: Date, targets: ReadonlyMap<string, StockBy
       });
     }
   }
+
+  for (const [sku, qty] of Object.entries(RETURNS_SCENARIO_EXTRA)) bump("TIENDA_RANCAGUA", sku, qty);
 
   return { startDay, today, days, orders, extraUnits: extra, posSales: posIndex, voidedSales: voidedCount };
 }

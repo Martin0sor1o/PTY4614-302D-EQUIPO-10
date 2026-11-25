@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 export const REPORT_TABS = [
   { id: "ventas", label: "Ventas" },
   { id: "mas-vendidos", label: "Más vendidos" },
+  { id: "devoluciones", label: "Devoluciones" },
   { id: "stock-bajo", label: "Stock bajo" },
   { id: "sin-rotacion", label: "Sin rotación" },
   { id: "viernes", label: "Lista del viernes" },

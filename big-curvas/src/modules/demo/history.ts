@@ -12,6 +12,8 @@ import {
   refundOrder,
   registerOrder,
 } from "@/modules/orders";
+import { approveRequest } from "@/modules/approvals";
+import { createReturn, requestReturnApproval } from "@/modules/returns";
 import { closeCashSession, createSale, getCashClosingTotals, openCashSession, voidSale, type CreateSaleInput } from "@/modules/sales";
 import type { HistoryOrder, HistoryPlan, HistoryPosSale } from "./history-plan";
 import { PRODUCTS } from "./seed-data";
@@ -35,6 +37,9 @@ export interface HistorySummary {
   voidedSales: number;
   orders: number;
   pendingRefunds: number;
+  /** Devoluciones y cambios del escenario de la demo (ADR-021). */
+  returns: number;
+  exchanges: number;
 }
 
 type Fixup = Prisma.PrismaPromise<unknown>;
@@ -63,6 +68,10 @@ export async function runDemoHistory(plan: HistoryPlan): Promise<HistorySummary>
 
   const fixups: Fixup[] = [];
   let pendingRefunds = 0;
+  let returnsDone = 0;
+  let exchangesDone = 0;
+  // El escenario de devoluciones corre en la caja del 4.º día con ventas contando desde hoy (siempre dentro del plazo de 30 días).
+  const returnsDay = plan.days.length > 0 ? plan.days[Math.max(0, plan.days.length - 4)].dayKey : null;
 
   // Pedidos agrupados por día de pago: se ejecutan junto con el día, en orden cronológico.
   const ordersByDay = new Map<string, HistoryOrder[]>();
@@ -74,6 +83,7 @@ export async function runDemoHistory(plan: HistoryPlan): Promise<HistorySummary>
     const session = await openCashSession({ actor: opener, locationId: store.id, openingCash: 50_000 });
 
     for (const s of day.sales) await runPosSale(s);
+    if (day.dayKey === returnsDay) await runReturnsScenario(day);
 
     // ── Cerrar: la vendedora cuenta exactamente lo esperado (el sistema lo calcula) ──
     const totals = await getCashClosingTotals(opener, session.id);
@@ -81,6 +91,92 @@ export async function runDemoHistory(plan: HistoryPlan): Promise<HistorySummary>
     fixups.push(db.cashSession.update({ where: { id: session.id }, data: { openedAt: day.openAt, closedAt: day.closeAt } }));
 
     for (const o of ordersByDay.get(day.dayKey) ?? []) await runOrder(o);
+  }
+
+  /**
+   * Devolución en efectivo (pedida por la vendedora y aprobada por Belén), devolución a vale (vale vigente con código fijo de
+   * demo) y cambio con diferencia a pagar. Todo por los servicios reales; las fechas se llevan a la mañana del día simulado.
+   */
+  async function runReturnsScenario(day: HistoryPlan["days"][number]) {
+    const seller = sellers["vend-rga"];
+    const at = (minutes: number) => new Date(day.openAt.getTime() + minutes * 60_000);
+    const sell = async (tag: string, sku: string, qty: number, method: "EFECTIVO" | "DEBITO", minute: number) => {
+      const { result } = await createSale({
+        actor: seller,
+        locationId: store.id,
+        lines: [{ variantId: variantId(sku), qty, discountBps: 0 }],
+        payment: method === "EFECTIVO" ? { method, cashReceived: cashHandedOver((PRICE_BY_SKU.get(sku) ?? 0) * qty) } : { method, reference: `V-R-${tag}` },
+        idempotencyKey: `seed-hist-ret-${tag}-venta`,
+      });
+      fixups.push(db.sale.update({ where: { id: result.id }, data: { createdAt: at(minute) } }));
+      fixups.push(db.payment.updateMany({ where: { saleId: result.id }, data: { createdAt: at(minute) } }));
+      const line = await db.saleLine.findFirstOrThrow({ where: { saleId: result.id, variantId: variantId(sku) } });
+      return { saleId: result.id, saleLineId: line.id };
+    };
+    const stamp = (returnId: string, minute: number) => fixups.push(db.return.update({ where: { id: returnId }, data: { createdAt: at(minute) } }));
+
+    // a) Devolución en efectivo: la vendedora la pide, Belén la aprueba y el efectivo sale de la caja abierta.
+    const a = await sell("a", "PBA041-NEG-XL", 1, "EFECTIVO", 5);
+    const aLines = [{ saleLineId: a.saleLineId, qty: 1, condition: "VENDIBLE" as const }];
+    const aResolution = { kind: "DINERO" as const, method: "EFECTIVO" as const };
+    const { result: aRequest } = await requestReturnApproval({
+      actor: seller,
+      locationId: store.id,
+      saleId: a.saleId,
+      lines: aLines,
+      resolution: aResolution,
+      reason: "FALLA",
+      reasonNote: "Costura abierta",
+      idempotencyKey: "seed-hist-ret-a-solicitud",
+    });
+    await approveRequest({ actor: belen, requestId: aRequest.id, idempotencyKey: "seed-hist-ret-a-aprobar" });
+    const { result: aReturn } = await createReturn({
+      actor: seller,
+      locationId: store.id,
+      saleId: a.saleId,
+      lines: aLines,
+      reason: "FALLA",
+      reasonNote: "Costura abierta",
+      resolution: aResolution,
+      approvalId: aRequest.id,
+      idempotencyKey: "seed-hist-ret-a",
+    });
+    stamp(aReturn.id, 8);
+
+    // b) Devolución a vale: queda un vale VIGENTE con código fijo de demo (la vendedora lo entrega sin aprobación: bajo el tope).
+    const b = await sell("b", "PBA041-NEG-XL", 2, "DEBITO", 12);
+    const { result: bReturn } = await createReturn({
+      actor: seller,
+      locationId: store.id,
+      saleId: b.saleId,
+      lines: [{ saleLineId: b.saleLineId, qty: 1, condition: "VENDIBLE" }],
+      reason: "TALLA",
+      resolution: { kind: "VALE" },
+      idempotencyKey: "seed-hist-ret-b",
+      demoVoucherCode: "VAL-DEMO-VALE-0001",
+    });
+    stamp(bReturn.id, 15);
+    if (bReturn.voucher) fixups.push(db.voucher.update({ where: { id: bReturn.voucher.id }, data: { createdAt: at(15) } }));
+
+    // c) Cambio con diferencia a pagar: devuelve una polera de $8.990 y se lleva una de $10.990 (paga $2.000 con tarjeta).
+    const c = await sell("c", "PBA041-NEG-XL", 1, "DEBITO", 20);
+    const { result: cReturn } = await createReturn({
+      actor: seller,
+      locationId: store.id,
+      saleId: c.saleId,
+      lines: [{ saleLineId: c.saleLineId, qty: 1, condition: "VENDIBLE" }],
+      reason: "NO_ES_LO_ESPERADO",
+      resolution: { kind: "CAMBIO", newLines: [{ variantId: variantId("POV042-BLA-XL"), qty: 1 }], payment: { method: "DEBITO", reference: "V-R-cambio" } },
+      idempotencyKey: "seed-hist-ret-c",
+    });
+    stamp(cReturn.id, 24);
+    if (cReturn.newSale) {
+      fixups.push(db.sale.update({ where: { id: cReturn.newSale.id }, data: { createdAt: at(24) } }));
+      fixups.push(db.payment.updateMany({ where: { saleId: cReturn.newSale.id }, data: { createdAt: at(24) } }));
+    }
+    if (cReturn.voucher) fixups.push(db.voucher.update({ where: { id: cReturn.voucher.id }, data: { createdAt: at(24) } }));
+    returnsDone += 3;
+    exchangesDone += 1;
   }
 
   async function runPosSale(s: HistoryPosSale) {
@@ -174,5 +270,13 @@ export async function runDemoHistory(plan: HistoryPlan): Promise<HistorySummary>
   // Todas las fechas simuladas de una vez, en lotes (una transacción por lote).
   for (let i = 0; i < fixups.length; i += 250) await db.$transaction(fixups.slice(i, i + 250));
 
-  return { days: plan.days.length, posSales: plan.posSales, voidedSales: plan.voidedSales, orders: plan.orders.length, pendingRefunds };
+  return {
+    days: plan.days.length,
+    posSales: plan.posSales,
+    voidedSales: plan.voidedSales,
+    orders: plan.orders.length,
+    pendingRefunds,
+    returns: returnsDone,
+    exchanges: exchangesDone,
+  };
 }
