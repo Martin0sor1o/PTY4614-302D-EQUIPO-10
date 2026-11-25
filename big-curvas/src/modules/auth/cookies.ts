@@ -26,12 +26,21 @@ function options(maxAgeSeconds: number) {
   return { httpOnly: true, secure: secure(), sameSite: "lax" as const, path: "/", maxAge: maxAgeSeconds };
 }
 
+/**
+ * Borra una cookie SOBRESCRIBIÉNDOLA con las mismas opciones con las que se creó y `Max-Age=0`.
+ * No se usa `cookies().delete()`: emite `Path=/; Expires=1970` sin `Secure` ni `HttpOnly`, y el navegador rechaza esa
+ * respuesta para las cookies con prefijo `__Host-` (exigen `Secure` y `Path=/`), así que la cookie no se borraba.
+ */
+async function expire(name: string): Promise<void> {
+  (await cookies()).set(name, "", options(0));
+}
+
 export async function setSessionCookie(token: string, maxAgeSeconds: number): Promise<void> {
   (await cookies()).set(sessionCookieName(), token, options(maxAgeSeconds));
 }
 
 export async function clearSessionCookie(): Promise<void> {
-  (await cookies()).delete(sessionCookieName());
+  await expire(sessionCookieName());
 }
 
 export async function setDeviceCookie(token: string, maxAgeSeconds: number): Promise<void> {
@@ -44,7 +53,7 @@ export async function setActiveLocationCookie(locationId: string): Promise<void>
 }
 
 export async function clearActiveLocationCookie(): Promise<void> {
-  (await cookies()).delete(activeLocationCookieName());
+  await expire(activeLocationCookieName());
 }
 
 export async function setDemoUserCookie(userId: string): Promise<void> {
@@ -52,5 +61,5 @@ export async function setDemoUserCookie(userId: string): Promise<void> {
 }
 
 export async function clearDemoUserCookie(): Promise<void> {
-  (await cookies()).delete(DEMO_USER_COOKIE);
+  await expire(DEMO_USER_COOKIE);
 }
