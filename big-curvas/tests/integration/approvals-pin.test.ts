@@ -19,12 +19,12 @@ const attempts = async () => (await db.user.findUniqueOrThrow({ where: { id: bel
 
 describe("aprobación presencial con PIN (RF-AUT-05)", () => {
   it("el hash del PIN es scrypt (no queda en claro) y se verifica", () => {
-    const h = hashPin("2468");
+    const h = hashPin(PIN);
     expect(h).toMatch(/^scrypt\$\d+\$[0-9a-f]+\$[0-9a-f]+$/);
-    expect(h).not.toContain("2468");
-    expect(verifyPin("2468", h)).toBe(true);
-    expect(verifyPin("2469", h)).toBe(false);
-    expect(hashPin("2468")).not.toBe(h); // sal distinta
+    expect(h).not.toContain(PIN);
+    expect(verifyPin(PIN, h)).toBe(true);
+    expect(verifyPin(`${PIN}0`, h)).toBe(false);
+    expect(hashPin(PIN)).not.toBe(h); // sal distinta
   });
 
   it("PIN correcto: la solicitud queda aprobada con método PIN y la venta pasa", async () => {
