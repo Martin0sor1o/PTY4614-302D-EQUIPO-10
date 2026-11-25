@@ -38,6 +38,16 @@ export async function variantLabels(reader: Pick<Tx, "productVariant" | "product
   );
 }
 
+/**
+ * Toma la venta FOR SHARE (primer bloqueo de la devolución; orden VENTA → caja → stock). Varias devoluciones de la misma venta
+ * no se bloquean entre sí (se ordenan en el UPDATE de sale_lines), pero una anulación (FOR UPDATE) sí espera a las que están en
+ * curso y las devoluciones nuevas esperan a una anulación en curso. El estado se lee DESPUÉS de este bloqueo (loadSaleForReturn).
+ */
+export async function lockSaleForReturn(tx: Pick<Tx, "$queryRaw">, saleId: string): Promise<void> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM sales WHERE id = ${saleId} FOR SHARE`;
+  if (rows.length === 0) throw new AppError("NOT_FOUND", "La venta no existe.");
+}
+
 export interface LoadedSale extends ReturnableSale {
   /** Variantes por línea de venta, para bloquear stock y validar. */
   lineByid: Map<string, ReturnableLine>;

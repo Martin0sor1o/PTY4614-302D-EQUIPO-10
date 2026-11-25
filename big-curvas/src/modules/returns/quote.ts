@@ -38,6 +38,9 @@ export function returnBinding(input: {
   return createHash("sha256").update(`return:${canonical}`).digest("hex");
 }
 
+const METHOD_PHRASE = { EFECTIVO: "efectivo", ANULACION_TRANSBANK: "anulación en la máquina", TRANSFERENCIA: "transferencia" } as const;
+const PAID_WITH = { EFECTIVO: "efectivo", ANULACION_TRANSBANK: "tarjeta", TRANSFERENCIA: "transferencia" } as const;
+
 export interface QuoteInputs {
   sale: LoadedSale;
   location: { id: string; name: string; sellsPos: boolean };
@@ -125,6 +128,15 @@ export function buildQuote(ctx: QuoteInputs): ReturnQuote {
     const q = quoteRefund(valueReturned, resolution.method);
     if (q.amount <= 0) throw new AppError("VALIDATION", "El monto a devolver en efectivo queda en $0 tras el redondeo: devuélvelo en vale.");
     refund = { method: resolution.method, amount: q.amount, roundingAdjustment: q.roundingAdjustment };
+    // S-06: el medio sugerido es el original. Devolver por otro medio es posible (Belén/la vendedora con aprobación), pero se advierte.
+    if (resolution.method !== sale.suggestedRefundMethod) {
+      const original = METHOD_PHRASE[sale.suggestedRefundMethod];
+      warnings.push(
+        resolution.method === "EFECTIVO"
+          ? `La venta ${sale.number} se pagó con ${PAID_WITH[sale.suggestedRefundMethod]}: lo sugerido es devolver por ${original}, no en efectivo. Revisa que sea lo que corresponde.`
+          : `El medio original de la venta ${sale.number} era ${PAID_WITH[sale.suggestedRefundMethod]}: lo sugerido es devolver por ${original}.`,
+      );
+    }
   } else {
     if (!location.sellsPos) throw new AppError("VALIDATION", `${location.name} no vende al público: ahí solo se registran devoluciones, no cambios (S-10).`);
     if (!ctx.priced) throw new AppError("VALIDATION", "Falta el precio de las prendas nuevas del cambio.");
@@ -156,6 +168,8 @@ export function buildQuote(ctx: QuoteInputs): ReturnQuote {
     voucherAmount,
     exchange,
     voucherCap: policy.voucherSellerCap,
+    suggestedRefundMethod: sale.suggestedRefundMethod,
+    refundDiffersFromOriginal: resolution.kind === "DINERO" && resolution.method !== sale.suggestedRefundMethod,
     approval: { required: ctx.actorRole === "VENDEDORA" && need.type !== null, type: need.type, reasons: need.reasons },
     binding: returnBinding({ saleId: sale.id, locationId: location.id, lines, resolution }),
     cashOpen: ctx.cashOpen,

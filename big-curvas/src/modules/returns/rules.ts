@@ -94,7 +94,7 @@ export const RETURN_ASSUMPTIONS: readonly ReturnAssumption[] = [
   {
     id: "S-11",
     title: "Anular una venta con devoluciones",
-    applied: "No se puede anular una venta que ya tuvo devoluciones ni la venta de un cambio. Anular una venta pagada con vale repone el saldo del vale (sin extender su vencimiento).",
+    applied: "No se puede anular una venta que ya tuvo devoluciones ni la venta de un cambio (para deshacer un cambio se devuelve la prenda nueva). Anular una venta pagada con vale repone el saldo del vale (sin extender su vencimiento).",
     questions: ["P-09"],
   },
   {

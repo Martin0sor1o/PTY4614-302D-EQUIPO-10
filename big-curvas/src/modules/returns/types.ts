@@ -79,6 +79,10 @@ export interface ReturnQuote {
   /** Solo CAMBIO. */
   exchange: { newTotal: number; voucherUsed: number; toPay: number; leftover: number; newLines: { variantId: string; sku: string; label: string; qty: number; unitPrice: number; lineTotal: number }[] } | null;
   voucherCap: number;
+  /** Medio sugerido para el reembolso: el original (S-06). */
+  suggestedRefundMethod: MoneyRefundMethod;
+  /** true si el reembolso en dinero elegido no es el medio con que se pagó la venta (p. ej. efectivo por una venta con tarjeta). */
+  refundDiffersFromOriginal: boolean;
   /** Una VENDEDORA necesita la aprobación de Belén (`required`); `type` y `reasons` también se informan al ADMIN. */
   approval: { required: boolean; type: ReturnApprovalType | null; reasons: string[] };
   /** Huella de lo que se aprueba (venta + prendas + destino + prendas nuevas). */

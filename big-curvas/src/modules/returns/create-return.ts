@@ -9,7 +9,7 @@ import { lockStock, returnToStock, writeOff } from "@/modules/inventory";
 import { nextDocumentNumber } from "@/modules/numbering";
 import { createSaleInTx, lockOpenCashSessionInTx } from "@/modules/sales";
 import { issueVoucher, type IssuedVoucher } from "@/modules/vouchers";
-import { loadSaleForReturn, priceNewLines, TX_OPTIONS } from "./internal";
+import { loadSaleForReturn, lockSaleForReturn, priceNewLines, TX_OPTIONS } from "./internal";
 import { getReturnPolicy } from "./policy";
 import { buildQuote, mergeLines } from "./quote";
 import { loadReturnView } from "./queries";
@@ -65,6 +65,9 @@ export async function createReturn(input: CreateReturnInput): Promise<Idempotent
 
 async function executeReturn(tx: Tx, actor: Actor, data: ReturnType<typeof createReturnSchema.parse>): Promise<string> {
   const { locationId, resolution, idempotencyKey } = data;
+  // 0. Orden de bloqueo: VENTA → caja → stock. La venta va primero (FOR SHARE) y su estado se vuelve a validar DESPUÉS: una
+  //    anulación simultánea de la misma venta la toma FOR UPDATE, así que una de las dos espera y la otra falla limpio.
+  await lockSaleForReturn(tx, data.saleId);
   const location = await tx.location.findFirst({ where: { id: locationId, active: true }, select: { id: true, name: true, sellsPos: true } });
   if (!location) throw new AppError("NOT_FOUND", "La ubicación no existe o está inactiva.", { locationId });
 

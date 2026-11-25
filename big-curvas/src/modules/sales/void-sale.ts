@@ -47,6 +47,10 @@ export async function voidSale(input: {
     find: async () => ((await findOperationMovements(data.idempotencyKey)) ? loadSaleView(db, { id: data.saleId }) : null),
     execute: async () => {
       await db.$transaction(async (tx) => {
+        // Orden de bloqueo: VENTA → caja → stock (el mismo de returns). La venta se toma FOR UPDATE antes de revisar su estado y
+        // sus devoluciones: así una devolución simultánea de la misma venta (que la toma FOR SHARE) espera, ve el resultado ya
+        // confirmado y falla limpio; sin esto, las dos podían pasar (DEVOLUCION suma y ANULACION_VENTA repone todo).
+        await tx.$queryRaw`SELECT id FROM sales WHERE id = ${data.saleId} FOR UPDATE`;
         const sale = await tx.sale.findUniqueOrThrow({
           where: { id: data.saleId },
           include: { payments: true, lines: { select: { variantId: true, quantity: true } } },

@@ -477,3 +477,45 @@ describe("cotizar y buscar (RF-DEV-01)", () => {
     expect(hits.map((h) => h.id)).toEqual([sale.saleId]);
   });
 });
+
+describe("reembolso por otro medio que el original (S-06: se sugiere el original)", () => {
+  const quoteMoney = async (sale: SoldSale, resolution: Parameters<typeof quoteReturn>[0]["resolution"]) =>
+    quoteReturn({ actor: f.actors.belen, locationId: store(), saleId: sale.saleId, lines: toLines(sale, [{ sku: PBA_XL }]), resolution });
+
+  it("venta con tarjeta y reembolso en efectivo: advierte y sugiere la anulación en la máquina", async () => {
+    await openCaja(f);
+    const sale = await sellPos(f, [{ sku: PBA_XL }]); // débito
+    const q = await quoteMoney(sale, { kind: "DINERO", method: "EFECTIVO" });
+    expect(q.suggestedRefundMethod).toBe("ANULACION_TRANSBANK");
+    expect(q.refundDiffersFromOriginal).toBe(true);
+    expect(q.warnings.join(" ")).toMatch(/se pagó con tarjeta: lo sugerido es devolver por anulación en la máquina, no en efectivo/);
+  });
+
+  it("venta con transferencia y reembolso en efectivo: sugiere la transferencia", async () => {
+    await openCaja(f);
+    const sale = await sellPos(f, [{ sku: PBA_XL }], { method: "TRANSFERENCIA" });
+    const q = await quoteMoney(sale, { kind: "DINERO", method: "EFECTIVO" });
+    expect(q.suggestedRefundMethod).toBe("TRANSFERENCIA");
+    expect(q.warnings.join(" ")).toMatch(/se pagó con transferencia: lo sugerido es devolver por transferencia/);
+  });
+
+  it("el medio original no genera aviso; el vale y el cambio tampoco", async () => {
+    await openCaja(f);
+    const cash = await sellPos(f, [{ sku: PBA_XL }], { method: "EFECTIVO" });
+    expect((await quoteMoney(cash, { kind: "DINERO", method: "EFECTIVO" })).warnings).toEqual([]);
+    const card = await sellPos(f, [{ sku: PBA_XL }]);
+    const sameMethod = await quoteMoney(card, { kind: "DINERO", method: "ANULACION_TRANSBANK", reference: "ANU-1" });
+    expect(sameMethod.refundDiffersFromOriginal).toBe(false);
+    expect(sameMethod.warnings).toEqual([]);
+    const vale = await quoteMoney(card, VALE);
+    expect(vale.refundDiffersFromOriginal).toBe(false);
+    expect(vale.warnings).toEqual([]);
+  });
+
+  it("es solo un aviso: Belén puede devolver en efectivo una venta con tarjeta", async () => {
+    await openCaja(f);
+    const sale = await sellPos(f, [{ sku: PBA_XL }]);
+    const { result } = await doReturn(f, sale, [{ sku: PBA_XL }], { kind: "DINERO", method: "EFECTIVO" }, { actor: f.actors.belen });
+    expect(result.refundMethod).toBe("EFECTIVO");
+  });
+});
