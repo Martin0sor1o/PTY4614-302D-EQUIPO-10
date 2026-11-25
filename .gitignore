@@ -1,0 +1,28 @@
+# Raíz del repositorio. La aplicación tiene además su propio big-curvas/.gitignore.
+
+# Secretos y variables locales (nunca se versionan; el ejemplo sí)
+.env
+.env.*
+!.env.example
+
+# Dependencias y compilados
+node_modules/
+.next/
+dist/
+coverage/
+
+# Archivos temporales de Office (documentos abiertos) y de edición
+~$*
+*.tmp
+*.bak
+*.swp
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor y herramientas locales
+.vscode/
+.idea/

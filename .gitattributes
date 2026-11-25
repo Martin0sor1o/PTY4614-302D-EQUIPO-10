@@ -1,0 +1,10 @@
+# Documentos y medios del curso: binarios (no se convierten ni se comparan como texto).
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.pdf binary
+*.mkv binary
+*.mp4 binary
+*.png binary
+*.webp binary
+*.jpg binary
