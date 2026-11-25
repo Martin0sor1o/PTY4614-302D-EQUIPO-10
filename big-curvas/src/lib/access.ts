@@ -23,6 +23,13 @@ export interface SessionUser {
    * que elige el ADMIN. null si el ADMIN aún no eligió.
    */
   activeLocation: SessionLocation | null;
+  /** Contraseña temporal: hasta que la cambie, `requireAccess` rechaza todo salvo el propio cambio de contraseña. */
+  mustChangePassword?: boolean;
+  /** Cómo entró: web (email + contraseña), caja (dispositivo + PIN) o demo (sin contraseña, solo con DEMO_MODE). */
+  sessionKind?: "WEB" | "POS" | "DEMO";
+  sessionId?: string;
+  /** Dispositivo POS desde el que se abrió la sesión de caja. */
+  deviceId?: string | null;
 }
 
 export interface AccessRequirement {

@@ -16,6 +16,10 @@
     "db:seed": "prisma db seed",
     "db:seed:history": "prisma db seed -- --history",
     "demo:bootstrap": "tsx --env-file-if-exists=.env scripts/demo-bootstrap.ts",
+    "auth:create-admin": "tsx --env-file-if-exists=.env scripts/auth-create-admin.ts",
+    "auth:reset-password": "tsx --env-file-if-exists=.env scripts/auth-reset-password.ts",
+    "auth:create-user": "tsx --env-file-if-exists=.env scripts/auth-create-user.ts",
+    "auth:purge": "tsx --env-file-if-exists=.env scripts/auth-purge.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

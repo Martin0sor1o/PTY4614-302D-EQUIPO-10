@@ -1,4 +1,5 @@
 import type { Role } from "@/lib/access";
+import { isDemoMode } from "@/lib/demo";
 
 export interface NavItem {
   href: string;
@@ -19,8 +20,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/pedidos", label: "Pedidos", roles: ["ADMIN"], stage: "5", description: "Pedidos online: registrar, preparar y despachar (con contador de pedidos por preparar)" },
   { href: "/aprobaciones", label: "Aprobaciones", roles: ["ADMIN"], stage: "6", description: "Aprobar descuentos y anulaciones desde el celular (con contador de pendientes)" },
   { href: "/reportes", label: "Reportes", roles: ["ADMIN"], stage: "6.5", description: "Ventas por medio de pago, más vendidos, stock bajo, sin rotación y lista del viernes (solo lectura)" },
+  // Autenticación real (ADR-020). No se muestra en la demo pública (DEMO_MODE): ver AppShell.
+  { href: "/ajustes", label: "Ajustes", roles: ["ADMIN"], stage: "auth", description: "Dispositivos de caja, PIN de las vendedoras, contraseña y PIN propios" },
 ];
 
 export function navItemsFor(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role));
+  // "Ajustes" (autenticación real) no aparece en la demo pública: allí todo entra sin contraseña y no hay nada que configurar.
+  return NAV_ITEMS.filter((item) => item.roles.includes(role) && !(item.href === "/ajustes" && isDemoMode()));
 }
