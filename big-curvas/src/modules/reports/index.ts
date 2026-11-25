@@ -5,5 +5,6 @@
 export { getSalesByPaymentMethod, getSalesSummaryCards } from "./sales";
 export { getTopSellers, getNoRotation, getFridayList } from "./products";
 export { getLowStock } from "./stock";
+export { getReturnsReport } from "./returns";
 export { MAX_RANGE_DAYS } from "./schemas";
 export type * from "./types";

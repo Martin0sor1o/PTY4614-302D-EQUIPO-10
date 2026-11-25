@@ -1,4 +1,4 @@
-import { BadgeCheck, Boxes, ChartColumn, House, Package, Settings, ShoppingBag, Truck, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Boxes, ChartColumn, House, Package, Settings, ShoppingBag, Ticket, Truck, type LucideIcon } from "lucide-react";
 
 /** Ícono de cada pantalla del menú (lo usan el riel, el menú móvil y el inicio). */
 export const NAV_ICONS: Record<string, LucideIcon> = {
@@ -8,6 +8,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   "/traslados": Truck,
   "/pedidos": Package,
   "/aprobaciones": BadgeCheck,
+  "/vales": Ticket,
   "/reportes": ChartColumn,
   "/ajustes": Settings,
 };

@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
+import { lookupVoucherAction, type VoucherLite } from "@/app/(app)/pos/devoluciones/actions";
+import { formatDate } from "@/lib/dates";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { PosRelogin } from "@/components/pos/pos-relogin";
@@ -74,6 +76,11 @@ export function PosTerminal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [failedVariantId, setFailedVariantId] = useState<string | null>(null);
+  // Vale (ADR-021): cubre hasta su saldo y el resto va por el medio de pago. El servidor decide el monto al cobrar.
+  const [voucher, setVoucher] = useState<VoucherLite | null>(null);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
   // Aprobación de Belén para los descuentos de la vendedora (RF-AUT-01 a 05). Va ligada a ESTE carrito.
   const [approval, setApproval] = useState<ApprovalLite | null>(null);
   const [approvalSnapshot, setApprovalSnapshot] = useState<string | null>(null);
@@ -133,7 +140,7 @@ export function PosTerminal({
   // Una clave por intento de venta: se conserva ante doble clic y se renueva si cambia el carrito o el pago.
   useEffect(() => {
     keyRef.current = null;
-  }, [cart, method, received, reference]);
+  }, [cart, method, received, reference, voucher]);
 
   // Búsqueda por nombre/SKU mientras se escribe (con pausa). Enter la resuelve al tiro (lector de códigos).
   useEffect(() => {
@@ -235,7 +242,11 @@ export function PosTerminal({
       ),
     [cart],
   );
-  const quote = quotePayment(priced.total, method);
+  // Con vale: lo que cubre el vale (hasta su saldo) y el resto por el medio de pago elegido (el redondeo de $10 aplica solo al resto en efectivo).
+  const voucherApplied = voucher && priced.total > 0 ? Math.min(voucher.balance, priced.total) : 0;
+  const remainder = priced.total - voucherApplied;
+  const quote = quotePayment(remainder, method);
+  const coveredByVoucher = voucher !== null && priced.total > 0 && remainder === 0;
 
   // Huella del carrito (prendas, cantidades y % de descuento). Si cambia después de pedir o recibir la aprobación, esa
   // aprobación ya no sirve (el servidor lo vuelve a comprobar con su propia huella).
@@ -289,8 +300,9 @@ export function PosTerminal({
     return null;
   });
 
-  const paymentIssue =
-    method === "EFECTIVO"
+  const paymentIssue = coveredByVoucher
+    ? null
+    : method === "EFECTIVO"
       ? receivedAmount === null
         ? "Ingresa el monto recibido"
         : receivedAmount < quote.amount
@@ -304,6 +316,27 @@ export function PosTerminal({
 
   const canConfirm = cart.length > 0 && priced.total > 0 && lineIssues.every((i) => i === null) && paymentIssue === null && !submitting;
 
+  async function applyVoucher() {
+    setVoucherError(null);
+    setVoucherLoading(true);
+    const res = await lookupVoucherAction(voucherInput);
+    setVoucherLoading(false);
+    if (!res.ok) {
+      if (res.code === "UNAUTHENTICATED") return setSessionExpired(true);
+      return setVoucherError(res.message);
+    }
+    if (res.voucher.status !== "VIGENTE") {
+      const why: Record<string, string> = {
+        AGOTADO: "no tiene saldo",
+        VENCIDO: "venció el " + formatDate(new Date(res.voucher.expiresAt)),
+        INACTIVO: "está desactivado",
+      };
+      return setVoucherError("El vale " + (why[res.voucher.status] ?? "no se puede usar") + ".");
+    }
+    setVoucher(res.voucher);
+    setVoucherInput("");
+  }
+
   async function confirm() {
     if (!canConfirm) return;
     setSubmitting(true);
@@ -312,7 +345,8 @@ export function PosTerminal({
     keyRef.current ??= crypto.randomUUID();
     const payload = {
       lines: cart.map((l) => ({ variantId: l.item.variantId, qty: l.qty, discountBps: discountBpsOf(l.discountPct) })),
-      payment: method === "EFECTIVO" ? { method, cashReceived: receivedAmount ?? 0 } : { method, reference: reference.trim() },
+      payment: coveredByVoucher ? undefined : method === "EFECTIVO" ? { method, cashReceived: receivedAmount ?? 0 } : { method, reference: reference.trim() },
+      voucherCode: voucher?.code,
       approvalId: approved ? activeApproval!.id : undefined,
       idempotencyKey: keyRef.current,
     };
@@ -616,6 +650,12 @@ export function PosTerminal({
               <dt className="text-muted-foreground">Descuentos</dt>
               <dd className="tabular-nums">{priced.discountTotal > 0 ? `-${formatCLP(priced.discountTotal)}` : formatCLP(0)}</dd>
             </div>
+            {voucherApplied > 0 && (
+              <div className="flex justify-between" data-testid="voucher-applied">
+                <dt className="text-muted-foreground">Vale</dt>
+                <dd className="tabular-nums">-{formatCLP(voucherApplied)}</dd>
+              </div>
+            )}
             {quote.roundingAdjustment !== 0 && (
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Redondeo efectivo</dt>
@@ -631,6 +671,46 @@ export function PosTerminal({
           </div>
         </div>
 
+        <div className="space-y-2 rounded-2xl border bg-card p-4 shadow-soft" data-testid="voucher-panel">
+          {voucher ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  Vale …{voucher.code.slice(-4)} · saldo {formatCLP(voucher.balance)}
+                </p>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setVoucher(null)}>
+                  Quitar
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Vence el {formatDate(new Date(voucher.expiresAt))}.{" "}
+                {coveredByVoucher ? "Cubre toda la venta." : voucherApplied > 0 ? "Cubre " + formatCLP(voucherApplied) + "; el resto va por el medio de pago." : "Agrega prendas para canjearlo."}
+              </p>
+            </div>
+          ) : (
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (voucherInput.trim()) void applyVoucher();
+              }}
+            >
+              <Input aria-label="Código del vale" autoComplete="off" placeholder="Código del vale (VAL-…)" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} />
+              <Button type="submit" variant="outline" disabled={voucherLoading || !voucherInput.trim()}>
+                {voucherLoading ? "…" : "Usar vale"}
+              </Button>
+            </form>
+          )}
+          {voucherError && (
+            <p role="alert" className="text-sm font-medium text-tone-danger" data-testid="voucher-error">
+              {voucherError}
+            </p>
+          )}
+        </div>
+
+        {coveredByVoucher ? (
+          <Notice tone="ok">El vale cubre toda la venta: no hace falta otro medio de pago.</Notice>
+        ) : (
         <div className="space-y-3 rounded-2xl border bg-card p-4 shadow-soft">
           <div role="radiogroup" aria-label="Medio de pago" className="grid grid-cols-2 gap-2">
             {METHODS.map((m) => (
@@ -694,6 +774,7 @@ export function PosTerminal({
             </div>
           )}
         </div>
+        )}
 
         {error && (
           <Notice tone="danger" role="alert" className="py-2" data-testid="sale-error">

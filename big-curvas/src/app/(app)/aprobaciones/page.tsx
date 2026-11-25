@@ -35,7 +35,7 @@ export default async function ApprovalsPage() {
           <AutoRefresh renderedAt={formatTimeWithSeconds(new Date())} />
         </div>
         <p className="text-sm text-muted-foreground">
-          Descuentos y anulaciones que piden las vendedoras. Cada aprobación sirve una sola vez, para ese carrito o esa venta y ese monto.
+          Descuentos, anulaciones, reembolsos y devoluciones fuera de regla que piden las vendedoras. Cada aprobación sirve una sola vez, para ese carrito, esa venta o esa devolución y ese monto.
         </p>
       </div>
 

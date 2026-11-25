@@ -8,6 +8,7 @@ import {
   getFridayList,
   getLowStock,
   getNoRotation,
+  getReturnsReport,
   getSalesByPaymentMethod,
   getSalesSummaryCards,
   getTopSellers,
@@ -16,6 +17,7 @@ import { FridayTab } from "@/components/reports/friday-tab";
 import { LowStockTab } from "@/components/reports/low-stock-tab";
 import { NoRotationTab } from "@/components/reports/no-rotation-tab";
 import { RangeFilter } from "@/components/reports/range-filter";
+import { ReturnsTab } from "@/components/reports/returns-tab";
 import { REPORT_TABS, ReportTabs, type ReportTabId } from "@/components/reports/report-tabs";
 import { SalesTab } from "@/components/reports/sales-tab";
 import { SummaryCards } from "@/components/reports/summary-cards";
@@ -91,6 +93,12 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
           <TopSellersView actor={actor} from={from} to={to} />
         </div>
       )}
+      {tab === "devoluciones" && (
+        <div className="space-y-4">
+          <RangeFilter tab="devoluciones" from={from} to={to} />
+          <ReturnsView actor={actor} from={from} to={to} />
+        </div>
+      )}
       {tab === "stock-bajo" && <LowStockTab report={await getLowStock({ actor })} />}
       {tab === "sin-rotacion" && <NoRotationTab report={await getNoRotation({ actor, now })} />}
       {tab === "viernes" && <FridayTab report={await getFridayList({ actor, now })} generatedAt={now} />}
@@ -108,4 +116,9 @@ async function SalesView({ actor, from, to, channel, groupBy }: { actor: Actor; 
 async function TopSellersView({ actor, from, to }: { actor: Actor; from: string; to: string }) {
   const r = await load(() => getTopSellers({ actor, from, to }));
   return r.ok ? <TopSellersTab report={r.data} /> : <RangeError message={r.error} />;
+}
+
+async function ReturnsView({ actor, from, to }: { actor: Actor; from: string; to: string }) {
+  const r = await load(() => getReturnsReport({ actor, from, to }));
+  return r.ok ? <ReturnsTab report={r.data} /> : <RangeError message={r.error} />;
 }

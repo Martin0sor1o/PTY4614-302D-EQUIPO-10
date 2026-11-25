@@ -157,3 +157,33 @@ export interface FridayList {
   rows: FridayRow[];
   totalUnits: number;
 }
+
+/** Una fila del reporte de devoluciones: por motivo, por ubicación o por destino. */
+export interface ReturnsReportRow {
+  /** Código del motivo, id de la ubicación o del destino (DINERO | VALE | CAMBIO). */
+  key: string;
+  label: string;
+  returns: number;
+  units: number;
+  /** Valor devuelto (lo pagado por las prendas, en CLP). */
+  value: number;
+  damagedUnits: number;
+}
+
+export interface ReturnsReport {
+  from: string;
+  to: string;
+  totalReturns: number;
+  totalUnits: number;
+  damagedUnits: number;
+  valueReturned: number;
+  /** Dinero que salió por reembolsos (en efectivo, ya redondeado). */
+  refundedMoney: number;
+  /** Lo cobrado por las ventas del rango (todos los medios, vales incluidos). */
+  grossSales: number;
+  /** Ventas − valor devuelto. */
+  netSales: number;
+  byReason: ReturnsReportRow[];
+  byLocation: ReturnsReportRow[];
+  byDestination: ReturnsReportRow[];
+}
