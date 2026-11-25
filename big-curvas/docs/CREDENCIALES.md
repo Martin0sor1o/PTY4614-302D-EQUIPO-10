@@ -42,6 +42,8 @@ Qué variables y claves existen, dónde viven, quién las maneja, cómo se rotan
 
 **Render (un servicio con login real, futuro):** `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET` y **sin** `DEMO_MODE`. Su orden de inicio no debe incluir `demo:bootstrap` (aunque, sin `DEMO_MODE`, no hace nada).
 
+**Red de seguridad:** si por error un servicio con cuentas reales (usuarios con contraseña) arranca con `DEMO_MODE=true`, el acceso demo queda deshabilitado y se deja una advertencia en el log; el servicio sigue arrancando y el login real funciona.
+
 **Neon:** la contraseña del rol `big_curvas_owner` y las dos cadenas de conexión (pooled y directa). Se copian con el botón de copiar del panel, sin revelar el campo ni capturar la pantalla.
 
 **Local:** `.env` (base Docker, `AUTH_SECRET` y `DEMO_ADMIN_PIN` que generas tú) y, para operar contra Neon, `.env.neon`. Ambos están en `.gitignore`: comprueba con `git check-ignore .env .env.neon`.

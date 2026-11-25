@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { isDemoMode } from "@/lib/demo";
-import { getCurrentUser, getDeviceLogin, listDemoLoginOptions } from "@/modules/auth";
+import { demoAccessEnabled, getCurrentUser, getDeviceLogin, listDemoLoginOptions } from "@/modules/auth";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { PasswordLoginForm } from "@/components/auth/password-login-form";
 import { PinLoginForm } from "@/components/auth/pin-login-form";
@@ -18,7 +18,8 @@ export const metadata: Metadata = { title: "Entrar" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
-  return isDemoMode() ? <DemoLogin justReset={params.reiniciado === "1"} /> : <RealLogin justLinked={params.vinculado === "1"} />;
+  // Con DEMO_MODE=true pero cuentas reales en la base, el acceso demo queda deshabilitado y se muestra el login real.
+  return isDemoMode() && (await demoAccessEnabled()) ? <DemoLogin justReset={params.reiniciado === "1"} /> : <RealLogin justLinked={params.vinculado === "1"} />;
 }
 
 /** DEMO: pantalla "Entrar como…" sin contraseña. Solo existe con DEMO_MODE=true. */

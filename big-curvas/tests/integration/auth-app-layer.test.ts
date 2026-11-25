@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
-import { createPairingCode, getCurrentUser, loginWithPassword, loginWithPin, requireAccess, requirePageAccess, resolveUser } from "@/modules/auth";
+import { createPairingCode, getCurrentUser, loginWithPassword, loginWithPin, requireAccess, requirePageAccess, resetDemoGuardCache, resolveUser } from "@/modules/auth";
 import { expectAppError, resetDemo, type Fixtures } from "./helpers";
 import { ageSession, createWebUser, linkDevice, randomPassword, randomPin, SESSION_COOKIE, DEVICE_COOKIE, LOCATION_COOKIE, setPinFor, jar, sessionRow } from "./auth-helpers";
 
@@ -109,6 +109,10 @@ describe("rutas protegidas: páginas", () => {
     mocks.jar.demo_user_id = f.actors.vendRga.id;
     expect(await getCurrentUser()).toMatchObject({ role: "ADMIN", sessionKind: "WEB" });
     for (const k of Object.keys(mocks.jar)) delete mocks.jar[k];
+    // `asAdmin()` creó una cuenta real (con contraseña) y con cuentas reales la cookie demo ya no se honra (guardia de
+    // DEMO_MODE, probada en auth-demo-mode.test.ts). Aquí se vuelve a una base de demo pura para seguir probando el resto.
+    await db.user.updateMany({ data: { passwordHash: null } });
+    resetDemoGuardCache();
     mocks.jar.demo_user_id = f.actors.belen.id;
     expect(await getCurrentUser()).toMatchObject({ sessionKind: "DEMO" });
     vi.stubEnv("DEMO_MODE", "");

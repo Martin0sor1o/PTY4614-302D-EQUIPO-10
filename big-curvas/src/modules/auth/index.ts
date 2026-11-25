@@ -24,3 +24,4 @@ export { PIN_LENGTH, PASSWORD_MIN_LENGTH, validatePassword, validatePin } from "
 export type { CookieReader } from "./cookies";
 // DEMO: login sin contraseña.
 export { demoLogin, listDemoLoginOptions, type DemoLoginOption } from "./demo-login";
+export { demoAccessEnabled, hasRealAccounts, resetDemoGuardCache, DEMO_BLOCKED_MESSAGE } from "./demo-guard";
