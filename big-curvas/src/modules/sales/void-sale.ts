@@ -6,7 +6,8 @@ import { runIdempotent, type IdempotentResult } from "@/lib/idempotency";
 import { parseInput } from "@/lib/validation";
 import { consumeApproval } from "@/modules/approvals";
 import { findOperationMovements, reverseSale } from "@/modules/inventory";
-import { assertVoidable, voidBinding } from "./approvals";
+import { restoreRedemption } from "@/modules/vouchers";
+import { assertNoReturns, assertVoidable, voidBinding } from "./approvals";
 import { loadSaleView, lockOpenCashSession, TX_OPTIONS } from "./internal";
 import type { SaleView } from "./types";
 
@@ -51,6 +52,7 @@ export async function voidSale(input: {
           include: { payments: true, lines: { select: { variantId: true, quantity: true } } },
         });
         assertVoidable(sale);
+        await assertNoReturns(tx, sale);
 
         const amountPaid = sale.payments.reduce((a, p) => a + p.amount, 0);
         const cashPaid = sale.payments.filter((p) => p.method === "EFECTIVO").reduce((a, p) => a + p.amount, 0);
@@ -103,6 +105,19 @@ export async function voidSale(input: {
           idempotencyKey: data.idempotencyKey,
         });
 
+        // 3b. Si parte de lo pagado fue con vale, el saldo vuelve al vale (REPOSICION; no extiende el vencimiento, S-11).
+        const voucherPayments = sale.payments.filter((p) => p.method === "VALE" && p.voucherId);
+        for (const p of voucherPayments) {
+          await restoreRedemption(tx, {
+            actor: input.actor,
+            locationId: sale.locationId,
+            voucherId: p.voucherId!,
+            amount: p.amount,
+            saleId: sale.id,
+            idempotencyKey: data.idempotencyKey,
+          });
+        }
+
         await tx.auditLog.create({
           data: {
             userId: input.actor.id,
@@ -115,6 +130,7 @@ export async function voidSale(input: {
               saleNumber: sale.number,
               amountPaid,
               cashRefunded: cashPaid,
+              voucherRestored: voucherPayments.reduce((a, p) => a + p.amount, 0),
               reason: data.reason,
               // Directa del ADMIN (sin solicitud) o con aprobación de Belén pedida por una vendedora.
               direct: isAdmin,

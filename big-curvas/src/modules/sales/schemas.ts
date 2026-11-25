@@ -34,17 +34,25 @@ export const paymentInputSchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("TRANSFERENCIA"), reference: z.string().trim().min(1, "La referencia de la transferencia es obligatoria").max(60) }),
 ]);
 
-export const createSaleSchema = z.object({
+const createSaleBase = z.object({
   locationId: id,
   lines: z.array(saleLine).min(1, "El carrito está vacío").max(100, "Demasiadas líneas"),
-  payment: paymentInputSchema,
+  /** Medio de pago de lo que NO cubre el vale. Obligatorio salvo que el vale (`voucherCode`) cubra todo el total. */
+  payment: paymentInputSchema.optional(),
+  /** Código de un vale a canjear (ADR-021): cubre hasta su saldo; el resto va por `payment`. */
+  voucherCode: z.string().trim().min(1, "Escribe el código del vale").max(40, "Código de vale inválido").optional(),
   /** Aprobación de Belén (APROBADA, de uso único) para los descuentos sobre el límite de una VENDEDORA. */
   approvalId: id.optional(),
   idempotencyKey,
 });
 
+const needsPayment = (v: { payment?: unknown; voucherCode?: string }) => v.payment !== undefined || v.voucherCode !== undefined;
+const needsPaymentMessage = { message: "Elige el medio de pago", path: ["payment"] };
+
+export const createSaleSchema = createSaleBase.refine(needsPayment, needsPaymentMessage);
+
 /** Lo que envía el navegador al confirmar una venta (sin ubicación: sale de la sesión). */
-export const saleRequestSchema = createSaleSchema.omit({ locationId: true });
+export const saleRequestSchema = createSaleBase.omit({ locationId: true }).refine(needsPayment, needsPaymentMessage);
 
 export const searchSchema = z.object({
   locationId: id,

@@ -10,8 +10,12 @@ import type { ApprovalDisplay, ApprovalPayload, ApprovalView } from "./types";
 
 const id = z.string().trim().min(1);
 
+/** Tipos que una VENDEDORA puede pedir. Devoluciones (ADR-021): reembolso, cambio fuera de plazo y vale sobre el tope. */
+export const REQUESTABLE_TYPES = ["DESCUENTO_SOBRE_LIMITE", "ANULACION", "REEMBOLSO", "CAMBIO_FUERA_PLAZO", "VALE_SOBRE_TOPE"] as const;
+export type RequestableType = (typeof REQUESTABLE_TYPES)[number];
+
 const createSchema = z.object({
-  type: z.enum(["DESCUENTO_SOBRE_LIMITE", "ANULACION"]),
+  type: z.enum(REQUESTABLE_TYPES),
   locationId: id,
   /** Monto aprobado en CLP (descuento total o lo cobrado de la venta). Se compara al usar la aprobación. */
   amount: z.number().int().min(0),
@@ -26,7 +30,7 @@ const createSchema = z.object({
 });
 
 export type CreateApprovalInput = { actor: Actor } & {
-  type: "DESCUENTO_SOBRE_LIMITE" | "ANULACION";
+  type: RequestableType;
   locationId: string;
   amount: number;
   binding: string;

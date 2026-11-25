@@ -21,7 +21,8 @@ export async function consumeApproval(
     locationId: string;
     amount: number;
     binding: string;
-    usedRefType: "SALE";
+    /** Qué consumió la aprobación: una venta (descuento, anulación) o una devolución/cambio (ADR-021). */
+    usedRefType: "SALE" | "RETURN";
     usedRefId: string;
   },
 ): Promise<void> {
@@ -52,10 +53,13 @@ export async function consumeApproval(
   if (a.status === "VENCIDA" || (a.expiresAt && a.expiresAt <= new Date())) throw invalid("La aprobación venció: pide una nueva.");
   const payload = (a.payload ?? {}) as Partial<ApprovalPayload>;
   if (a.amount !== input.amount || payload.binding !== input.binding) {
+    const isReturnType = input.type === "REEMBOLSO" || input.type === "CAMBIO_FUERA_PLAZO" || input.type === "VALE_SOBRE_TOPE";
     throw invalid(
       input.type === "DESCUENTO_SOBRE_LIMITE"
         ? "El carrito cambió después de la aprobación (prendas, cantidades, descuentos o precios): pide una nueva aprobación."
-        : "La aprobación no corresponde a esta venta o a su monto.",
+        : isReturnType
+          ? "La devolución cambió después de la aprobación (venta, prendas, cantidades, destino o monto): pide una nueva aprobación."
+          : "La aprobación no corresponde a esta venta o a su monto.",
     );
   }
   throw invalid(`La aprobación no se puede usar (está ${STATUS_LABEL[a.status]}).`);

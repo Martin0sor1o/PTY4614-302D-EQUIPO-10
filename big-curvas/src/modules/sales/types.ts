@@ -62,6 +62,12 @@ export interface CashClosingTotals {
   cashCollected: number;
   /** Efectivo devuelto en esta caja por ventas de OTRA caja anuladas hoy (el efectivo sale de la caja abierta). */
   cashRefunded: number;
+  /** Efectivo que SALIÓ de esta caja por devoluciones en dinero (ADR-021). Resta del efectivo esperado. */
+  cashReturned: number;
+  /** Informativo (no toca el efectivo): vales emitidos en la tienda durante esta caja (devoluciones a vale y saldo a favor de cambios). */
+  vouchersIssued: number;
+  /** Informativo (no toca el efectivo): vales canjeados en ventas de esta caja. */
+  vouchersRedeemed: number;
   expectedCash: number;
 }
 

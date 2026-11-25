@@ -14,9 +14,14 @@ import type { CashClosingTotals, CashSessionView } from "./types";
 
 const ROLES = ["ADMIN", "VENDEDORA"] as const;
 
-type Reader = Pick<Tx, "payment" | "sale">;
+type Reader = Pick<Tx, "payment" | "sale" | "return" | "cashSession">;
 
-/** Totales de una caja: ventas COMPLETADAS de la sesión por medio de pago y efectivo esperado. */
+/**
+ * Totales de una caja: ventas COMPLETADAS de la sesión por medio de pago y efectivo esperado.
+ * Devoluciones (ADR-021): el efectivo que sale por una devolución en dinero resta del esperado; los vales emitidos y
+ * canjeados se informan aparte porque NO mueven efectivo. Lectura de solo-lectura sobre `returns` (sales no importa el
+ * módulo returns: returns depende de sales).
+ */
 export async function cashTotals(reader: Reader, sessionId: string, openingCash: number): Promise<CashClosingTotals> {
   // Secuencial: dentro de una transacción interactiva todas las consultas comparten una sola conexión.
   const rows = await reader.payment.groupBy({
@@ -36,12 +41,45 @@ export async function cashTotals(reader: Reader, sessionId: string, openingCash:
     if (r.method !== PaymentMethod.VALE) byMethod[r.method] += r._sum.amount ?? 0;
   }
   const cashRefunded = refunded._sum.amount ?? 0;
+
+  // Devoluciones en efectivo de ESTA caja (cash_session_id): el dinero que salió del cajón (ya redondeado a $10).
+  const cashReturnedRow = await reader.return.aggregate({ where: { cashSessionId: sessionId }, _sum: { refundAmount: true } });
+  const cashReturned = cashReturnedRow._sum.refundAmount ?? 0;
+
+  // Informativo: vales canjeados en ventas de esta caja y vales emitidos en la tienda mientras estuvo abierta.
+  const redeemed = await reader.payment.aggregate({
+    where: { method: PaymentMethod.VALE, sale: { cashSessionId: sessionId, status: "COMPLETADA" } },
+    _sum: { amount: true },
+  });
+  const session = await reader.cashSession.findUnique({ where: { id: sessionId }, select: { locationId: true, openedAt: true, closedAt: true } });
+  let vouchersIssued = 0;
+  if (session) {
+    const window = { gte: session.openedAt, ...(session.closedAt ? { lte: session.closedAt } : {}) };
+    const returns = await reader.return.findMany({
+      where: { locationId: session.locationId, createdAt: window, voucherId: { not: null } },
+      select: { valueReturned: true, refundMethod: true, newSaleId: true },
+    });
+    // Devolución a vale: se emite el valor completo. Cambio: solo queda el saldo a favor (lo demás se canjea en la misma venta).
+    const exchangeSaleIds = returns.flatMap((r) => (r.newSaleId ? [r.newSaleId] : []));
+    const exchangeVoucherPaid = exchangeSaleIds.length
+      ? await reader.payment.findMany({ where: { saleId: { in: exchangeSaleIds }, method: PaymentMethod.VALE }, select: { saleId: true, amount: true } })
+      : [];
+    const paidBySale = new Map<string, number>();
+    for (const p of exchangeVoucherPaid) paidBySale.set(p.saleId, (paidBySale.get(p.saleId) ?? 0) + p.amount);
+    for (const r of returns) {
+      vouchersIssued += r.newSaleId ? r.valueReturned - (paidBySale.get(r.newSaleId) ?? 0) : r.valueReturned;
+    }
+  }
+
   return {
     salesCount,
     byMethod,
     cashCollected: byMethod.EFECTIVO,
     cashRefunded,
-    expectedCash: expectedCash(openingCash, [byMethod.EFECTIVO, -cashRefunded]),
+    cashReturned,
+    vouchersIssued,
+    vouchersRedeemed: redeemed._sum.amount ?? 0,
+    expectedCash: expectedCash(openingCash, [byMethod.EFECTIVO, -cashRefunded, -cashReturned]),
   };
 }
 
