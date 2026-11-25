@@ -123,7 +123,7 @@ Alternativa para ahorrar: una sola impresora de etiquetas en la tienda, y Belén
 | R-02 | Boletas: hoy se emiten con una app aparte → doble digitación | Media | Medio | En el MVP se registra el N° de boleta; evaluar la integración con Vessi después |
 | R-04 | Internet en la bodega | Media | Medio | Confirmar (P-20); la bodega solo prepara pedidos, puede operar desde el celular |
 | R-05 | Baja adopción | Media | Alto | Involucrar a las vendedoras en las pruebas; POS rápido |
-| R-06 | Errores de la IA en stock o dinero | Media | Alto | CLAUDE.md, tests obligatorios, revisión humana |
+| R-06 | Errores del desarrollo asistido en stock o dinero | Media | Alto | reglas del proyecto, tests obligatorios, revisión humana |
 | R-07 | Crecimiento de alcance | Alta | Medio | Etapas cerradas; backlog post-MVP |
 | R-09 | Dependencia de un solo desarrollador | Alta | Alto | Docs vivos; repartir tareas en el equipo |
 | R-10 | Presupuesto mínimo | Media | Medio | Render ~13 USD/mes |
