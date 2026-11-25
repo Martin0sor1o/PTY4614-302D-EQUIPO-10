@@ -121,7 +121,7 @@ stateDiagram-v2
 | RF-POS-02 | Agregar productos por código de barras o búsqueda | M |
 | RF-POS-03 | Vender solo el **disponible de la tienda**. Si no hay, mostrar si hay en bodega (solo consulta) | M |
 | RF-POS-04 | Descuento manual por línea y por venta. **Solo Belén da descuentos** ✅: la vendedora tiene límite 0 % (configurable) y cualquier descuento genera una solicitud de aprobación | M |
-| RF-POS-05 | Medios de pago ✅: efectivo, tarjeta débito/crédito (máquinas **Transbank** y **BancoEstado**), transferencia; y vale. Pagos mixtos (D) | M |
+| RF-POS-05 | Medios de pago ✅: efectivo, tarjeta débito/crédito (máquinas **Transbank** y **BancoEstado**), transferencia; y vale ✅ (se canjea con su código y cubre hasta su saldo; el resto va con un medio de pago). Otros pagos mixtos (D) | M |
 | RF-POS-06 | Registrar N° de voucher y N° de boleta emitida en su app de boletas ("Veci", probablemente Vessi) | M |
 | RF-POS-07 | Ticket 80 mm con datos de la tienda | M |
 | RF-POS-08 | Asociar cliente (opcional) | D |
@@ -138,13 +138,13 @@ stateDiagram-v2
 
 | ID | Requerimiento | Prio |
 |----|---------------|:----:|
-| RF-DEV-01 | Buscar la venta original (de la tienda o de un pedido online) | M |
-| RF-DEV-02 | **Cambio** en la tienda: lo devuelto entra al stock de la tienda; lo nuevo sale de ahí. Plazo y diferencia a favor según P-09/P-16 🟡 | M |
-| RF-DEV-03 | Devolución con **reembolso en dinero**, previa aprobación de Belén (🟡 P-09). Se registra el medio (❓ P-17). El efectivo sale de la caja | M |
-| RF-DEV-04 | Estado de la prenda devuelta: vendible (entra al stock de esa ubicación) o dañada (merma) | M |
-| RF-DEV-05 | Plazo configurable (30 días 🟡); no devolver más unidades de las vendidas | M |
-| RF-DEV-06 | Vales con código, saldo y vencimiento (3 meses 🟡), usables en tienda y online | M |
-| RF-DEV-07 | Devolución de pedidos online: en la tienda o por courier a la bodega (la registra Belén ❓ P-22). Quién paga el envío del cambio 🟡 | M |
+| RF-DEV-01 | Buscar la venta original (de la tienda o de un pedido online) **Estado:** ✅ por N° de venta o de pedido, y las ventas recientes de la tienda. | M |
+| RF-DEV-02 | **Cambio** en la tienda: lo devuelto entra al stock de la tienda; lo nuevo sale de ahí. Plazo y diferencia a favor según P-09/P-16 🟡 **Estado:** ✅ 🟡 el valor devuelto se convierte en un vale que se canjea al instante en la venta nueva (S-05, P-16); plazo S-01. | M |
+| RF-DEV-03 | Devolución con **reembolso en dinero**, previa aprobación de Belén (🟡 P-09). Se registra el medio (❓ P-17). El efectivo sale de la caja **Estado:** ✅ 🟡 con aprobación de Belén; efectivo desde la caja abierta, redondeado a $10; medio sugerido = el original, y se advierte si es otro (S-06, P-17). | M |
+| RF-DEV-04 | Estado de la prenda devuelta: vendible (entra al stock de esa ubicación) o dañada (merma) **Estado:** ✅ 🟡 una prenda dañada entra y sale como merma (S-03). | M |
+| RF-DEV-05 | Plazo configurable (30 días 🟡); no devolver más unidades de las vendidas **Estado:** ✅ 🟡 30 días desde la venta o la entrega; fuera de plazo pide aprobación; nunca más de lo vendido (S-01). | M |
+| RF-DEV-06 | Vales con código, saldo y vencimiento (3 meses 🟡), usables en tienda y online **Estado:** 🟡 parcial: emisión, saldo, vencimiento de 90 días, uso parcial y canje en el POS ✅; canje en pedidos online pendiente (S-08, S-12). | M |
+| RF-DEV-07 | Devolución de pedidos online: en la tienda o por courier a la bodega (la registra Belén ❓ P-22). Quién paga el envío del cambio 🟡 **Estado:** 🟡 parcial: Belén registra la devolución en la bodega (sin cambios ni efectivo); el envío de un cambio online no se automatiza (S-10, P-22, Q-01). | M |
 
 ### 2.7 Pedidos online (PED)
 
@@ -239,21 +239,21 @@ Nota: hoy emiten boletas con una app ("Veci"; probablemente **Vessi – Boleta F
 | RN-07 | Un pedido online **se aparta al confirmar el pago**; antes no se reserva nada | ✅ |
 | RN-08 | El stock de un pedido online se descuenta al prepararlo en bodega | ✅ |
 | RN-09 | **Solo Belén da descuentos.** Límite de la vendedora = 0 % (configurable); todo descuento de una vendedora requiere su aprobación | ✅ |
-| RN-10 | Plazo de cambio: 30 días con boleta | 🟡 P-09 |
-| RN-11 | Prenda devuelta dañada → merma | 🟡 |
+| RN-10 | Plazo de cambio: 30 días con boleta | 🟡 implementada con el supuesto S-01 (ADR-021) · P-09 |
+| RN-11 | Prenda devuelta dañada → merma | 🟡 implementada con el supuesto S-03 (ADR-021) · P-09 |
 | RN-12 | Anular una venta solo el mismo día y con aprobación de Belén | ✅ |
 | RN-13 | La venta online se contabiliza al confirmar el pago | ✅ |
 | RN-14 | Fechas en UTC; reportes en hora de Chile | ✅ |
-| RN-15 | Devolución con reembolso en dinero, solo con aprobación de Belén | 🟡 P-09 |
-| RN-16 | Vales vencen a los 3 meses | 🟡 P-09 |
-| RN-17 | En cambios de pedidos online, el envío lo paga la clienta | 🟡 P-09 |
+| RN-15 | Devolución con reembolso en dinero, solo con aprobación de Belén | 🟡 implementada con el supuesto S-06 (ADR-021) · P-09 |
+| RN-16 | Vales vencen a los 3 meses | 🟡 implementada con el supuesto S-08 (ADR-021) · P-09 |
+| RN-17 | En cambios de pedidos online, el envío lo paga la clienta | 🟡 implementada con el supuesto S-10 (ADR-021) · P-09 |
 | RN-18 | Envío cobrado aparte; envío gratis sobre un monto; opción de retiro | ❓ P-11 |
 | RN-19 | Redondeo del efectivo a $10 (Ley 20.956) | ✅ |
 | RN-20 | Promociones: no se acumulan; se aplica la más conveniente para la clienta | 🟡 P-18 |
 | RN-21 | Código de barras del proveedor si existe; si no, interno. **Toda prenda se etiqueta** | ✅ |
 | RN-22 | Vendedoras (y Bodega) **solo operan en su ubicación asignada**; pueden consultar el stock de todas | ✅ |
 | RN-23 | Traslado: al **enviar** baja el stock en origen; al **recibir** sube en destino **lo escaneado**. La diferencia queda en el traslado hasta que Belén la resuelve | ✅ |
-| RN-24 | Cambios y devoluciones en la tienda (o en bodega para pedidos online); la prenda devuelta entra al stock de la ubicación que la recibe | 🟡 |
+| RN-24 | Cambios y devoluciones en la tienda (o en bodega para pedidos online); la prenda devuelta entra al stock de la ubicación que la recibe | 🟡 implementada con el supuesto S-10 (ADR-021) · P-09 |
 | RN-25 | Reembolsos, anulaciones y descuentos requieren **aprobación de Belén**: remota desde su celular o con su PIN si está presente | ✅ |
 | RN-26 | La recepción de proveedor la ingresa la vendedora (en tienda) o Belén (en bodega); **el costo lo completa solo Belén** | ✅ |
 | RN-27 | Los pedidos online los registra solo Belén | ✅ |

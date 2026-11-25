@@ -14,7 +14,7 @@ Supuesto de capacidad: **1 desarrollador ~20 h/semana con desarrollo asistido** 
 
 ## 2. Estado actual (noviembre de 2026, rama `feature/demo`)
 
-La demo está completa y publicada (Render + Neon), con **551 pruebas automáticas** aprobadas. Lo único que queda del alcance de la demo son los **cambios y devoluciones**, que esperan las respuestas de Belén (sección 8).
+La demo está completa y publicada (Render + Neon). En la rama `feature/demo` están también los **cambios, devoluciones y vales** (etapa 9, ADR-021), con **736 pruebas automáticas** aprobadas. Sus reglas son supuestos 🟡 que esperan las respuestas de Belén (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); **la migración nueva todavía no se aplicó a la base de la demo** y se despliega aparte.
 
 | Etapa de la demo | Estado |
 |------------------|--------|
@@ -28,6 +28,7 @@ La demo está completa y publicada (Render + Neon), con **551 pruebas automátic
 | 6.5 Reportes y dashboard | ✅ |
 | 7. Pulido y publicación en Render | ✅ |
 | 8. Rediseño visual (dirección D) | ✅ |
+| 9. Cambios, devoluciones y vales (supuestos 🟡 por validar con Belén) | ✅ en código; sin desplegar |
 
 | Otros avances | Estado |
 |---------------|--------|

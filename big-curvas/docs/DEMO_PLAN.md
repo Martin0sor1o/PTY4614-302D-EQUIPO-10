@@ -205,7 +205,7 @@ Dependencias: OK `tsx`; `@prisma/adapter-pg` + `pg` solo si Prisma 7 los exige; 
 - Tras completar faltante, una línea puede quedar repartida entre ubicaciones y su `source_location_id` queda con la primera; en Fase 1, registrar el origen por reserva y no por línea.
 - Confirmar con el cliente si la caja se cierra diariamente y qué hacer ante diferencias (¿aprobación de Belén?).
 - Redondeo de efectivo a $10 y numeración de ventas siguen pendientes de validar con el contador / cliente (ver arriba).
-- Pagos mixtos, vales, cambios/devoluciones, anulaciones, promociones y SII quedan fuera de la demo.
+- Pagos mixtos (salvo el vale con un medio de pago), promociones y SII quedan fuera de la demo. Anulaciones: ver Etapa 6. Cambios, devoluciones y vales: ver la Etapa 9 al final de este documento.
 - Direcciones de las tiendas del ticket son datos de ejemplo del seed; el ticket dice "Comprobante interno – no válido como boleta".
 
 ## Decisiones del usuario (Etapa 2)
@@ -435,7 +435,7 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 - **Varias administradoras con PIN:** hoy la elección de quién aprueba es explícita (los fallos cuentan solo para ella), pero la lista de administradoras se muestra a la vendedora en la caja; en producción conviene identificar a la administradora de otra forma (p. ej. escaneando una credencial) y definir quién puede aprobar en cada ubicación.
 - **Notificaciones push** (RF-AUT-06): hoy Belén ve las solicitudes por refresco cada ~3 s con la pestaña abierta.
 - **Reembolso en la caja:** el reembolso de pedidos online no pasa por la caja de la tienda (el dinero se mueve fuera del POS); el medio de reembolso es texto libre hasta resolver **P-17**.
-- **Cambios, devoluciones, cambios fuera de plazo o sin boleta:** siguen fuera de la demo (P-09); los tipos `REEMBOLSO`, `CAMBIO_FUERA_PLAZO` y `CAMBIO_SIN_BOLETA` existen en el esquema pero no tienen flujo.
+- **Cambios, devoluciones y cambios fuera de plazo:** implementados en la Etapa 9 (ADR-021). `CAMBIO_SIN_BOLETA` sigue sin flujo: sin venta registrada no hay devolución (S-02).
 - **Vencimiento sin job:** las solicitudes vencidas se marcan al consultarlas; con volumen real conviene un job (GitHub Actions → endpoint protegido, ADR-010) que las limpie.
 - **Un descuento aprobado cubre todo el carrito** con una sola aprobación (todas las líneas con descuento sobre el límite); si se quiere aprobar por línea, hay que partir la solicitud.
 
@@ -464,3 +464,32 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 - **Overlay de desarrollo de Next:** en `pnpm dev` aparece un botón «sin foco» que no es de la aplicación; en `pnpm start` no aparece.
 - **Playwright:** no está instalado (no hay pruebas e2e en el repositorio); las verificaciones de pantalla de esta etapa se hicieron con Chrome por CDP, sin dependencias nuevas.
 
+
+
+## Etapa 9 · Cambios, devoluciones y vales (ADR-021)
+
+Reglas con supuestos 🟡 (S-01 a S-12, `src/modules/returns/rules.ts`); cada uno es una pregunta para Belén en `docs/PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`. **La migración nueva no se aplica a Neon hasta decidirlo aparte.**
+
+### Datos de ejemplo
+El seed con historial deja, dentro de la caja de un día pasado: una **devolución en efectivo** (pedida por la vendedora y aprobada por Belén), una **devolución a vale** y un **cambio con diferencia a pagar**. Queda un **vale vigente** con el código `VAL-DEMO-VALE-0001` (saldo $8.990). El stock final de los casos de prueba no cambia.
+
+### Casos de prueba para la demo (Etapa 9)
+
+| # | Caso | Pasos | Resultado esperado |
+|---|------|-------|--------------------|
+| 1 | **Devolución a vale** | Vendedora → POS → **Cambio / Devolución** → elegir una venta reciente → 1 prenda, motivo, **Vale** → Confirmar | Comprobante con el **código del vale**, saldo y vencimiento (90 días 🟡). La prenda vuelve al stock de la tienda (kardex: `Devolución`) |
+| 2 | **Reembolso con aprobación** | Misma pantalla, destino **Reembolso** → "Pedir aprobación a Belén" → Belén aprueba (celular o "Belén está aquí") | La caja pasa a "Aprobado por Belén" y confirma. La aprobación queda **Usada**. Con efectivo: sale de la caja abierta |
+| 3 | **Aviso del medio original** | Venta pagada con tarjeta → Reembolso → cambiar el medio a **Efectivo** | Aviso "La venta no se pagó en efectivo: lo sugerido es la anulación en la máquina" y botón para volver al medio original. No bloquea |
+| 4 | **Cambio** | Destino **Cambio** → buscar la prenda nueva | El resumen muestra prendas nuevas, **diferencia a pagar** (con medio de pago) o **saldo a favor en vale** |
+| 5 | **Canjear un vale** | POS → agregar prendas → "Código del vale" → Usar vale | "Vale −$X"; si no alcanza, el resto va por el medio de pago; si cubre todo, no hace falta otro medio. Un vale vencido, sin saldo o desactivado se rechaza con el motivo |
+| 6 | **Sobre-devolución** | Devolver una prenda ya devuelta | "ya se devolvió completo" |
+| 7 | **Fuera de plazo** | Venta de hace más de 30 días | Pide aprobación (`Cambio fuera de plazo`) |
+| 8 | **Caja** | Cerrar la caja del día | Muestra "Efectivo devuelto por devoluciones" (si hubo) y los **vales emitidos y canjeados** (no mueven efectivo) |
+| 9 | **Vales de Belén** | Belén → **Vales** | Lista por estado, historial de movimientos y "Desactivar vale" |
+| 10 | **Reporte** | Belén → Reportes → **Devoluciones** | Por motivo, ubicación y destino; ventas netas = ventas − valor devuelto |
+| 11 | **Devolución en la bodega** | Belén operando en Bodega → pedido online despachado → Reembolso por transferencia | Entra al stock de la bodega; no hay efectivo ni cambios |
+
+### Pendientes de la Etapa 9
+- **Canje de vales en pedidos online** (RF-DEV-06 completo): hoy solo en el POS (S-12).
+- **Respuestas de Belén** a las preguntas de `PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`, en especial **Q-01** (devolver o cambiar un pedido online ya entregado).
+- **Despliegue:** la migración `20261125210000_returns_vouchers` solo agrega; se aplica a la base de la demo en el próximo despliegue, que se decide aparte.

@@ -6,7 +6,7 @@ Sistema web que centraliza el **inventario, las ventas en tienda (POS) y los ped
 
 **Demo en línea:** <https://big-curvas-demo.onrender.com> (datos de ejemplo; el servicio gratuito se duerme con la inactividad y la primera visita puede tardar unos 50 segundos).
 
-> **Estado:** demo funcional completa (etapas 1 a 8), base de datos en Neon, autenticación real con contraseña y PIN, y **551 pruebas automáticas** aprobadas. Quedan pendientes los cambios y devoluciones y la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
+> **Estado:** demo funcional completa (etapas 1 a 8), base de datos en Neon, autenticación real con contraseña y PIN, y **736 pruebas automáticas** aprobadas. Los cambios, devoluciones y vales están implementados con supuestos por validar con la clienta (todavía sin desplegar en la demo publicada); queda pendiente la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
 
 ---
 
@@ -29,7 +29,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 | **Aprobaciones** | La dueña autoriza descuentos, anulaciones y reembolsos desde su celular o con su PIN | ✅ |
 | **Reportes** | Ventas por medio de pago, más vendidos, stock bajo, prendas sin rotación y lista del viernes | ✅ |
 | **Acceso real** | Administradora con contraseña; vendedoras con PIN en el equipo de caja vinculado a su tienda | ✅ |
-| **Cambios y devoluciones** | Reglas pendientes de validar con la clienta | Pendiente |
+| **Cambios y devoluciones** | Devolución a vale, a dinero (con aprobación de la dueña) o cambio, con vales de saldo; los supuestos están marcados 🟡 y listados como preguntas para la clienta | ✅ 🟡 |
 
 ## Tecnologías
 
@@ -101,7 +101,7 @@ En la pantalla de ingreso aparece "Entrar como…" con tres usuarios de ejemplo 
 Para ejecutar las pruebas (necesitan Docker levantado):
 
 ```bash
-pnpm test         # 551 pruebas (Vitest, contra PostgreSQL real)
+pnpm test         # 736 pruebas (Vitest, contra PostgreSQL real)
 pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
 ```
@@ -172,7 +172,7 @@ El trabajo se hace en ramas cortas (`feat/NNN-nombre`, `fix/NNN-nombre`, `docs/N
 - [x] Rediseño visual con criterios de accesibilidad (etapa 8)
 - [x] Autenticación real: contraseña para la administradora y PIN en el equipo de caja (ADR-020)
 - [ ] Pruebas de aceptación con la clienta y las vendedoras
-- [ ] Cambios y devoluciones (reglas por validar con la clienta)
+- [x] Cambios, devoluciones y vales (etapa 9, ADR-021): implementados con supuestos 🟡; falta validarlos con la clienta y desplegarlos
 - [ ] Manual de usuario, informe final, presentación y defensa
 
 ### Etapas del sistema
@@ -188,6 +188,7 @@ El trabajo se hace en ramas cortas (`feat/NNN-nombre`, `fix/NNN-nombre`, `docs/N
 | 6.5 | Reportes y dashboard | ✅ |
 | 7 | Pulido, publicación en Render y base de datos en Neon | ✅ |
 | 8 | Rediseño visual | ✅ |
+| 9 | Cambios, devoluciones y vales (supuestos 🟡 por validar con la clienta; sin desplegar) | ✅ |
 | — | Autenticación real (contraseña, dispositivo de caja y PIN) | ✅ |
 
 ## Limitaciones y próximos pasos

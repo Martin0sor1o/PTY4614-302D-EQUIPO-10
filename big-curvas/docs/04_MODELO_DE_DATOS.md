@@ -107,20 +107,24 @@ erDiagram
 
 **sales**: `id`, `number` (`{prefijo}-{correlativo}` por ubicación, ej. `RGA-000045`), `channel` (`POS` | `INSTAGRAM` | `WHATSAPP` | `WEB`), `location_id` (tienda para POS; BODEGA para online), `cash_session_id` (null en online), `seller_id`, `customer_id`, `online_order_id`, `status` (`COMPLETADA` | `ANULADA`), `subtotal`, `discount_total`, `shipping_cost` (Int ≥ 0; 0 en POS), `total` (= subtotal − discount_total + shipping_cost, con CHECK), `rounding_adjustment`, `tax_doc_type`, `tax_doc_number`, `is_contingency`, `idempotency_key`, `created_at`, `voided_at`, `voided_by`, `void_reason`, `void_approval_id`, `void_cash_session_id` (caja de la que sale el efectivo; CHECK: `ANULADA` ⇔ `voided_at` no nulo).
 
-**sale_lines**: `id`, `sale_id`, `variant_id`, `quantity`, `unit_price`, `unit_cost`, `promotion_id`, `promotion_discount`, `manual_discount`, `discount_approval_id` (nullable), `line_total`.
+**sale_lines**: `id`, `sale_id`, `variant_id`, `quantity`, `returned_quantity` (contador de lo ya devuelto; CHECK `0 ≤ returned_quantity ≤ quantity`), `unit_price`, `unit_cost`, `promotion_id`, `promotion_discount`, `manual_discount`, `discount_approval_id` (nullable), `line_total`.
 
-**payments**: `id`, `sale_id`, `method`, `amount`, `reference`, `created_at`. Invariante: `SUM(amount) = total + rounding_adjustment`.
+**payments**: `id`, `sale_id`, `method`, `amount`, `reference`, `voucher_id` (solo si `method = VALE`; CHECK; FK `RESTRICT`; índice parcial), `created_at`. Invariante: `SUM(amount) = total + rounding_adjustment`.
 
-**approval_requests**: `id`, `type` (`REEMBOLSO` | `ANULACION` | `DESCUENTO_SOBRE_LIMITE` | `CAMBIO_FUERA_PLAZO` | `CAMBIO_SIN_BOLETA`), `location_id`, `requested_by`, `payload` (json: venta, monto, %, motivo), `amount` (Int, nullable), `status` (`PENDIENTE` | `APROBADA` | `RECHAZADA` | `VENCIDA` | `USADA`), `method` (`REMOTA` | `PIN`), `decided_by`, `decided_at`, `decision_comment`, `expires_at`, `used_at`, `used_ref_type`, `used_ref_id`, `created_at`. El `payload` guarda un **binding** (SHA-256 de un JSON canónico: para descuentos, las líneas `{variantId, qty, discountBps}` ordenadas; para anulación, el `saleId`) y `amount` (descuento total o monto cobrado). Al usarla se recalculan en el servidor y deben coincidir. Vigencia: la pendiente vence a los `approval_timeout_minutes` de creada; la aprobada, a los `approval_timeout_minutes` desde la decisión.
+**approval_requests**: `id`, `type` (`REEMBOLSO` | `ANULACION` | `DESCUENTO_SOBRE_LIMITE` | `CAMBIO_FUERA_PLAZO` | `CAMBIO_SIN_BOLETA` | `VALE_SOBRE_TOPE`), `location_id`, `requested_by`, `payload` (json: venta, monto, %, motivo), `amount` (Int, nullable), `status` (`PENDIENTE` | `APROBADA` | `RECHAZADA` | `VENCIDA` | `USADA`), `method` (`REMOTA` | `PIN`), `decided_by`, `decided_at`, `decision_comment`, `expires_at`, `used_at`, `used_ref_type`, `used_ref_id`, `created_at`. El `payload` guarda un **binding** (SHA-256 de un JSON canónico: para descuentos, las líneas `{variantId, qty, discountBps}` ordenadas; para anulación, el `saleId`) y `amount` (descuento total o monto cobrado). Al usarla se recalculan en el servidor y deben coincidir. Vigencia: la pendiente vence a los `approval_timeout_minutes` de creada; la aprobada, a los `approval_timeout_minutes` desde la decisión.
 - Una aprobación se usa **una sola vez** y solo para la acción, la ubicación y el monto aprobados.
 
-### 2.5 Cambios, devoluciones, vales
+### 2.5 Cambios, devoluciones, vales (ADR-021)
 
-**returns**: `id`, `location_id` (**tienda o bodega donde se procesa**), `original_sale_id` (de cualquier ubicación), `type` (`CAMBIO` | `DEVOLUCION`), `reason`, `refund_method` (`EFECTIVO` | `TRANSFERENCIA` | `ANULACION_TRANSBANK` | `VALE` | `NINGUNO`), `refund_amount`, `refund_reference`, `approval_id` (obligatorio si hay reembolso de dinero), `cash_session_id` (si el reembolso fue en efectivo), `new_sale_id`, `user_id`, `created_at`.
+**returns** (se inserta completa, nunca se actualiza): `id`, `number` (`DEV-000123`), `location_id` (**tienda o bodega donde se procesa**), `original_sale_id` (de cualquier ubicación), `type` (`CAMBIO` | `DEVOLUCION`), `reason` (`TALLA` | `FALLA` | `NO_ES_LO_ESPERADO` | `ARREPENTIMIENTO` | `OTRO`), `reason_note`, `value_returned` (Σ de las líneas), `refund_method` (`EFECTIVO` | `TRANSFERENCIA` | `ANULACION_TRANSBANK` | `VALE` | `NINGUNO`), `refund_amount` (dinero que sale; en efectivo ya redondeado a $10), `rounding_adjustment`, `refund_reference`, `approval_id` (único), `cash_session_id` (solo si el reembolso fue en efectivo), `voucher_id` (único: vale emitido), `new_sale_id` (único: venta del cambio), `user_id`, `idempotency_key` (único), `created_at`.
+- CHECK: dinero coherente (`refund_amount = value_returned + rounding_adjustment` solo en dinero; 0 en vale y cambio), `cash_session_id` ⇔ efectivo, `CAMBIO` ⇔ `new_sale_id` y método `NINGUNO`, devolución a vale ⇔ `voucher_id`.
+- FK financieras (`approval_id`, `cash_session_id`, `voucher_id`, `new_sale_id`) con `ON DELETE RESTRICT`.
 
-**return_lines**: `id`, `return_id`, `sale_line_id`, `variant_id`, `quantity`, `amount`, `condition` (`VENDIBLE` | `DANADA`). La prenda entra al stock de `returns.location_id`.
+**return_lines**: `id`, `return_id`, `sale_line_id`, `variant_id`, `quantity` (> 0), `amount` (≥ 0: lo pagado por esas unidades, con el descuento de su línea, prorrateado en pesos enteros), `condition` (`VENDIBLE` | `DANADA`). Único (`return_id`, `sale_line_id`). La prenda entra al stock de `returns.location_id`; una `DANADA` además sale como `MERMA`.
 
-**store_credits**: `id`, `code`, `customer_id`, `origin_return_id`, `issued_location_id`, `initial_amount`, `balance`, `expires_at` (3 meses), `status`. Se usan en la tienda y online.
+**vouchers**: `id`, `code` (único, no nominativo, `VAL-XXXX-XXXX-XXXX`: 12 caracteres de un alfabeto de 32 sin ambiguos, 60 bits), `issued_location_id`, `initial_amount` (> 0), `balance` (saldo materializado, 0 ≤ saldo ≤ inicial), `expires_at` (vigencia `store_credit_validity_days`, 90 🟡), `active`, `created_by`, `created_at`, `updated_at`. Trigger `vouchers_protect`: no se borra y no cambia su código, monto inicial, vencimiento, ubicación ni emisor (solo `balance`, `active` y `updated_at`). El estado (vigente / agotado / vencido / desactivado) **se calcula**.
+
+**voucher_movements** (solo INSERT, trigger `voucher_movements_immutable`): `id`, `voucher_id`, `type` (`EMISION` | `CANJE` | `REPOSICION`), `amount` (con signo: `EMISION` y `REPOSICION` > 0, `CANJE` < 0; CHECK), `balance_after` (≥ 0), `ref_type` (`RETURN` | `SALE`), `ref_id`, `user_id`, `idempotency_key` (único), `created_at`. Invariante: `balance` = `initial_amount` + Σ(movimientos que no son `EMISION`) = Σ(todos los movimientos), con una sola `EMISION` por el monto inicial (tests y `scripts/verify-db.sql`).
 
 ### 2.6 Pedidos online
 
@@ -141,7 +145,7 @@ erDiagram
 
 **audit_log**: `id`, `user_id`, `location_id`, `action`, `entity`, `entity_id`, `before`, `after`, `created_at`.
 
-**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30), `store_credit_validity_days` (90), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡). Demo: `pin_max_attempts` (5), `pin_lock_minutes` (15).
+**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30 🟡), `store_credit_validity_days` (90 🟡), `voucher_seller_cap` (50000 🟡: tope del vale de una vendedora por operación), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡). Demo: `pin_max_attempts` (5), `pin_lock_minutes` (15).
 
 **stock_min_levels** (post-MVP): `variant_id`, `location_id`, `min_qty`, `target_qty` → sugerencias de reposición.
 

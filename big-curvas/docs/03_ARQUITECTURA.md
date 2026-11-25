@@ -114,7 +114,8 @@ src/
     inventory/            # ⭐ InventoryService: stock, movimientos, reservas, recepciones, conteos, TRASPASOS
     sales/                # Ventas POS, pagos, caja por tienda, anulaciones, pricing/promociones
     approvals/            # Solicitudes de autorización remota
-    returns/              # Cambios, devoluciones, vales
+    returns/              # Cambios y devoluciones: una transacción idempotente (ADR-021)
+    vouchers/             # Vales: saldo materializado + libro inmutable; módulo hoja (ADR-021)
     orders/               # Pedidos online (origen bodega, traspasos ligados, retiro en tienda)
     customers/            # Clientes
     suppliers/            # Proveedores
@@ -142,6 +143,8 @@ flowchart TD
     returns --> inventory
     returns --> sales
     returns --> approvals
+    returns --> vouchers
+    sales --> vouchers
     orders --> inventory
     orders --> sales
     inventory --> catalog
@@ -160,8 +163,9 @@ Todas las operaciones reciben un `tx`, el `userId`, la **ubicación** y una refe
 | `receive(variant, loc, qty, ref)` | +qty | — | `RECEPCION` |
 | `adjust(variant, loc, delta, reason)` | ±delta | — | `AJUSTE` |
 | `sell(variant, loc, qty, saleId)` | −qty (valida disponible) | — | `VENTA_POS` |
-| `returnToStock(variant, loc, qty, returnId)` | +qty | — | `DEVOLUCION` |
-| `writeOff(variant, loc, qty, reason)` | −qty | — | `MERMA` |
+| `returnToStock(variant, loc, qty, returnId)` | +qty en la ubicación que recibe la prenda | — | `DEVOLUCION` |
+| `writeOff(variant, loc, qty, returnId, reason)` | −qty (solo lo disponible) | — | `MERMA` (prenda devuelta dañada: entra con `DEVOLUCION` y sale con `MERMA`, stock neto 0) |
+| `lockStock(keys)` | — (solo bloquea; crea con 0 las filas que falten) | — | — (orden canónico ubicación → variante; lo usa un cambio, que toca dos conjuntos de variantes) |
 | `reserve(variant, loc, qty, orderLineId, expiresAt?)` | — | +qty (valida disponible) | (registro en `reservations`) |
 | `releaseReservation(reservationId, reason)` | — | −qty | (estado reserva) |
 | `consumeReservation(reservationId)` (solo en BODEGA) | −qty | −qty | `VENTA_ONLINE` |
@@ -256,9 +260,20 @@ sequenceDiagram
 4. Si pasan X minutos sin respuesta → `VENCIDA`.
 5. Alternativa presencial: PIN de Belén en el mismo equipo (queda como aprobación con método `PIN`).
 
-### 6.5 Cambio en la tienda
+### 6.5 Cambios y devoluciones (ADR-021)
 
-Una sola transacción: `returnToStock(loc = TIENDA_RANCAGUA)` (o `writeOff()`) + `sell(loc = TIENDA_RANCAGUA)` + diferencia. La validación "no devolver más de lo vendido" se hace contra la venta original (de la tienda o de un pedido online). Reglas de plazo y reembolso por validar (P-09).
+Una devolución o un cambio es **una sola transacción idempotente** (`returns.createReturn`), con este orden de bloqueo: **venta → caja → stock**.
+
+1. `FOR SHARE` sobre la venta original (una anulación la toma `FOR UPDATE`: una de las dos espera y la otra falla limpio) y se vuelve a validar su estado. La venta puede ser de cualquier ubicación; la prenda entra a la ubicación que la recibe (RN-24).
+2. Reglas: venta registrada y no anulada, pedido online solo despachado o entregado, plazo (S-01), medio de reembolso (S-06, S-07) y tope del vale (S-08). Lo que falla se rechaza antes de mover nada.
+3. Caja: el efectivo (reembolso o cambio) exige una caja abierta de la tienda; sin ella, `CONFLICT`.
+4. `lockStock` sobre lo que entra y lo que sale, y guardia anti sobre-devolución con `UPDATE sale_lines SET returned_quantity = returned_quantity + :k WHERE … returned_quantity + :k <= quantity`.
+5. Aprobación: una VENDEDORA fuera de regla consume una aprobación de Belén (un solo uso, ligada a venta + prendas + destino + monto: `REEMBOLSO`, `CAMBIO_FUERA_PLAZO` o `VALE_SOBRE_TOPE`); Belén opera directo y queda en `audit_log`.
+6. Stock vía InventoryService: `returnToStock` (`DEVOLUCION`) y, si está dañada, `writeOff` (`MERMA`).
+7. Destino: **vale** (`issueVoucher`), **dinero** (efectivo desde la caja abierta, redondeado a $10) o **cambio** (vale temporal que se canjea al instante en `sales.createSaleInTx`; lo que sobra queda en el vale y la diferencia a pagar va con un medio de pago).
+8. `returns` + `return_lines` + `audit_log`.
+
+Anular la venta nueva de un cambio, o una venta con devoluciones, no se puede: para deshacer un cambio se devuelve la prenda nueva. Detalle, supuestos y riesgos en el ADR-021.
 
 ## 7. Dinero e impuestos
 
