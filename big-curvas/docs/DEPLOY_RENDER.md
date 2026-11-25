@@ -13,7 +13,7 @@ Guía paso a paso para dejar la demo de Big Curvas en internet y abrirla desde c
 | Servicio web (Node.js, Next.js) | Render | `big-curvas-demo` | Free | Oregon |
 | Base de datos PostgreSQL 17 | Neon | `big-curvas-demo` (base `big_curvas`) | Free | AWS US West 2 (Oregon) |
 
-- **Por qué Oregon para la base:** quien consulta la base es el servicio web (Render, Oregon), no el navegador. Con la base en la misma región cada consulta tarda ~1 ms; en São Paulo serían ~170 ms por consulta y el seed (miles de consultas) se alargaría mucho. La región de un proyecto de Neon no se puede cambiar después de crearlo.
+- **Por qué Oregon para la base:** quien consulta la base es el servicio web (Render, Oregon), no el navegador. Con la base en la misma región cada consulta tarda ~1 ms (estimado, no medido); en São Paulo serían ~170 ms por consulta (estimado, no medido) y el seed (miles de consultas) se alargaría mucho. La región de un proyecto de Neon no se puede cambiar después de crearlo.
 - **Rama que se publica:** `feature/demo`, carpeta `big-curvas/`.
 - **Variables de entorno del servicio:**
 
