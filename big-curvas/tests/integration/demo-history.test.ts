@@ -45,25 +45,25 @@ describe("historial de demo", () => {
     expect(await stock("VNE033-NEG-52")).toEqual({ TIENDA_RANCAGUA: [1, 0], BODEGA: [2, 0] });
 
     // Escenario de devoluciones (ADR-021): una devolución en efectivo con aprobación de Belén, una devolución a vale y un cambio,
-  // todo por los servicios reales; deja UN vale vigente con el código fijo de la demo y los saldos cuadrados.
-  expect(summary.history).toMatchObject({ returns: 3, exchanges: 1 });
-  const returns = await db.return.findMany({ orderBy: { createdAt: "asc" }, include: { approval: true } });
-  expect(returns.map((r) => [r.type, r.refundMethod])).toEqual([
-    ["DEVOLUCION", "EFECTIVO"],
-    ["DEVOLUCION", "VALE"],
-    ["CAMBIO", "NINGUNO"],
-  ]);
-  expect(returns[0].approval).toMatchObject({ type: "REEMBOLSO", status: "USADA", usedRefType: "RETURN", usedRefId: returns[0].id });
-  expect(returns[0].cashSessionId).not.toBeNull(); // el efectivo salió de una caja abierta
-  expect(returns[2].newSaleId).not.toBeNull();
-  const demoVoucher = await db.voucher.findUniqueOrThrow({ where: { code: "VAL-DEMO-VALE-0001" } });
-  expect(demoVoucher).toMatchObject({ balance: 8_990, initialAmount: 8_990, active: true });
-  expect(demoVoucher.expiresAt.getTime()).toBeGreaterThan(Date.now()); // vigente
-  expect(await findVoucherLedgerMismatches()).toEqual([]);
-  expect(await db.saleLine.count({ where: { returnedQuantity: { gt: 0 } } })).toBe(3);
-  const returnsReport = await getReturnsReport({ actor: (await resetActors()).belen, from: "2026-09-02", to: "2026-10-28" });
-  expect(returnsReport.totalReturns).toBe(3);
-  expect(returnsReport.byDestination.map((d) => [d.key, d.returns])).toEqual([["DINERO", 1], ["VALE", 1], ["CAMBIO", 1]]);
+    // todo por los servicios reales; deja UN vale vigente con el código fijo de la demo y los saldos cuadrados.
+    expect(summary.history).toMatchObject({ returns: 3, exchanges: 1 });
+    const returns = await db.return.findMany({ orderBy: { createdAt: "asc" }, include: { approval: true } });
+    expect(returns.map((r) => [r.type, r.refundMethod])).toEqual([
+      ["DEVOLUCION", "EFECTIVO"],
+      ["DEVOLUCION", "VALE"],
+      ["CAMBIO", "NINGUNO"],
+    ]);
+    expect(returns[0].approval).toMatchObject({ type: "REEMBOLSO", status: "USADA", usedRefType: "RETURN", usedRefId: returns[0].id });
+    expect(returns[0].cashSessionId).not.toBeNull(); // el efectivo salió de una caja abierta
+    expect(returns[2].newSaleId).not.toBeNull();
+    const demoVoucher = await db.voucher.findUniqueOrThrow({ where: { code: "VAL-DEMO-VALE-0001" } });
+    expect(demoVoucher).toMatchObject({ balance: 8_990, initialAmount: 8_990, active: true });
+    expect(demoVoucher.expiresAt.getTime()).toBeGreaterThan(Date.now()); // vigente
+    expect(await findVoucherLedgerMismatches()).toEqual([]);
+    expect(await db.saleLine.count({ where: { returnedQuantity: { gt: 0 } } })).toBe(3);
+    const returnsReport = await getReturnsReport({ actor: (await resetActors()).belen, from: "2026-09-02", to: "2026-10-28" });
+    expect(returnsReport.totalReturns).toBe(3);
+    expect(returnsReport.byDestination.map((d) => [d.key, d.returns])).toEqual([["DINERO", 1], ["VALE", 1], ["CAMBIO", 1]]);
 
     // Las cajas son secuenciales: ninguna queda abierta y hay una por día con ventas.
     expect(await db.cashSession.count({ where: { status: "ABIERTA" } })).toBe(0);
