@@ -27,6 +27,8 @@ export interface CreateReturnInput {
   /** Aprobación de Belén (APROBADA, de un solo uso) cuando una VENDEDORA hace algo fuera de regla (S-01, S-06, S-08). */
   approvalId?: string;
   idempotencyKey: string;
+  /** DEMO: código fijo del vale de una devolución a vale (solo el seed; `issueVoucher` lo rechaza fuera de DEMO_MODE). */
+  demoVoucherCode?: string;
 }
 
 /**
@@ -57,13 +59,13 @@ export async function createReturn(input: CreateReturnInput): Promise<Idempotent
       return loadReturnView(db, existing.id);
     },
     execute: async () => {
-      const returnId = await db.$transaction((tx) => executeReturn(tx, input.actor, data), TX_OPTIONS);
+      const returnId = await db.$transaction((tx) => executeReturn(tx, input.actor, data, input.demoVoucherCode), TX_OPTIONS);
       return loadReturnView(db, returnId);
     },
   });
 }
 
-async function executeReturn(tx: Tx, actor: Actor, data: ReturnType<typeof createReturnSchema.parse>): Promise<string> {
+async function executeReturn(tx: Tx, actor: Actor, data: ReturnType<typeof createReturnSchema.parse>, demoVoucherCode?: string): Promise<string> {
   const { locationId, resolution, idempotencyKey } = data;
   // 0. Orden de bloqueo: VENTA → caja → stock. La venta va primero (FOR SHARE) y su estado se vuelve a validar DESPUÉS: una
   //    anulación simultánea de la misma venta la toma FOR UPDATE, así que una de las dos espera y la otra falla limpio.
@@ -174,7 +176,7 @@ async function executeReturn(tx: Tx, actor: Actor, data: ReturnType<typeof creat
   let voucher: IssuedVoucher | null = null;
   let newSaleId: string | null = null;
   if (resolution.kind === "VALE") {
-    voucher = await issueVoucher(tx, { actor, locationId, amount: quote.valueReturned, returnId, idempotencyKey });
+    voucher = await issueVoucher(tx, { actor, locationId, amount: quote.valueReturned, returnId, idempotencyKey, code: demoVoucherCode });
   } else if (resolution.kind === "CAMBIO") {
     // S-05: el valor devuelto se vuelve un vale que se canjea al instante en la venta nueva; el saldo a favor queda en el vale.
     voucher = await issueVoucher(tx, { actor, locationId, amount: quote.valueReturned, returnId, idempotencyKey });
