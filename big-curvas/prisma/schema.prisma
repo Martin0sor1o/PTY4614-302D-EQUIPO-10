@@ -152,6 +152,7 @@ enum ApprovalType {
   DESCUENTO_SOBRE_LIMITE
   CAMBIO_FUERA_PLAZO
   CAMBIO_SIN_BOLETA
+  VALE_SOBRE_TOPE
 
   @@map("approval_type")
 }
@@ -224,6 +225,8 @@ model Location {
   pickupOrders       OnlineOrder[]       @relation("OrderPickup")
   orderLinesAtSource OnlineOrderLine[]
   posDevices         PosDevice[]
+  returns            Return[]
+  vouchers           Voucher[]
 
   @@map("locations")
 }
@@ -272,6 +275,9 @@ model User {
   sessions             Session[]
   posDevicesRegistered PosDevice[]         @relation("PosDeviceRegisteredBy")
   posDevicesRevoked    PosDevice[]         @relation("PosDeviceRevokedBy")
+  returnsCreated       Return[]
+  vouchersIssued       Voucher[]
+  voucherMovements     VoucherMovement[]
 
   @@map("users")
 }
@@ -357,6 +363,7 @@ model ProductVariant {
   transferLines    TransferLine[]
   saleLines        SaleLine[]
   onlineOrderLines OnlineOrderLine[]
+  returnLines      ReturnLine[]
 
   @@unique([productId, sizeId, colorId])
   @@map("product_variants")
@@ -508,6 +515,7 @@ model CashSession {
   closer      User?    @relation("CashClosedBy", fields: [closedBy], references: [id])
   sales       Sale[]
   voidedSales Sale[]   @relation("SaleVoidCashSession")
+  returns     Return[]
 
   @@index([locationId, status])
   @@map("cash_sessions")
@@ -548,6 +556,8 @@ model Sale {
   voidCashSession CashSession?     @relation("SaleVoidCashSession", fields: [voidCashSessionId], references: [id])
   lines           SaleLine[]
   payments        Payment[]
+  returnsOf       Return[]         @relation("ReturnOriginalSale")
+  exchangeOf      Return?          @relation("ReturnNewSale")
 
   @@index([locationId, createdAt])
   @@index([channel, createdAt])
@@ -565,10 +575,12 @@ model SaleLine {
   manualDiscount     Int     @default(0) @map("manual_discount") // monto resultante en CLP
   discountApprovalId String? @map("discount_approval_id")
   lineTotal          Int     @map("line_total")
+  returnedQuantity   Int     @default(0) @map("returned_quantity")
 
   sale             Sale             @relation(fields: [saleId], references: [id])
   variant          ProductVariant   @relation(fields: [variantId], references: [id])
   discountApproval ApprovalRequest? @relation(fields: [discountApprovalId], references: [id])
+  returnLines      ReturnLine[]
 
   @@map("sale_lines")
 }
@@ -580,9 +592,11 @@ model Payment {
   amount       Int
   reference    String? // N° de voucher
   cashReceived Int?          @map("cash_received") // solo EFECTIVO: monto entregado por la clienta (vuelto = cash_received − amount)
+  voucherId    String?       @map("voucher_id") // vale canjeado (solo si method = VALE; CHECK en la migración)
   createdAt    DateTime      @default(now()) @map("created_at")
 
   sale Sale @relation(fields: [saleId], references: [id])
+  voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: Restrict)
 
   @@map("payments")
 }
@@ -611,6 +625,7 @@ model ApprovalRequest {
   decider    User?      @relation("ApprovalDecidedBy", fields: [decidedBy], references: [id])
   saleLines  SaleLine[]
   voidedSale Sale?      @relation("SaleVoidApproval")
+  returnOf   Return?
 
   @@index([status, createdAt])
   @@map("approval_requests")
@@ -833,4 +848,149 @@ model DocumentCounter {
   lastValue Int    @default(0) @map("last_value")
 
   @@map("document_counters")
+}
+
+// ───────────────────── Cambios, devoluciones y vales (ADR-021) ─────────────────────
+
+enum ReturnType {
+  CAMBIO
+  DEVOLUCION
+
+  @@map("return_type")
+}
+
+enum ReturnReason {
+  TALLA
+  FALLA
+  NO_ES_LO_ESPERADO
+  ARREPENTIMIENTO
+  OTRO
+
+  @@map("return_reason")
+}
+
+enum ReturnRefundMethod {
+  EFECTIVO
+  TRANSFERENCIA
+  ANULACION_TRANSBANK
+  VALE
+  NINGUNO
+
+  @@map("return_refund_method")
+}
+
+enum ReturnCondition {
+  VENDIBLE
+  DANADA
+
+  @@map("return_condition")
+}
+
+enum VoucherMovementType {
+  EMISION
+  CANJE
+  REPOSICION
+
+  @@map("voucher_movement_type")
+}
+
+model Return {
+  id                 String             @id @default(cuid())
+  number             String             @unique // DEV-000012
+  locationId         String             @map("location_id") // donde se procesa (la prenda entra al stock de esta ubicación)
+  originalSaleId     String             @map("original_sale_id")
+  type               ReturnType
+  reason             ReturnReason
+  reasonNote         String?            @map("reason_note")
+  valueReturned      Int                @map("value_returned") // Σ return_lines.amount
+  refundMethod       ReturnRefundMethod @map("refund_method")
+  refundAmount       Int                @default(0) @map("refund_amount") // dinero que sale (en efectivo, ya redondeado a $10)
+  roundingAdjustment Int                @default(0) @map("rounding_adjustment")
+  refundReference    String?            @map("refund_reference")
+  approvalId         String?            @unique @map("approval_id")
+  cashSessionId      String?            @map("cash_session_id") // caja de la que salió el efectivo
+  voucherId          String?            @unique @map("voucher_id") // vale emitido (devolución a vale, o saldo a favor de un cambio)
+  newSaleId          String?            @unique @map("new_sale_id") // venta del producto nuevo (solo CAMBIO)
+  userId             String             @map("user_id")
+  idempotencyKey     String             @unique @map("idempotency_key")
+  createdAt          DateTime           @default(now()) @map("created_at")
+
+  location     Location         @relation(fields: [locationId], references: [id])
+  originalSale Sale             @relation("ReturnOriginalSale", fields: [originalSaleId], references: [id])
+  approval     ApprovalRequest? @relation(fields: [approvalId], references: [id], onDelete: Restrict)
+  cashSession  CashSession?     @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  voucher      Voucher?         @relation(fields: [voucherId], references: [id], onDelete: Restrict)
+  newSale      Sale?            @relation("ReturnNewSale", fields: [newSaleId], references: [id], onDelete: Restrict)
+  user         User             @relation(fields: [userId], references: [id])
+  lines        ReturnLine[]
+
+  // CHECK (returns_money_chk, returns_cash_chk, returns_kind_chk, returns_voucher_chk) → en la migración.
+  // FK financieras con ON DELETE RESTRICT: nada de lo que respalda un reembolso se borra ni se desvincula en silencio.
+  @@index([locationId, createdAt])
+  @@index([originalSaleId])
+  @@map("returns")
+}
+
+model ReturnLine {
+  id         String          @id @default(cuid())
+  returnId   String          @map("return_id")
+  saleLineId String          @map("sale_line_id")
+  variantId  String          @map("variant_id")
+  quantity   Int
+  amount     Int // valor devuelto de esta línea (lo pagado, prorrateado, con descuentos)
+  condition  ReturnCondition
+
+  return   Return         @relation(fields: [returnId], references: [id])
+  saleLine SaleLine       @relation(fields: [saleLineId], references: [id])
+  variant  ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([returnId, saleLineId])
+  @@index([saleLineId])
+  @@map("return_lines")
+}
+
+model Voucher {
+  id               String   @id @default(cuid())
+  code             String   @unique // no nominativo
+  issuedLocationId String   @map("issued_location_id")
+  initialAmount    Int      @map("initial_amount")
+  balance          Int // saldo materializado: solo cambia con un movimiento en voucher_movements (misma transacción)
+  expiresAt        DateTime @map("expires_at")
+  active           Boolean  @default(true)
+  createdBy        String   @map("created_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  issuedLocation Location          @relation(fields: [issuedLocationId], references: [id])
+  creator        User              @relation(fields: [createdBy], references: [id])
+  movements      VoucherMovement[]
+  payments       Payment[]
+  originReturn   Return?
+
+  // CHECK (vouchers_amounts_chk) y trigger vouchers_protect → en la migración
+  @@index([issuedLocationId, createdAt])
+  @@index([expiresAt])
+  @@map("vouchers")
+}
+
+/// Libro de saldo de los vales. Solo INSERT (trigger voucher_movements_immutable).
+/// Invariante: balance = initial_amount + Σ(movimientos que no son EMISION) = Σ(todos los movimientos).
+/// CHECK voucher_movements_type_sign_chk: EMISION y REPOSICION suman (> 0), CANJE resta (< 0).
+model VoucherMovement {
+  id             String              @id @default(cuid())
+  voucherId      String              @map("voucher_id")
+  type           VoucherMovementType
+  amount         Int // con signo: EMISION +, CANJE −, REPOSICION +
+  balanceAfter   Int                 @map("balance_after")
+  refType        RefType             @map("ref_type")
+  refId          String?             @map("ref_id")
+  userId         String              @map("user_id")
+  idempotencyKey String              @unique @map("idempotency_key")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  voucher Voucher @relation(fields: [voucherId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([voucherId, createdAt])
+  @@map("voucher_movements")
 }
