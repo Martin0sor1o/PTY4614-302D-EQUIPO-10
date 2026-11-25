@@ -14,7 +14,7 @@ import {
   validatePassword,
 } from "./policy";
 import { createSession, revokeUserSessions, type CreatedSession } from "./sessions";
-import { clearFailures, lockedUntil, registerFailure } from "./throttle";
+import { clearFailures, reserveAttempt } from "./throttle";
 
 // Login con email y contraseña (administradora y, a futuro, bodega). La vendedora entra por dispositivo + PIN.
 // Mensajes genéricos: nunca se revela si el email existe, si la cuenta está inactiva o si la contraseña estuvo cerca.
@@ -34,8 +34,10 @@ export async function loginWithPassword(input: { email: string; password: string
   const emailFp = fingerprint("email", email);
   const key = `login:${hmac("login", email)}`;
 
-  // Bloqueado: la respuesta es la misma exista o no la cuenta (la clave es del email escrito, no de un usuario).
-  if (await lockedUntil(key)) throw new AppError("FORBIDDEN", LOCKED_MESSAGE);
+  // El intento se cuenta ANTES de verificar (atómico): las peticiones simultáneas no pueden esquivar el bloqueo. Bloqueado:
+  // la respuesta es la misma exista o no la cuenta (la clave es del email escrito, no de un usuario).
+  const attempt = await reserveAttempt(key, LOGIN_MAX_ATTEMPTS, LOGIN_LOCK_MINUTES);
+  if (!attempt.allowed) throw new AppError("FORBIDDEN", LOCKED_MESSAGE);
 
   const candidate =
     isPlausibleEmail(email) && password.length > 0 && password.length <= PASSWORD_MAX_LENGTH
@@ -48,17 +50,16 @@ export async function loginWithPassword(input: { email: string; password: string
   else await spendVerificationTime(password.slice(0, PASSWORD_MAX_LENGTH));
 
   if (!candidate || !ok) {
-    const failure = await registerFailure(key, LOGIN_MAX_ATTEMPTS, LOGIN_LOCK_MINUTES);
-    await auditAuth({ action: "AUTH_LOGIN_FAILED", userId: candidate?.id ?? null, entity: "auth", data: { emailFp, attempts: failure.attempts } });
-    if (failure.justLocked) {
+    await auditAuth({ action: "AUTH_LOGIN_FAILED", userId: candidate?.id ?? null, entity: "auth", data: { emailFp, attempts: attempt.attempts } });
+    if (attempt.isLastAttempt) {
       await auditAuth({
         action: "AUTH_LOCKED",
         userId: candidate?.id ?? null,
         entity: "auth",
-        data: { emailFp, lockedUntil: failure.lockedUntil?.toISOString() ?? null },
+        data: { emailFp, lockedUntil: attempt.lockedUntil?.toISOString() ?? null },
       });
     }
-    throw failure.lockedUntil ? new AppError("FORBIDDEN", LOCKED_MESSAGE) : new AppError("UNAUTHENTICATED", GENERIC_FAILURE);
+    throw attempt.isLastAttempt ? new AppError("FORBIDDEN", LOCKED_MESSAGE) : new AppError("UNAUTHENTICATED", GENERIC_FAILURE);
   }
 
   await clearFailures(key);
@@ -85,19 +86,21 @@ export async function changePassword(input: { userId: string; sessionId: string;
   if (!user?.passwordHash) throw new AppError("FORBIDDEN", "Esta cuenta no tiene contraseña.");
 
   const key = `pwchange:${hmac("pwchange", user.id)}`;
-  if (await lockedUntil(key)) throw new AppError("FORBIDDEN", LOCKED_MESSAGE);
+  const attempt = await reserveAttempt(key, PASSWORD_CHANGE_MAX_ATTEMPTS, PASSWORD_CHANGE_LOCK_MINUTES);
+  if (!attempt.allowed) throw new AppError("FORBIDDEN", LOCKED_MESSAGE);
 
   const currentOk = input.current.length <= PASSWORD_MAX_LENGTH && (await verifySecret(input.current, user.passwordHash));
   if (!currentOk) {
-    const failure = await registerFailure(key, PASSWORD_CHANGE_MAX_ATTEMPTS, PASSWORD_CHANGE_LOCK_MINUTES);
     await auditAuth({
-      action: failure.justLocked ? "AUTH_LOCKED" : "AUTH_LOGIN_FAILED",
+      action: attempt.isLastAttempt ? "AUTH_LOCKED" : "AUTH_LOGIN_FAILED",
       userId: user.id,
       entity: "auth",
-      data: { context: "password_change", attempts: failure.attempts },
+      data: { context: "password_change", attempts: attempt.attempts },
     });
-    throw failure.lockedUntil ? new AppError("FORBIDDEN", LOCKED_MESSAGE) : new AppError("VALIDATION", "La contraseña actual no es correcta.");
+    throw attempt.isLastAttempt ? new AppError("FORBIDDEN", LOCKED_MESSAGE) : new AppError("VALIDATION", "La contraseña actual no es correcta.");
   }
+  // Acertó: el contador vuelve a cero (aunque después la nueva contraseña no cumpla la política, la actual ya se demostró).
+  await clearFailures(key);
 
   const problem = validatePassword(input.next, { email: user.email, name: user.name });
   if (problem) throw new AppError("VALIDATION", problem);
@@ -105,7 +108,6 @@ export async function changePassword(input: { userId: string; sessionId: string;
 
   const passwordHash = await hashSecret(input.next);
   await db.user.update({ where: { id: user.id }, data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() } });
-  await clearFailures(key);
   const revoked = await revokeUserSessions(user.id, input.sessionId);
   await auditAuth({
     action: "AUTH_PASSWORD_CHANGED",

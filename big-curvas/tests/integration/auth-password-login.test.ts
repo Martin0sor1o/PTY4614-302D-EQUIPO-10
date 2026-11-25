@@ -187,16 +187,6 @@ describe("login con email y contraseña", () => {
   });
 });
 
-describe("contador de intentos atómico", () => {
-  it("fallos simultáneos se cuentan todos y el bloqueo se registra una sola vez", async () => {
-    const u = await createWebUser();
-    await Promise.all(Array.from({ length: 12 }, () => loginWithPassword({ email: u.email, password: "mala" }).catch(() => undefined)));
-    const throttle = (await db.authThrottle.findMany())[0];
-    // Los que llegaron cuando ya estaba bloqueado se rechazan sin contar; los demás se cuentan todos, sin perder ninguno.
-    expect(throttle.failedAttempts).toBeGreaterThanOrEqual(5);
-    expect(throttle.failedAttempts).toBeLessThanOrEqual(12);
-    expect(throttle.failedAttempts).toBe(await db.auditLog.count({ where: { action: { in: ["AUTH_LOGIN_FAILED"] } } }));
-    expect(throttle.lockedUntil).not.toBeNull();
-    expect(await db.auditLog.count({ where: { action: "AUTH_LOCKED" } })).toBe(1);
-  });
-});
+// Las peticiones simultáneas contra el bloqueo (el intento se cuenta ANTES de verificar) están en auth-concurrency.test.ts.
+// Aquí se quitó el test anterior "contador de intentos atómico": medía el modelo "revisar y luego contar el fallo", donde
+// 12 peticiones a la vez podían verificar las 12 (se contaban todas, pero ninguna se frenaba). Ahora solo 5 llegan a verificar.

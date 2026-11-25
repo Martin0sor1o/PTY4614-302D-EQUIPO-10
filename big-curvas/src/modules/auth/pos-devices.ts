@@ -6,7 +6,7 @@ import { auditAuth } from "./audit";
 import { formatPairingCode, hashToken, hmac, isPairingCodeShape, newPairingCode, newToken, normalizePairingCode } from "./crypto";
 import { DEVICE_TOUCH_INTERVAL_S, PAIRING_LOCK_MINUTES, PAIRING_MAX_ATTEMPTS, PAIRING_TTL_MINUTES } from "./policy";
 import { revokeDeviceSessions } from "./sessions";
-import { lockedUntil, registerFailure } from "./throttle";
+import { clearFailures, reserveAttempt } from "./throttle";
 
 // Dispositivos POS (RF-USR-02): el equipo de la caja se vincula a UNA tienda. Solo una administradora vincula y revoca.
 // Flujo: la administradora genera un código de un solo uso (10 min) → en el equipo se canjea en /vincular → el servidor
@@ -61,7 +61,9 @@ export interface LinkedDevice {
 
 /** Canjea el código en el equipo de la caja. Un solo uso; con límite de intentos fallidos. */
 export async function redeemPairingCode(input: { code: string }): Promise<LinkedDevice> {
-  if (await lockedUntil(PAIRING_THROTTLE_KEY)) {
+  // El intento se cuenta ANTES de probar el código (atómico): los canjes simultáneos no esquivan el límite.
+  const attempt = await reserveAttempt(PAIRING_THROTTLE_KEY, PAIRING_MAX_ATTEMPTS, PAIRING_LOCK_MINUTES);
+  if (!attempt.allowed) {
     throw new AppError("FORBIDDEN", "Demasiados intentos. Pide a la administradora un código nuevo e inténtalo en unos minutos.");
   }
   const code = normalizePairingCode(input.code);
@@ -81,10 +83,11 @@ export async function redeemPairingCode(input: { code: string }): Promise<Linked
   }
 
   if (!claimed) {
-    const failure = await registerFailure(PAIRING_THROTTLE_KEY, PAIRING_MAX_ATTEMPTS, PAIRING_LOCK_MINUTES);
-    await auditAuth({ action: "POS_DEVICE_PAIRING_FAILED", entity: "auth", data: { attempts: failure.attempts } });
+    await auditAuth({ action: "POS_DEVICE_PAIRING_FAILED", entity: "auth", data: { attempts: attempt.attempts } });
     throw new AppError("VALIDATION", PAIRING_FAILURE);
   }
+
+  await clearFailures(PAIRING_THROTTLE_KEY);
 
   await auditAuth({ action: "POS_DEVICE_LINKED", locationId: claimed.location_id, entity: "pos_device", entityId: claimed.id });
   return { token, deviceId: claimed.id, locationId: claimed.location_id };

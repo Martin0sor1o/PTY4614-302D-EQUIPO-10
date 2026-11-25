@@ -1,24 +1,31 @@
 import { db } from "@/lib/db";
 
-// Intentos fallidos por clave (tabla auth_throttles). La clave es un HMAC (src/modules/auth/crypto.ts), así que el
-// mismo trato se da a una cuenta que existe y a una que no: no se puede averiguar si un email está registrado.
+// Intentos por clave (tabla auth_throttles). La clave es un HMAC (src/modules/auth/crypto.ts), así que el mismo trato se
+// da a una cuenta que existe y a una que no: no se puede averiguar si un email está registrado.
 //
-// Todo se hace con la hora de la BD y de forma atómica (INSERT … ON CONFLICT DO UPDATE), como el bloqueo del PIN en
-// `approvals`. Un bloqueo ya vencido se reinicia solo al siguiente fallo; no se borran filas (solo `pnpm auth:purge`).
+// "Contar y luego verificar": cada intento se RESERVA (se cuenta) ANTES de verificar la contraseña, el PIN o el código, con
+// un solo INSERT … ON CONFLICT DO UPDATE atómico y con la hora de la BD. Así N peticiones simultáneas no pueden esquivar el
+// bloqueo (el patrón "revisar si está bloqueado y recién después contar el fallo" deja pasar a todas las que llegan antes
+// del primer fallo): como mucho `maxAttempts` peticiones llegan a verificar y el resto se rechaza sin gastar CPU. Un acierto
+// reinicia el contador (`clearFailures`). Un bloqueo ya vencido se reinicia solo en el siguiente intento. No se borran
+// filas (solo `pnpm auth:purge`).
 
-/** Hasta cuándo está bloqueada la clave, o null si no lo está. */
-export async function lockedUntil(key: string): Promise<Date | null> {
-  const rows = await db.$queryRaw<{ locked_until: Date }[]>`
-    SELECT locked_until FROM auth_throttles WHERE key = ${key} AND locked_until IS NOT NULL AND locked_until > now()`;
-  return rows[0]?.locked_until ?? null;
+export interface AttemptReservation {
+  /** true si este intento puede verificarse; false si la clave ya estaba bloqueada (no se verifica nada). */
+  allowed: boolean;
+  /** Intentos contados, incluido este (se topa en max + 1: un atacante no hace crecer el número sin límite). */
+  attempts: number;
+  /** true si ESTE intento es el último permitido: si falla, la clave queda bloqueada (ya lo está desde que se reservó). */
+  isLastAttempt: boolean;
+  lockedUntil: Date | null;
 }
 
-/** Registra un fallo. Devuelve cuántos van y, si con este se alcanzó el máximo, hasta cuándo queda bloqueada. */
-export async function registerFailure(
-  key: string,
-  maxAttempts: number,
-  lockMinutes: number,
-): Promise<{ attempts: number; lockedUntil: Date | null; justLocked: boolean }> {
+/**
+ * Reserva un intento ANTES de verificar. Con el intento número `maxAttempts` la clave queda bloqueada `lockMinutes` (así las
+ * peticiones simultáneas a ese intento ya se rechazan); si ese intento acierta, `clearFailures` la desbloquea. Mientras está
+ * bloqueada no se extiende el bloqueo (si no, quien insiste lo prolongaría para siempre).
+ */
+export async function reserveAttempt(key: string, maxAttempts: number, lockMinutes: number): Promise<AttemptReservation> {
   const rows = await db.$queryRaw<{ failed_attempts: number; locked_until: Date | null }[]>`
     INSERT INTO auth_throttles AS t (key, failed_attempts, locked_until, updated_at)
     VALUES (
@@ -29,7 +36,7 @@ export async function registerFailure(
     ON CONFLICT (key) DO UPDATE SET
       failed_attempts = CASE
         WHEN t.locked_until IS NOT NULL AND t.locked_until <= now() THEN 1
-        ELSE t.failed_attempts + 1 END,
+        ELSE LEAST(t.failed_attempts + 1, ${maxAttempts}::int + 1) END,
       locked_until = CASE
         WHEN t.locked_until IS NOT NULL AND t.locked_until > now() THEN t.locked_until
         WHEN (CASE WHEN t.locked_until IS NOT NULL AND t.locked_until <= now() THEN 1 ELSE t.failed_attempts + 1 END) >= ${maxAttempts}
@@ -40,14 +47,14 @@ export async function registerFailure(
   const row = rows[0];
   return {
     attempts: row.failed_attempts,
+    // Las reservas se aplican de una en una (bloqueo de fila): solo las primeras `maxAttempts` quedan en 1..max.
+    allowed: row.failed_attempts <= maxAttempts,
+    isLastAttempt: row.failed_attempts === maxAttempts,
     lockedUntil: row.locked_until,
-    // Los fallos se aplican de uno en uno (bloqueo de fila): solo UNO deja el contador justo en el máximo, y ese es el que
-    // bloquea. Con fallos simultáneos no se duplica el aviso. Tras un bloqueo vencido el contador vuelve a 1.
-    justLocked: row.locked_until !== null && row.failed_attempts === maxAttempts,
   };
 }
 
-/** Éxito: la cuenta vuelve a cero intentos. No borra la fila. */
+/** Éxito: la clave vuelve a cero intentos y se desbloquea. No borra la fila. */
 export async function clearFailures(key: string): Promise<void> {
   await db.$executeRaw`
     UPDATE auth_throttles SET failed_attempts = 0, locked_until = NULL, updated_at = now()
