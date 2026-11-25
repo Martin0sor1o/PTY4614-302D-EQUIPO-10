@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isAppError, userMessage } from "@/lib/errors";
-import { demoLogout, requireAccess } from "@/modules/auth";
+import { logout, requireAccess } from "@/modules/auth";
 import { resetDemoData } from "@/modules/demo";
 
 export type ResetDemoResult = { ok: false; message: string };
@@ -19,6 +19,6 @@ export async function resetDemoDataAction(): Promise<ResetDemoResult> {
     return { ok: false, message: userMessage(error) };
   }
   // El seed regenera los ids de usuario: la sesión actual ya no vale. Se vuelve a "Entrar como…".
-  await demoLogout();
+  await logout();
   redirect("/login?reiniciado=1");
 }

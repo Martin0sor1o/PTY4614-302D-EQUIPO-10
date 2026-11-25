@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
+import { PosRelogin } from "@/components/pos/pos-relogin";
 import { Textarea } from "@/components/ui/textarea";
 
 // Pantalla de venta. El navegador solo MUESTRA los cálculos (funciones puras de sales/client): el servidor recalcula
@@ -81,8 +82,53 @@ export function PosTerminal({
   const [asking, setAsking] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
   const askKey = useRef<{ snapshot: string; key: string } | null>(null);
+  // La sesión de caja venció (60 min de inactividad o 12 h de turno): se pide el PIN aquí mismo y el carrito se conserva.
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   const focusScan = useCallback(() => scanRef.current?.focus(), []);
+
+  // El carrito también se guarda en sessionStorage (solo esta pestaña): si la sesión vence y la pantalla se recarga o
+  // redirige al login, al volver a /pos el carrito se reconstruye con precios y stock al día. Se borra al cobrar.
+  const storageKey = `bc-pos-cart:${locationName}`;
+  const restoreCart = useCallback(async () => {
+    let saved: { v: string; q: number; d: string }[] = [];
+    try {
+      const parsed: unknown = JSON.parse(sessionStorage.getItem(storageKey) ?? "[]");
+      if (Array.isArray(parsed)) saved = parsed.filter((s) => typeof s?.v === "string" && Number.isInteger(s?.q) && s.q > 0);
+    } catch {
+      saved = [];
+    }
+    if (saved.length === 0) return setRestored(true);
+    const res = await refreshItemsAction(saved.map((s) => s.v));
+    if (!res.ok) {
+      if (res.code === "UNAUTHENTICATED") return setSessionExpired(true); // se reintenta al volver a entrar
+      return setRestored(true);
+    }
+    const lines: CartLine[] = [];
+    for (const s of saved) {
+      const item = res.items.find((i) => i.variantId === s.v);
+      if (item && item.here.available > 0) lines.push({ item, qty: Math.min(s.q, item.here.available), discountPct: typeof s.d === "string" ? s.d : "0" });
+    }
+    setCart(lines);
+    setRestored(true);
+    if (lines.length < saved.length) setNotice("Algunas prendas de tu carrito ya no tienen stock y se quitaron.");
+  }, [storageKey]);
+
+  useEffect(() => {
+    // sessionStorage solo existe en el navegador: se reconstruye en un callback (no en el cuerpo síncrono del efecto).
+    const t = setTimeout(() => void restoreCart(), 0);
+    return () => clearTimeout(t);
+  }, [restoreCart]);
+
+  useEffect(() => {
+    if (!restored) return; // no pisar el carrito guardado antes de reconstruirlo
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(cart.map((l) => ({ v: l.item.variantId, q: l.qty, d: l.discountPct }))));
+    } catch {
+      // sin sessionStorage (modo privado o bloqueado): el carrito sigue en memoria
+    }
+  }, [cart, restored, storageKey]);
 
   // Una clave por intento de venta: se conserva ante doble clic y se renueva si cambia el carrito o el pago.
   useEffect(() => {
@@ -98,6 +144,7 @@ export function PosTerminal({
       const res = await searchItemsAction(q);
       if (seq !== searchSeq.current) return;
       if (res.ok) setResults(res.items);
+      else if (res.code === "UNAUTHENTICATED") setSessionExpired(true);
       else setNotice(res.message);
     }, 250);
     return () => clearTimeout(t);
@@ -131,7 +178,8 @@ export function PosTerminal({
     if (!q) return;
     const res = await searchItemsAction(q);
     if (!res.ok) {
-      setNotice(res.message);
+      if (res.code === "UNAUTHENTICATED") setSessionExpired(true);
+      else setNotice(res.message);
       return;
     }
     const lower = q.toLowerCase();
@@ -220,7 +268,10 @@ export function PosTerminal({
       idempotencyKey: askKey.current.key,
     });
     setAsking(false);
-    if (!res.ok) return setAskError(res.message);
+    if (!res.ok) {
+      if (res.code === "UNAUTHENTICATED") setSessionExpired(true);
+      return setAskError(res.message);
+    }
     setApproval(res.approval);
     setApprovalSnapshot(cartSnapshot);
     setAskOpen(false);
@@ -267,12 +318,22 @@ export function PosTerminal({
     };
     const res = await createSaleAction(payload);
     if (res.ok) {
+      try {
+        sessionStorage.removeItem(storageKey); // la venta quedó registrada: el carrito guardado ya no sirve
+      } catch {
+        // sin sessionStorage
+      }
       router.push(`/pos/ticket/${res.saleId}`); // se queda en "procesando" hasta que cargue el ticket
+      return;
+    }
+    setSubmitting(false);
+    if (res.code === "UNAUTHENTICATED") {
+      // La sesión venció: no se pierde nada. El carrito sigue aquí; se pide el PIN y se reintenta con la misma clave.
+      setSessionExpired(true);
       return;
     }
     setError(res.message);
     setFailedVariantId(res.variantId ?? null);
-    setSubmitting(false);
     if (res.code === "APROBACION_INVALIDA" || res.code === "APROBACION_REQUERIDA") {
       // La aprobación no sirvió (usada, vencida, otro carrito…): se descarta para no dejar la caja a medias.
       setApproval(null);
@@ -295,6 +356,17 @@ export function PosTerminal({
       onBlurCapture={() => setTimeout(() => document.activeElement === document.body && focusScan(), 0)}
     >
       <section className="space-y-3" aria-label="Carrito">
+        {sessionExpired && (
+          <PosRelogin
+            onDone={() => {
+              setSessionExpired(false);
+              setError(null);
+              setNotice("Sesión renovada. Puedes continuar con la venta.");
+              if (!restored) void restoreCart(); // el carrito guardado no se había podido reconstruir
+              focusScan();
+            }}
+          />
+        )}
         <div className="relative">
           <ScanBarcode className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
