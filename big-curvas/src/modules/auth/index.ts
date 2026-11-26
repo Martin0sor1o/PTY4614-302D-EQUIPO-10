@@ -20,10 +20,10 @@ export { createSession, resolveSession, revokeSessionByToken, revokeUserSessions
 export { listSalesTeam, setSalesPin, setOwnApprovalPin, hasApprovalPin, type TeamMember, type OperatorOption } from "./pos-login";
 export { createAdminAccount, resetPasswordAccount, createSalesAccount } from "./accounts";
 export { purgeAuthData, type PurgeResult } from "./purge";
-// Límite de intentos por clave (tabla auth_throttles) y HMAC con AUTH_SECRET: los reutilizan otros módulos que protegen
-// un código de un solo uso contra la fuerza bruta (códigos de vale, ADR-021). La clave siempre va como HMAC, nunca en claro.
+// Límite de intentos por clave (tabla auth_throttles): lo reutilizan otros módulos que protegen un código contra la fuerza
+// bruta (códigos de vale, ADR-021). La clave nunca lleva el dato en claro. El HMAC con AUTH_SECRET NO se exporta: fuera de
+// este módulo todo debe funcionar en la demo, que no tiene AUTH_SECRET.
 export { reserveAttempt, clearFailures, type AttemptReservation } from "./throttle";
-export { hmac as hmacForThrottle } from "./crypto";
 export { PIN_LENGTH, PASSWORD_MIN_LENGTH, validatePassword, validatePin } from "./policy";
 export type { CookieReader } from "./cookies";
 // DEMO: login sin contraseña.

@@ -57,7 +57,7 @@ erDiagram
 **sessions** (ADR-020): `id`, `token_hash` (único; SHA-256 del token de la cookie), `user_id`, `kind` (`WEB` | `POS`), `pos_device_id` (obligatorio si `POS`), `created_at`, `last_seen_at`, `expires_at` (vencimiento absoluto), `revoked_at`. La inactividad se calcula con `last_seen_at` y la hora de la BD.
 - Constraints: `(kind = 'POS') = (pos_device_id IS NOT NULL)` (`sessions_kind_device_chk`); `expires_at > created_at` (`sessions_expiry_chk`). Índices por `user_id`, `pos_device_id` y `expires_at`.
 
-**auth_throttles** (ADR-020): `key` (clave HMAC: `login:<hmac del email>`, `pwchange:<hmac del usuario>`, `pair`), `failed_attempts`, `locked_until`, `updated_at`. Cuenta intentos fallidos sin guardar emails ni ids en claro. Constraint: `failed_attempts >= 0`. `pnpm auth:purge` (manual) borra sesiones y contadores viejos: excepción acotada a la regla de no borrado físico, por ser datos técnicos.
+**auth_throttles** (ADR-020): `key` (login real, con HMAC: `login:<hmac del email>`, `pwchange:<hmac del usuario>`, `pair`; búsqueda de vales, sin secreto: `voucher:<sha256 del id del usuario>`), `failed_attempts`, `locked_until`, `updated_at`. Cuenta intentos fallidos sin guardar emails ni ids en claro. Constraint: `failed_attempts >= 0`. `pnpm auth:purge` (manual) borra sesiones y contadores viejos: excepción acotada a la regla de no borrado físico, por ser datos técnicos.
 
 ### 2.2 Catálogo (sin cambios de fondo)
 

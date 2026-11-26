@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/lib/db";
 import { deactivateVoucher, findVoucherLedgerMismatches, getVoucherLedger, issueVoucher, listVouchers, lookupVoucher, redeemVoucher, resolveVoucherCode, LOOKUP_MAX_ATTEMPTS } from "@/modules/vouchers";
@@ -165,10 +166,11 @@ describe("búsqueda por código con límite de intentos", () => {
     await expectAppError(resolveVoucherCode(db, f.actors.vendRga, "hola"), "FORBIDDEN");
   });
 
-  it("la clave del contador es un HMAC: no queda el id del usuario ni el código en auth_throttles", async () => {
+  it("la clave del contador es un SHA-256 del id: no queda el id del usuario ni el código en auth_throttles", async () => {
     await expectAppError(miss(), "NOT_FOUND");
     const rows = await db.authThrottle.findMany({ where: { key: { startsWith: "voucher:" } } });
     expect(rows).toHaveLength(1);
+    expect(rows[0].key).toBe(`voucher:${createHash("sha256").update(f.actors.vendRga.id).digest("hex")}`);
     expect(rows[0].key).not.toContain(f.actors.vendRga.id);
     expect(rows[0].key).not.toContain("ZZZZ");
   });

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { assertAccess, type Actor } from "@/lib/access";
 import { db } from "@/lib/db";
+import { isDemoMode } from "@/lib/demo";
 import { AppError } from "@/lib/errors";
 import { auditAuth } from "./audit";
-import { formatPairingCode, hashToken, hmac, isPairingCodeShape, newPairingCode, newToken, normalizePairingCode } from "./crypto";
+import { formatPairingCode, hasAuthSecret, hashToken, hmac, isPairingCodeShape, newPairingCode, newToken, normalizePairingCode } from "./crypto";
 import { DEVICE_TOUCH_INTERVAL_S, PAIRING_LOCK_MINUTES, PAIRING_MAX_ATTEMPTS, PAIRING_TTL_MINUTES } from "./policy";
 import { revokeDeviceSessions } from "./sessions";
 import { clearFailures, reserveAttempt } from "./throttle";
@@ -14,6 +15,16 @@ import { clearFailures, reserveAttempt } from "./throttle";
 
 const PAIRING_THROTTLE_KEY = "pair";
 const PAIRING_FAILURE = "Código inválido o vencido.";
+export const PAIRING_UNAVAILABLE_IN_DEMO = "La vinculación de equipos de caja es parte del inicio de sesión real y no está disponible en la demo.";
+
+/**
+ * Vincular equipos es del login real: el código se guarda como HMAC con AUTH_SECRET. La demo no tiene ese secreto, pero
+ * estas pantallas se pueden abrir escribiendo la URL (`/vincular` es pública), así que ahí se rechaza con un mensaje claro.
+ * Fuera de la demo, que falte el secreto sigue siendo un error de configuración.
+ */
+function assertPairingAvailable(): void {
+  if (isDemoMode() && !hasAuthSecret()) throw new AppError("FORBIDDEN", PAIRING_UNAVAILABLE_IN_DEMO);
+}
 
 const createSchema = z.object({
   locationId: z.string().min(1).max(64),
@@ -29,6 +40,7 @@ export interface PairingCreated {
 
 export async function createPairingCode(input: { actor: Actor; locationId: string; name: string }): Promise<PairingCreated> {
   assertAccess(input.actor, { roles: ["ADMIN"] });
+  assertPairingAvailable();
   const data = createSchema.safeParse({ locationId: input.locationId, name: input.name });
   if (!data.success) throw new AppError("VALIDATION", data.error.issues[0]?.message ?? "Datos inválidos.");
 
@@ -61,6 +73,7 @@ export interface LinkedDevice {
 
 /** Canjea el código en el equipo de la caja. Un solo uso; con límite de intentos fallidos. */
 export async function redeemPairingCode(input: { code: string }): Promise<LinkedDevice> {
+  assertPairingAvailable();
   // El intento se cuenta ANTES de probar el código (atómico): los canjes simultáneos no esquivan el límite.
   const attempt = await reserveAttempt(PAIRING_THROTTLE_KEY, PAIRING_MAX_ATTEMPTS, PAIRING_LOCK_MINUTES);
   if (!attempt.allowed) {

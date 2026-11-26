@@ -91,6 +91,8 @@ Los tests de integración usan PostgreSQL real, así que Docker debe estar levan
 
 ```bash
 pnpm test         # toda la suite (Vitest)
+pnpm test:demo    # perfil de la demo: DEMO_MODE=true y SIN AUTH_SECRET (sin los tests del login real)
+pnpm test:all     # los dos perfiles, uno tras otro (antes de desplegar)
 pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
 ```

@@ -25,7 +25,7 @@ Guía paso a paso para dejar la demo de Big Curvas en internet y abrirla desde c
   | `DIRECT_URL` | Cadena **directa** de Neon (sin `-pooler`) | Se pega a mano en Render (`sync: false`) |
   | `DEMO_ADMIN_PIN` | Opcional. PIN (4 a 6 dígitos que tú eliges) de Belén en la demo; **no está en el repositorio** | Se pega a mano en Render (ver "PIN de la demo") |
 
-  `AUTH_SECRET` **no** hace falta en este servicio: solo se exige donde hay login real (ver `docs/CREDENCIALES.md`).
+  `AUTH_SECRET` **no** hace falta en este servicio: solo se exige donde hay login real (ver `docs/CREDENCIALES.md`). Todo lo que corre en la demo debe funcionar sin ella. **Antes de desplegar:** `pnpm test:all`; su segunda pasada (`pnpm test:demo`) corre sin `AUTH_SECRET`, como este servicio. En la demo, vincular equipos de caja (Ajustes → Dispositivos y `/vincular`) responde que no está disponible. Los errores inesperados quedan en el log del servicio con la marca `[error inesperado]`, sin códigos, contraseñas ni tokens.
 
   **Las cadenas de conexión son secretos:** nunca van en el repositorio (es público), en commits, en el chat ni en capturas de pantalla. Las dos llevan `sslmode=require`.
 - **Cuál se usa para qué:** la app y la siembra usan `DATABASE_URL` (pooled). `prisma migrate deploy` usa `DIRECT_URL` (`prisma.config.ts`), porque las migraciones toman un *advisory lock* que no funciona a través del pooler de Neon. Si `DIRECT_URL` no existe, el CLI usa `DATABASE_URL` (así funciona en local).
