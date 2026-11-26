@@ -14,7 +14,7 @@ Supuesto de capacidad: **1 desarrollador ~20 h/semana con desarrollo asistido** 
 
 ## 2. Estado actual (noviembre de 2026, rama `feature/demo`)
 
-La demo está completa y publicada (Render + Neon). En la rama `feature/demo` están también los **cambios, devoluciones y vales** (etapa 9, ADR-021), con **736 pruebas automáticas** aprobadas. Sus reglas son supuestos 🟡 que esperan las respuestas de Belén (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); **la migración nueva todavía no se aplicó a la base de la demo** y se despliega aparte.
+La demo está completa y publicada (Render + Neon). En la rama `feature/demo` están también los **cambios, devoluciones y vales** (etapa 9, ADR-021), con **779 pruebas automáticas** aprobadas. Sus reglas son supuestos 🟡 que esperan las respuestas de Belén (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); La migración nueva **ya está aplicada en la base de la demo**, pero la versión publicada sigue siendo la anterior: el primer despliegue se revirtió porque el canje de vales exigía `AUTH_SECRET`, que la demo no tiene. La corrección está en `fix/022-demo-sin-auth-secret` y se despliega aparte.
 
 | Etapa de la demo | Estado |
 |------------------|--------|

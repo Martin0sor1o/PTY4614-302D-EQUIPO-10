@@ -6,7 +6,7 @@ Sistema web que centraliza el **inventario, las ventas en tienda (POS) y los ped
 
 **Demo en línea:** <https://big-curvas-demo.onrender.com> (datos de ejemplo; el servicio gratuito se duerme con la inactividad y la primera visita puede tardar unos 50 segundos).
 
-> **Estado:** demo funcional completa (etapas 1 a 8), base de datos en Neon, autenticación real con contraseña y PIN, y **736 pruebas automáticas** aprobadas. Los cambios, devoluciones y vales están implementados con supuestos por validar con la clienta (todavía sin desplegar en la demo publicada); queda pendiente la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
+> **Estado:** demo funcional completa (etapas 1 a 8), base de datos en Neon, autenticación real con contraseña y PIN, y **779 pruebas automáticas** aprobadas. Los cambios, devoluciones y vales están implementados con supuestos por validar con la clienta (todavía sin desplegar en la demo publicada); queda pendiente la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
 
 ---
 
@@ -101,7 +101,8 @@ En la pantalla de ingreso aparece "Entrar como…" con tres usuarios de ejemplo 
 Para ejecutar las pruebas (necesitan Docker levantado):
 
 ```bash
-pnpm test         # 736 pruebas (Vitest, contra PostgreSQL real)
+pnpm test         # 779 pruebas (Vitest, contra PostgreSQL real)
+pnpm test:demo    # las de la demo, como en el servicio publicado: sin AUTH_SECRET (643; 2 se saltan)
 pnpm lint         # ESLint
 pnpm typecheck    # TypeScript
 ```
