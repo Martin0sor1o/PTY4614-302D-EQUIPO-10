@@ -14,7 +14,6 @@ const REFERENCE_LABEL: Record<string, string> = { DEBITO: "Voucher", CREDITO: "V
 
 /** Ticket de venta. En pantalla se ve como una tira; al imprimir (globals.css `.ticket`) ocupa 80 mm. */
 export function Ticket({ sale }: { sale: SaleView }) {
-  const payment = sale.payments[0];
   return (
     <article className="ticket mx-auto w-[80mm] max-w-full bg-paper p-3 font-mono text-[12px] leading-snug text-paper-ink shadow-sm ring-1 ring-paper-ink/10" aria-label={`Ticket ${sale.number}`}>
       <div className="text-center">
@@ -97,39 +96,38 @@ export function Ticket({ sale }: { sale: SaleView }) {
         )}
       </dl>
 
-      {payment && (
-        <>
-          <hr className="my-2 border-dashed border-paper-ink" />
-          <dl className="space-y-0.5">
-            <div className="flex justify-between font-semibold">
-              <dt>Medio de pago</dt>
-              <dd>{METHOD_LABEL[payment.method]}</dd>
-            </div>
+      {sale.payments.length > 0 && <hr className="my-2 border-dashed border-paper-ink" />}
+      {/* Todos los pagos: una venta con vale puede llevar además otro medio por el resto. */}
+      {sale.payments.map((payment, index) => (
+        <dl key={`${payment.method}-${index}`} className={index > 0 ? "mt-1.5 space-y-0.5" : "space-y-0.5"} data-testid="ticket-payment">
+          <div className="flex justify-between font-semibold">
+            <dt>Medio de pago</dt>
+            <dd>{METHOD_LABEL[payment.method]}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt>Cobrado</dt>
+            <dd>{formatCLP(payment.amount)}</dd>
+          </div>
+          {payment.reference && (
             <div className="flex justify-between">
-              <dt>Cobrado</dt>
-              <dd>{formatCLP(payment.amount)}</dd>
+              <dt>{REFERENCE_LABEL[payment.method] ?? "Referencia"}</dt>
+              <dd>{payment.reference}</dd>
             </div>
-            {payment.reference && (
+          )}
+          {payment.cashReceived !== null && (
+            <>
               <div className="flex justify-between">
-                <dt>{REFERENCE_LABEL[payment.method] ?? "Referencia"}</dt>
-                <dd>{payment.reference}</dd>
+                <dt>Recibido</dt>
+                <dd>{formatCLP(payment.cashReceived)}</dd>
               </div>
-            )}
-            {payment.cashReceived !== null && (
-              <>
-                <div className="flex justify-between">
-                  <dt>Recibido</dt>
-                  <dd>{formatCLP(payment.cashReceived)}</dd>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <dt>Vuelto</dt>
-                  <dd data-testid="ticket-change">{formatCLP(payment.change ?? 0)}</dd>
-                </div>
-              </>
-            )}
-          </dl>
-        </>
-      )}
+              <div className="flex justify-between font-bold">
+                <dt>Vuelto</dt>
+                <dd data-testid="ticket-change">{formatCLP(payment.change ?? 0)}</dd>
+              </div>
+            </>
+          )}
+        </dl>
+      ))}
 
       <hr className="my-2 border-dashed border-paper-ink" />
       <div className="text-center">
