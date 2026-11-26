@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { isAppError, userMessage } from "@/lib/errors";
+import { userMessage } from "@/lib/errors";
 import { logout, requireAccess } from "@/modules/auth";
 import { resetDemoData } from "@/modules/demo";
 
@@ -15,7 +15,6 @@ export async function resetDemoDataAction(): Promise<ResetDemoResult> {
     await resetDemoData({ actor: user });
     console.log(`[demo] Datos de demo reiniciados en ${((Date.now() - started) / 1000).toFixed(1)} s.`);
   } catch (error) {
-    if (!isAppError(error)) console.error("[demo] Falló el reinicio de datos:", error);
     return { ok: false, message: userMessage(error) };
   }
   // El seed regenera los ids de usuario: la sesión actual ya no vale. Se vuelve a "Entrar como…".
