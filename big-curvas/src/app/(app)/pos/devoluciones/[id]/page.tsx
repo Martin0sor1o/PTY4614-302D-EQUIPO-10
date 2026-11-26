@@ -9,6 +9,7 @@ import { PrintButton } from "@/components/pos/print-button";
 import { ReturnReceipt } from "@/components/pos/return-receipt";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { returnDoneTitle } from "@/modules/returns/client";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function ReturnReceiptPage({ params }: PageProps<"/pos/devo
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {ret.type === "CAMBIO" ? "Cambio" : "Devolución"} {ret.number} registrado
+            {returnDoneTitle(ret.type, ret.number)}
           </h1>
           <p className="text-sm text-muted-foreground">El stock ya se actualizó. Imprime el comprobante{ret.voucher && ret.voucher.balance > 0 ? " (lleva el código del vale)" : ""} o sigue atendiendo.</p>
         </div>

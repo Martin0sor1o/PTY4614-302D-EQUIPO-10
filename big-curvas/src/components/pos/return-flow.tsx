@@ -27,6 +27,7 @@ import {
   type ReturnSaleHitLite,
   type ReturnableSaleLite,
 } from "@/app/(app)/pos/devoluciones/actions";
+import { paidWithText } from "@/modules/returns/client";
 
 // Flujo "Cambio / Devolución" (RF-DEV-01 a 07): buscar la venta → elegir prendas → motivo → destino (vale, dinero o cambio) →
 // confirmar. El navegador solo MUESTRA lo que cotiza el servidor (quoteReturnAction); el servidor recalcula todo al confirmar.
@@ -458,7 +459,7 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
                     {sale.orderNumber ? ` · pedido ${sale.orderNumber}` : ""}
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    {formatDate(new Date(sale.createdAt))} · {sale.locationName} · pagada con {sale.paymentMethods.map((m) => m.toLowerCase()).join(" + ")}
+                    {formatDate(new Date(sale.createdAt))} · {sale.locationName} · {paidWithText(sale.paymentMethods)}
                   </p>
                 </div>
                 <Button type="button" variant="outline" onClick={reset}>

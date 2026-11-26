@@ -6,6 +6,7 @@ import { createApprovalRequest } from "@/modules/approvals";
 import { quoteReturn } from "./quote";
 import { RETURN_REASON_LABEL } from "./rules";
 import { requestReturnApprovalSchema, type ReturnLineInput, type ReturnResolutionInput } from "./schemas";
+import { daysText, REFUND_METHOD_PHRASE } from "./texts";
 
 // Solicitud de aprobación de una devolución o cambio (RF-AUT-01, ADR-014). `approvals` no sabe de devoluciones: aquí se arma
 // el BINDING (en quote.ts) y el MONTO (el valor devuelto); `createReturn` los recalcula al usar la aprobación y deben coincidir.
@@ -44,13 +45,13 @@ export async function requestReturnApproval(input: {
     headline: `${DESTINATION[quote.resolution]} · ${formatCLP(quote.valueReturned)} · ${units} ${units === 1 ? "prenda" : "prendas"} de la venta ${quote.saleNumber}`,
     lines: [
       { label: "Por qué necesita tu aprobación", value: quote.approval.reasons.join(" · ") },
-      { label: "Venta original", value: `${quote.saleNumber} · hace ${quote.daysSinceSale} días (plazo ${quote.windowDays})` },
+      { label: "Venta original", value: `${quote.saleNumber} · hace ${daysText(quote.daysSinceSale)} (plazo ${quote.windowDays})` },
       ...quote.lines.map((l) => ({
         label: `${l.productName} · ${l.color} · T${l.size} (${l.sku}) ×${l.qty}`,
         value: `${l.condition === "DANADA" ? "dañada (merma)" : "vendible (vuelve al stock)"} · ${formatCLP(l.amount)}`,
       })),
       ...(quote.refund
-        ? [{ label: "Devolver por", value: `${quote.refund.method.replaceAll("_", " ").toLowerCase()} · ${formatCLP(quote.refund.amount)}` }]
+        ? [{ label: "Devolver por", value: `${REFUND_METHOD_PHRASE[quote.refund.method]} · ${formatCLP(quote.refund.amount)}` }]
         : []),
       ...(quote.exchange
         ? [

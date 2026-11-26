@@ -1,5 +1,6 @@
 import { daysBetweenKeys, santiagoDayKey } from "@/lib/dates";
 import { assertClp, roundCash } from "@/lib/money";
+import { daysText } from "./texts";
 
 // Cálculos de devoluciones y cambios: FUNCIONES PURAS (regla 6: dinero en CLP enteros). Sin BD, sin Node.
 // El servidor recalcula todo al ejecutar; el navegador solo los usa para mostrar.
@@ -91,7 +92,7 @@ export function approvalNeed(input: {
 }): ApprovalNeed {
   const reasons: string[] = [];
   if (input.isMoneyRefund) reasons.push("Reembolso en dinero (RN-15)");
-  if (input.outOfWindow) reasons.push(`Fuera de plazo: ${input.daysSinceSale} días desde la venta (plazo ${input.windowDays})`);
+  if (input.outOfWindow) reasons.push(`Fuera de plazo: ${daysText(input.daysSinceSale)} desde la venta (plazo ${input.windowDays})`);
   if (input.voucherAmount > input.voucherCap) reasons.push(`Vale de $${input.voucherAmount.toLocaleString("es-CL")} sobre el tope de la vendedora ($${input.voucherCap.toLocaleString("es-CL")})`);
   const type: ReturnApprovalType | null = input.isMoneyRefund
     ? "REEMBOLSO"
