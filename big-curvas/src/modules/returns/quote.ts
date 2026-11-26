@@ -8,6 +8,7 @@ import { loadSaleForReturn, priceNewLines, type LoadedSale, type PricedNewLines 
 import { getReturnPolicy, type ReturnPolicy } from "./policy";
 import { quoteReturnSchema, type ReturnLineInput, type ReturnResolutionInput } from "./schemas";
 import type { QuotedLine, ReturnQuote } from "./types";
+import { REFUND_METHOD_PHRASE } from "./texts";
 
 /**
  * Huella de lo que Belén aprueba (ADR-014): SHA-256 de un JSON canónico con la venta, la ubicación, las líneas devueltas
@@ -38,7 +39,6 @@ export function returnBinding(input: {
   return createHash("sha256").update(`return:${canonical}`).digest("hex");
 }
 
-const METHOD_PHRASE = { EFECTIVO: "efectivo", ANULACION_TRANSBANK: "anulación en la máquina", TRANSFERENCIA: "transferencia" } as const;
 const PAID_WITH = { EFECTIVO: "efectivo", ANULACION_TRANSBANK: "tarjeta", TRANSFERENCIA: "transferencia" } as const;
 
 export interface QuoteInputs {
@@ -130,7 +130,7 @@ export function buildQuote(ctx: QuoteInputs): ReturnQuote {
     refund = { method: resolution.method, amount: q.amount, roundingAdjustment: q.roundingAdjustment };
     // S-06: el medio sugerido es el original. Devolver por otro medio es posible (Belén/la vendedora con aprobación), pero se advierte.
     if (resolution.method !== sale.suggestedRefundMethod) {
-      const original = METHOD_PHRASE[sale.suggestedRefundMethod];
+      const original = REFUND_METHOD_PHRASE[sale.suggestedRefundMethod];
       warnings.push(
         resolution.method === "EFECTIVO"
           ? `La venta ${sale.number} se pagó con ${PAID_WITH[sale.suggestedRefundMethod]}: lo sugerido es devolver por ${original}, no en efectivo. Revisa que sea lo que corresponde.`

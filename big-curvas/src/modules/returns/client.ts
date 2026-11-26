@@ -15,6 +15,7 @@ export {
   type ApprovalNeed,
   type ReturnApprovalType,
 } from "./pricing";
+export { paidWithText, returnDoneTitle, daysText } from "./texts";
 export { RETURN_ASSUMPTIONS, RETURN_REASONS, RETURN_REASON_LABEL, type ReturnAssumption, type ReturnReasonCode } from "./rules";
 export type {
   QuotedLine,

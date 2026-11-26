@@ -51,6 +51,11 @@ export async function cashTotals(reader: Reader, sessionId: string, openingCash:
     where: { method: PaymentMethod.VALE, sale: { cashSessionId: sessionId, status: "COMPLETADA" } },
     _sum: { amount: true },
   });
+  // Solo para la leyenda: la parte de "canjeados" que es el crédito interno de un cambio (mismo filtro, ventas nuevas de un cambio).
+  const exchangeRedeemed = await reader.payment.aggregate({
+    where: { method: PaymentMethod.VALE, sale: { cashSessionId: sessionId, status: "COMPLETADA", exchangeOf: { isNot: null } } },
+    _sum: { amount: true },
+  });
   const session = await reader.cashSession.findUnique({ where: { id: sessionId }, select: { locationId: true, openedAt: true, closedAt: true } });
   let vouchersIssued = 0;
   if (session) {
@@ -79,6 +84,7 @@ export async function cashTotals(reader: Reader, sessionId: string, openingCash:
     cashReturned,
     vouchersIssued,
     vouchersRedeemed: redeemed._sum.amount ?? 0,
+    exchangeCredit: exchangeRedeemed._sum.amount ?? 0,
     expectedCash: expectedCash(openingCash, [byMethod.EFECTIVO, -cashRefunded, -cashReturned]),
   };
 }

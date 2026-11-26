@@ -7,6 +7,7 @@ import { formatCLP } from "@/lib/money";
 import { getCashClosingTotals, getCashSession, getOpenCashSession } from "@/modules/sales";
 import { CloseCashForm, OpenCashForm } from "@/components/pos/cash-forms";
 import { METHOD_LABEL } from "@/components/pos/ticket";
+import { VoucherSummary } from "@/components/pos/voucher-summary";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,21 +93,7 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
             ))}
           </ul>
         </div>
-        {(totals.vouchersIssued > 0 || totals.vouchersRedeemed > 0) && (
-          <div className="text-sm" data-testid="voucher-summary">
-            <div className="mb-1 font-medium">Vales (no mueven efectivo)</div>
-            <ul className="grid max-w-md grid-cols-2 gap-x-6 gap-y-0.5">
-              <li>
-                <span className="text-muted-foreground">Emitidos en esta caja</span>
-                <div className="font-medium tabular-nums" data-testid="vouchers-issued">{formatCLP(totals.vouchersIssued)}</div>
-              </li>
-              <li>
-                <span className="text-muted-foreground">Canjeados en ventas</span>
-                <div className="font-medium tabular-nums" data-testid="vouchers-redeemed">{formatCLP(totals.vouchersRedeemed)}</div>
-              </li>
-            </ul>
-          </div>
-        )}
+        <VoucherSummary issued={totals.vouchersIssued} redeemed={totals.vouchersRedeemed} exchangeCredit={totals.exchangeCredit} />
       </CardContent>
     </Card>
   );

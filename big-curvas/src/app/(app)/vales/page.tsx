@@ -3,6 +3,8 @@ import Link from "next/link";
 import { z } from "zod";
 import { CircleCheck, CircleX, TimerOff, Wallet, type LucideIcon } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/dates";
+import { isAppError } from "@/lib/errors";
+import { logUnexpectedError } from "@/lib/log-error";
 import { formatCLP } from "@/lib/money";
 import { requirePageAccess } from "@/modules/auth";
 import { getVoucherLedger, listVouchers, type VoucherStatus } from "@/modules/vouchers";
@@ -42,7 +44,13 @@ export default async function VouchersPage({ searchParams }: PageProps<"/vales">
   const user = await requirePageAccess(["ADMIN"]);
   const { estado, vale } = searchSchema.parse(await searchParams);
   const vouchers = await listVouchers({ actor: user, status: estado });
-  const detail = vale ? await getVoucherLedger(user, vale).catch(() => null) : null;
+  // Un vale que no existe no rompe la lista; cualquier otro fallo, además, queda en el log.
+  const detail = vale
+    ? await getVoucherLedger(user, vale).catch((error: unknown) => {
+        if (!isAppError(error)) logUnexpectedError(error);
+        return null;
+      })
+    : null;
   const href = (e: string, v?: string) => `/vales?estado=${e}${v ? `&vale=${v}` : ""}`;
 
   return (

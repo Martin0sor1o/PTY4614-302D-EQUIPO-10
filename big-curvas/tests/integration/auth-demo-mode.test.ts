@@ -11,6 +11,9 @@ import { loginWithPassword } from "@/modules/auth";
 
 // El modo demo existe SOLO con DEMO_MODE=true. vitest.config.mts lo pone en "true"; aquí se apaga con stubEnv.
 
+// El login real exige AUTH_SECRET: en el perfil "demo" (sin secreto) esos dos casos se saltan; el perfil por omisión los corre.
+const realLoginIt = it.skipIf(process.env.TEST_PROFILE === "demo");
+
 let f: Fixtures;
 beforeEach(async () => {
   f = await resetDemo();
@@ -58,7 +61,7 @@ describe("sin DEMO_MODE no existen el login demo ni los PIN demo", () => {
     expect(await db.user.count()).toBe(0);
   });
 
-  it("el login real sigue funcionando sin DEMO_MODE", async () => {
+  realLoginIt("el login real sigue funcionando sin DEMO_MODE", async () => {
     vi.stubEnv("DEMO_MODE", "");
     const u = await createWebUser();
     const { session } = await loginWithPassword({ email: u.email, password: u.password });
@@ -120,7 +123,7 @@ describe("DEMO_MODE=true con cuentas reales en la base: el acceso demo se deshab
     expect(await resolveUser(jar({ demo_user_id: f.actors.belen.id }))).toBeNull();
   });
 
-  it("el login real sigue funcionando con DEMO_MODE=true", async () => {
+  realLoginIt("el login real sigue funcionando con DEMO_MODE=true", async () => {
     const real = await createWebUser();
     const { session } = await loginWithPassword({ email: real.email, password: real.password });
     expect(await resolveUser(jar({ [SESSION_COOKIE]: session.token }))).toMatchObject({ id: real.id, sessionKind: "WEB" });

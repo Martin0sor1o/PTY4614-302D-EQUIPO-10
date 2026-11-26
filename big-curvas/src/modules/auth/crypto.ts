@@ -9,10 +9,15 @@ import { PAIRING_CODE_LENGTH } from "./policy";
 
 const MIN_SECRET_LENGTH = 32;
 
-/** AUTH_SECRET: variable de entorno, solo en Render y en local (docs/CREDENCIALES.md). */
+/** ¿Hay un AUTH_SECRET utilizable? La demo no lo tiene (docs/CREDENCIALES.md). */
+export function hasAuthSecret(): boolean {
+  return (process.env.AUTH_SECRET?.length ?? 0) >= MIN_SECRET_LENGTH;
+}
+
+/** AUTH_SECRET: variable de entorno, solo en un servicio con login real y en local (docs/CREDENCIALES.md). */
 export function authSecret(): string {
   const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < MIN_SECRET_LENGTH) {
+  if (!secret || !hasAuthSecret()) {
     // Error de configuración: no es un AppError, así que la UI muestra un mensaje genérico y no filtra detalles.
     throw new Error(`AUTH_SECRET no está definida o tiene menos de ${MIN_SECRET_LENGTH} caracteres (ver docs/CREDENCIALES.md).`);
   }

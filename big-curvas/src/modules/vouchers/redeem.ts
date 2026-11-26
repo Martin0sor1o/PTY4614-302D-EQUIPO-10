@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Tx } from "@/lib/db";
 import { assertAccess, type Actor } from "@/lib/access";
@@ -5,20 +6,29 @@ import { formatDate } from "@/lib/dates";
 import { AppError } from "@/lib/errors";
 import { formatCLP } from "@/lib/money";
 import { parseInput } from "@/lib/validation";
-import { clearFailures, hmacForThrottle, reserveAttempt } from "@/modules/auth";
+import { clearFailures, reserveAttempt } from "@/modules/auth";
 import { normalizeVoucherCode } from "./code";
 import { codeTail, LOOKUP_LOCK_MINUTES, LOOKUP_MAX_ATTEMPTS, ROLES } from "./internal";
 import type { RedeemResult } from "./types";
 
 /**
+ * Clave del contador de intentos: SHA-256 del id del usuario, para no guardar el id en claro. NO usa `AUTH_SECRET` a
+ * propósito: el canje de vales corre en la demo, que no la tiene. Tampoco la necesita: el id no es un dato adivinable que
+ * haya que proteger de un volcado de la base (a diferencia de un email o de un código de vinculación).
+ */
+function lookupThrottleKey(userId: string): string {
+  return `voucher:${createHash("sha256").update(userId).digest("hex")}`;
+}
+
+/**
  * Busca un vale POR CÓDIGO con límite de intentos (ADR-021): el código es una credencial al portador, así que adivinarlo
- * se frena igual que el código de vinculación de un equipo. Cada búsqueda se CUENTA antes de mirar la tabla (clave HMAC por
+ * se frena igual que el código de vinculación de un equipo. Cada búsqueda se CUENTA antes de mirar la tabla (clave por
  * usuario en `auth_throttles`, nunca el id en claro); un acierto reinicia el contador. Tras `LOOKUP_MAX_ATTEMPTS` fallos
  * seguidos, el usuario queda bloqueado `LOOKUP_LOCK_MINUTES` y ni siquiera se consulta la tabla.
  */
 export async function resolveVoucherCode(tx: Pick<Tx, "voucher">, actor: Actor, code: string): Promise<{ id: string; code: string }> {
   assertAccess(actor, { roles: ROLES });
-  const key = `voucher:${hmacForThrottle("voucher-lookup", actor.id)}`;
+  const key = lookupThrottleKey(actor.id);
   const attempt = await reserveAttempt(key, LOOKUP_MAX_ATTEMPTS, LOOKUP_LOCK_MINUTES);
   if (!attempt.allowed) {
     throw new AppError("FORBIDDEN", `Demasiados códigos de vale incorrectos. Espera ${LOOKUP_LOCK_MINUTES} minutos e intenta de nuevo.`);
