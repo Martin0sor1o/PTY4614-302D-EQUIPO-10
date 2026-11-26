@@ -68,6 +68,8 @@ export interface CashClosingTotals {
   vouchersIssued: number;
   /** Informativo (no toca el efectivo): vales canjeados en ventas de esta caja. */
   vouchersRedeemed: number;
+  /** Informativo: cuánto de `vouchersRedeemed` es el crédito interno de cambios (ya incluido; no se suma ni se resta). */
+  exchangeCredit: number;
   expectedCash: number;
 }
 
