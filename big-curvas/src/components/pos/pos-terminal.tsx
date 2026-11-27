@@ -10,7 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
+import { checkSaleAttemptAction, createSaleAction, refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
+import { UnconfirmedPanel } from "@/components/attempts/unconfirmed-panel";
+import { useAttempt } from "@/components/attempts/use-attempt";
+import { maskVoucherCode, type AttemptSummary } from "@/lib/pending-attempt";
 import { lookupVoucherAction, type VoucherLite } from "@/app/(app)/pos/devoluciones/actions";
 import { formatDate } from "@/lib/dates";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
@@ -20,6 +23,14 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Pantalla de venta. El navegador solo MUESTRA los cálculos (funciones puras de sales/client): el servidor recalcula
 // precios, descuentos, redondeo y total, y valida el límite de descuento, la caja abierta y el stock.
+
+/** Lo que se envía al confirmar (la clave la agrega el envío pendiente). */
+interface SalePayload {
+  lines: { variantId: string; qty: number; discountBps: number }[];
+  payment?: { method: "EFECTIVO"; cashReceived: number } | { method: Exclude<PaymentMethodCode, "EFECTIVO">; reference: string };
+  voucherCode?: string;
+  approvalId?: string;
+}
 
 interface CartLine {
   item: PosItem;
@@ -48,11 +59,14 @@ function othersText(item: PosItem): string {
 }
 
 export function PosTerminal({
+  userId,
   locationName,
   limitBps,
   isAdmin,
   demoPinHint,
 }: {
+  /** Quien está en la caja: solo quien hizo un envío sin confirmar puede reintentarlo. */
+  userId: string;
   locationName: string;
   limitBps: number;
   isAdmin: boolean;
@@ -63,7 +77,6 @@ export function PosTerminal({
   const scanRef = useRef<HTMLInputElement>(null);
   const searchSeq = useRef(0);
   const queue = useRef<Promise<void>>(Promise.resolve());
-  const keyRef = useRef<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PosItem[]>([]);
@@ -73,7 +86,6 @@ export function PosTerminal({
   const [method, setMethod] = useState<PaymentMethodCode>("EFECTIVO");
   const [received, setReceived] = useState("");
   const [reference, setReference] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [failedVariantId, setFailedVariantId] = useState<string | null>(null);
   // Vale (ADR-021): cubre hasta su saldo y el resto va por el medio de pago. El servidor decide el monto al cobrar.
@@ -92,12 +104,35 @@ export function PosTerminal({
   // La sesión de caja venció (60 min de inactividad o 12 h de turno): se pide el PIN aquí mismo y el carrito se conserva.
   const [sessionExpired, setSessionExpired] = useState(false);
   const [restored, setRestored] = useState(false);
+  // Tras reingresar con PIN puede haber otra persona en la caja.
+  const [reloggedAs, setReloggedAs] = useState<string | null>(null);
+  const operatorId = reloggedAs ?? userId;
 
   const focusScan = useCallback(() => scanRef.current?.focus(), []);
 
   // El carrito también se guarda en sessionStorage (solo esta pestaña): si la sesión vence y la pantalla se recarga o
   // redirige al login, al volver a /pos el carrito se reconstruye con precios y stock al día. Se borra al cobrar.
   const storageKey = `bc-pos-cart:${locationName}`;
+
+  // Cobro: la clave y el envío exacto se guardan antes de enviar. Si no llega la respuesta, la caja queda "sin confirmar".
+  const { controller: attempt, view: pending } = useAttempt<SalePayload>({
+    slot: `venta:${locationName}`,
+    send: async (payload, idempotencyKey, retryOfUserId) => {
+      const res = await createSaleAction({ ...payload, idempotencyKey, retryOfUserId });
+      return res.ok ? { ok: true, id: res.saleId, number: res.number } : res;
+    },
+    lookup: (idempotencyKey) => checkSaleAttemptAction(idempotencyKey),
+    onDone: ({ id }) => {
+      try {
+        sessionStorage.removeItem(storageKey); // la venta quedó registrada: el carrito guardado ya no sirve
+      } catch {
+        // sin sessionStorage
+      }
+      router.push(`/pos/ticket/${id}`); // se queda en "procesando" hasta que cargue el ticket
+    },
+  });
+  const submitting = pending.phase === "enviando" || pending.phase === "registrada";
+
   const restoreCart = useCallback(async () => {
     let saved: { v: string; q: number; d: string }[] = [];
     try {
@@ -129,18 +164,13 @@ export function PosTerminal({
   }, [restoreCart]);
 
   useEffect(() => {
-    if (!restored) return; // no pisar el carrito guardado antes de reconstruirlo
+    if (!restored || pending.phase === "registrada") return; // no pisar el carrito antes de reconstruirlo, ni revivirlo ya cobrado
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(cart.map((l) => ({ v: l.item.variantId, q: l.qty, d: l.discountPct }))));
     } catch {
       // sin sessionStorage (modo privado o bloqueado): el carrito sigue en memoria
     }
-  }, [cart, restored, storageKey]);
-
-  // Una clave por intento de venta: se conserva ante doble clic y se renueva si cambia el carrito o el pago.
-  useEffect(() => {
-    keyRef.current = null;
-  }, [cart, method, received, reference, voucher]);
+  }, [cart, restored, storageKey, pending.phase]);
 
   // Búsqueda por nombre/SKU mientras se escribe (con pausa). Enter la resuelve al tiro (lector de códigos).
   useEffect(() => {
@@ -314,7 +344,7 @@ export function PosTerminal({
           : "Ingresa el N° de voucher"
         : null;
 
-  const canConfirm = cart.length > 0 && priced.total > 0 && lineIssues.every((i) => i === null) && paymentIssue === null && !submitting;
+  const canConfirm = cart.length > 0 && priced.total > 0 && lineIssues.every((i) => i === null) && paymentIssue === null && pending.phase === "libre";
 
   async function applyVoucher() {
     setVoucherError(null);
@@ -337,30 +367,45 @@ export function PosTerminal({
     setVoucherInput("");
   }
 
+  /** Lo que se muestra del envío si queda sin confirmar. */
+  function saleSummary(): AttemptSummary {
+    const label = METHODS.find((m) => m.code === method)!.label;
+    return {
+      operation: "venta",
+      amountLabel: "Total a cobrar",
+      amount: quote.amount,
+      lines: cart.map((l) => {
+        const bps = discountBpsOf(l.discountPct);
+        return `${l.item.productName} · ${l.item.color} · talla ${l.item.size} × ${l.qty}${bps > 0 ? ` · dcto. ${bps / 100} %` : ""}`;
+      }),
+      payment: coveredByVoucher
+        ? "Pagado completo con vale"
+        : method === "EFECTIVO"
+          ? `${label} · recibido ${formatCLP(receivedAmount ?? 0)}`
+          : `${label} · ${method === "TRANSFERENCIA" ? "referencia" : "N° de voucher"} ${reference.trim()}`,
+      voucher: voucher ? `${maskVoucherCode(voucher.code)} · cubre ${formatCLP(voucherApplied)}` : undefined,
+    };
+  }
+
   async function confirm() {
     if (!canConfirm) return;
-    setSubmitting(true);
     setError(null);
     setFailedVariantId(null);
-    keyRef.current ??= crypto.randomUUID();
-    const payload = {
+    const payload: SalePayload = {
       lines: cart.map((l) => ({ variantId: l.item.variantId, qty: l.qty, discountBps: discountBpsOf(l.discountPct) })),
       payment: coveredByVoucher ? undefined : method === "EFECTIVO" ? { method, cashReceived: receivedAmount ?? 0 } : { method, reference: reference.trim() },
       voucherCode: voucher?.code,
       approvalId: approved ? activeApproval!.id : undefined,
-      idempotencyKey: keyRef.current,
     };
-    const res = await createSaleAction(payload);
-    if (res.ok) {
-      try {
-        sessionStorage.removeItem(storageKey); // la venta quedó registrada: el carrito guardado ya no sirve
-      } catch {
-        // sin sessionStorage
-      }
-      router.push(`/pos/ticket/${res.saleId}`); // se queda en "procesando" hasta que cargue el ticket
-      return;
-    }
-    setSubmitting(false);
+    // El contenido que define la clave: prendas, pago y vale (la aprobación no cambia lo que se cobra).
+    const content = {
+      lines: [...payload.lines].sort((a, b) => (a.variantId < b.variantId ? -1 : 1)),
+      payment: payload.payment,
+      voucherCode: payload.voucherCode,
+    };
+    const outcome = await attempt.submit({ content, payload, summary: saleSummary(), userId: operatorId });
+    if (outcome.status !== "rechazada") return;
+    const res = outcome.result;
     if (res.code === "UNAUTHENTICATED") {
       // La sesión venció: no se pierde nada. El carrito sigue aquí; se pide el PIN y se reintenta con la misma clave.
       setSessionExpired(true);
@@ -383,24 +428,50 @@ export function PosTerminal({
     focusScan();
   }
 
+  const relogin = sessionExpired && (
+    <PosRelogin
+      onDone={(who) => {
+        setReloggedAs(who);
+        setSessionExpired(false);
+        setError(null);
+        setNotice("Sesión renovada. Puedes continuar con la venta.");
+        if (!restored) void restoreCart(); // el carrito guardado no se había podido reconstruir
+        focusScan();
+      }}
+    />
+  );
+
+  // Sin confirmar: no hay nada que editar hasta saber si el cobro quedó registrado.
+  if (pending.phase === "en_duda" && pending.record?.summary) {
+    const record = pending.record;
+    return (
+      <div className="space-y-3">
+        {relogin}
+        <UnconfirmedPanel
+          summary={pending.record.summary}
+          sentAt={record.sentAt}
+          busy={pending.busy}
+          message={pending.message}
+          sameUser={record.userId === operatorId}
+          voucherRemoved={record.voucherRemoved === true}
+          onRetry={() => void attempt.retry(operatorId).then((r) => r.code === "UNAUTHENTICATED" && setSessionExpired(true))}
+          onVerify={() => void attempt.verify().then((r) => r.code === "UNAUTHENTICATED" && setSessionExpired(true))}
+        />
+      </div>
+    );
+  }
+  // El rechazo del primer envío puede llegar atrasado (después del aviso de los 30 segundos).
+  const saleError = error ?? (pending.phase === "libre" ? pending.message : null);
+
   return (
     <div
       className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_23rem]"
+      inert={submitting}
       // Si el foco se pierde (clic en vacío), vuelve al campo de escaneo para el lector.
       onBlurCapture={() => setTimeout(() => document.activeElement === document.body && focusScan(), 0)}
     >
       <section className="space-y-3" aria-label="Carrito">
-        {sessionExpired && (
-          <PosRelogin
-            onDone={() => {
-              setSessionExpired(false);
-              setError(null);
-              setNotice("Sesión renovada. Puedes continuar con la venta.");
-              if (!restored) void restoreCart(); // el carrito guardado no se había podido reconstruir
-              focusScan();
-            }}
-          />
-        )}
+        {relogin}
         <div className="relative">
           <ScanBarcode className="pointer-events-none absolute top-1/2 left-3 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
@@ -776,9 +847,9 @@ export function PosTerminal({
         </div>
         )}
 
-        {error && (
+        {saleError && (
           <Notice tone="danger" role="alert" className="py-2" data-testid="sale-error">
-            {error}
+            {saleError}
           </Notice>
         )}
 

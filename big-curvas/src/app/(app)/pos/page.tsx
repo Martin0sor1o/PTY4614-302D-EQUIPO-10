@@ -27,7 +27,7 @@ export default async function PosPage() {
           {session.salesCount === 1 ? "venta" : "ventas"}
         </p>
       </div>
-      <PosTerminal locationName={location.name} limitBps={limitBps} isAdmin={user.role === "ADMIN"} demoPinHint={demoPinHint()} />
+      <PosTerminal key={location.id} userId={user.id} locationName={location.name} limitBps={limitBps} isAdmin={user.role === "ADMIN"} demoPinHint={demoPinHint()} />
     </div>
   );
 }

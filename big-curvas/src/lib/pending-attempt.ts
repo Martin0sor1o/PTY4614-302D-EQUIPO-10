@@ -10,7 +10,7 @@
 /** Lo que responde el envío. `uncertain`: falló algo inesperado en el servidor, no se sabe si alcanzó a registrar. */
 export type SendResult =
   | { ok: true; id: string; number: string }
-  | { ok: false; message: string; code?: string; uncertain?: boolean };
+  | { ok: false; message: string; code?: string; uncertain?: boolean; variantId?: string };
 
 export type LookupResult = { ok: true; found: { id: string; number: string } | null } | { ok: false; message: string; code?: string };
 
@@ -142,7 +142,7 @@ function parse<P extends object>(raw: string | null): StoredAttempt<P> | null {
       r.key.length >= 8 &&
       typeof r.fingerprint === "string" &&
       typeof r.userId === "string" &&
-      (r.status === "preparada" || r.status === "en_duda");
+      (r.status === "preparada" || (r.status === "en_duda" && typeof r.summary === "object" && r.summary !== null));
     return valid ? r : null;
   } catch {
     return null;
