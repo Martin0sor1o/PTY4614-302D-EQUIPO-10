@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils";
 import { quotePayment, type PosItem } from "@/modules/sales/client";
 import { RETURN_REASONS, RETURN_REASON_LABEL, type MoneyRefundMethod, type ReturnCondition, type ReturnQuote } from "@/modules/returns/client";
 import { refreshItemsAction, searchItemsAction } from "@/app/(app)/pos/actions";
+import { UnconfirmedPanel } from "@/components/attempts/unconfirmed-panel";
+import { useAttempt } from "@/components/attempts/use-attempt";
+import type { AttemptSummary } from "@/lib/pending-attempt";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
@@ -19,6 +22,7 @@ import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { PosRelogin } from "@/components/pos/pos-relogin";
 import type { ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import {
+  checkReturnAttemptAction,
   createReturnAction,
   getReturnSaleAction,
   quoteReturnAction,
@@ -35,6 +39,23 @@ import { paidWithText } from "@/modules/returns/client";
 
 type Kind = "VALE" | "DINERO" | "CAMBIO";
 type PayMethod = "EFECTIVO" | "DEBITO" | "CREDITO" | "TRANSFERENCIA";
+/** Lo que se envía al confirmar (la clave la agrega el envío pendiente). */
+interface ReturnPayload {
+  saleId: string;
+  lines: { saleLineId: string; qty: number; condition: ReturnCondition }[];
+  reason: string;
+  reasonNote?: string;
+  resolution:
+    | { kind: "VALE" }
+    | { kind: "DINERO"; method: MoneyRefundMethod; reference?: string }
+    | {
+        kind: "CAMBIO";
+        newLines: { variantId: string; qty: number }[];
+        payment?: { method: "EFECTIVO"; cashReceived: number } | { method: Exclude<PayMethod, "EFECTIVO">; reference: string };
+      };
+  approvalId?: string;
+}
+
 interface PickedLine {
   qty: number;
   condition: ReturnCondition;
@@ -48,9 +69,8 @@ const METHOD_LABEL: Record<MoneyRefundMethod, string> = { EFECTIVO: "Efectivo", 
 const PAY_LABEL: Record<PayMethod, string> = { EFECTIVO: "Efectivo", DEBITO: "Débito", CREDITO: "Crédito", TRANSFERENCIA: "Transferencia" };
 const selectClass = "h-11 w-full rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm";
 
-export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationName: string; isStore: boolean; demoPinHint: string | null }) {
+export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { userId: string; locationName: string; isStore: boolean; demoPinHint: string | null }) {
   const router = useRouter();
-  const keyRef = useRef<string | null>(null);
   const searchSeq = useRef(0);
   const quoteSeq = useRef(0);
   const askKey = useRef<{ snapshot: string; key: string } | null>(null);
@@ -82,11 +102,32 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
   const [askError, setAskError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [restored, setRestored] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  // Tras reingresar con PIN puede haber otra persona en la caja.
+  const [reloggedAs, setReloggedAs] = useState<string | null>(null);
+  const operatorId = reloggedAs ?? userId;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const storageKey = `bc-pos-return:${locationName}`;
+
+  // La clave y el envío exacto se guardan antes de enviar. Si no llega la respuesta, la pantalla queda "sin confirmar".
+  const { controller: attempt, view: pending } = useAttempt<ReturnPayload>({
+    slot: `devolucion:${locationName}`,
+    send: async (payload, idempotencyKey, retryOfUserId) => {
+      const res = await createReturnAction({ ...payload, idempotencyKey, retryOfUserId });
+      return res.ok ? { ok: true, id: res.returnId, number: res.number } : res;
+    },
+    lookup: (idempotencyKey) => checkReturnAttemptAction(idempotencyKey),
+    onDone: ({ id }) => {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        // sin sessionStorage
+      }
+      router.push(`/pos/devoluciones/${id}`);
+    },
+  });
+  const submitting = pending.phase === "enviando" || pending.phase === "registrada";
   const selected = useMemo(() => Object.entries(picks).filter(([, p]) => p.qty > 0), [picks]);
 
   // Lo que se cotiza y se aprueba: la venta, las prendas (con cantidad y condición), el destino y las prendas nuevas.
@@ -102,14 +143,9 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
     [sale?.id, selected, kind, moneyMethod, newLines],
   );
 
-  // Una clave por intento: se conserva ante doble clic y se renueva si cambia cualquier dato de la operación.
-  useEffect(() => {
-    keyRef.current = null;
-  }, [snapshot, reason, note, reference, payMethod, received, payRef]);
-
   // ── Persistencia: si la sesión de caja vence y la pantalla se recarga, se reconstruye ──
   useEffect(() => {
-    if (!restored) return;
+    if (!restored || pending.phase === "registrada") return;
     try {
       if (!sale) sessionStorage.removeItem(storageKey);
       else
@@ -120,7 +156,7 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
     } catch {
       // sin sessionStorage: el estado sigue en memoria
     }
-  }, [restored, sale, picks, reason, note, kind, moneyMethod, reference, newLines, storageKey]);
+  }, [restored, sale, picks, reason, note, kind, moneyMethod, reference, newLines, storageKey, pending.phase]);
 
   const restore = useCallback(async () => {
     let saved: { saleId?: string; picks?: Record<string, PickedLine>; reason?: string; note?: string; kind?: Kind; moneyMethod?: MoneyRefundMethod; reference?: string; newLines?: { v: string; q: number }[] } | null = null;
@@ -292,7 +328,7 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
     setAskOpen(false);
   }
 
-  function resolutionPayload() {
+  function resolutionPayload(): ReturnPayload["resolution"] {
     if (kind === "VALE") return { kind: "VALE" as const };
     if (kind === "DINERO") return { kind: "DINERO" as const, method: moneyMethod, reference: reference.trim() || undefined };
     const toPay = quote?.exchange?.toPay ?? 0;
@@ -348,32 +384,65 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
                   : needsApproval && !approved
                     ? "Falta la aprobación de Belén"
                     : null;
-  const canConfirm = issue === null && !submitting && !quoting;
+  const canConfirm = issue === null && pending.phase === "libre" && !quoting;
+
+  /** Lo que se muestra del envío si queda sin confirmar. */
+  function returnSummary(current: ReturnableSaleLite, q: ReturnQuote): AttemptSummary {
+    const lines = [
+      `Venta original ${current.number}`,
+      ...q.lines.map((l) => `Devuelve: ${l.productName} × ${l.qty}${l.condition === "DANADA" ? " (dañada)" : ""}`),
+      ...(kind === "CAMBIO" ? newLines.map((l) => `Lleva: ${l.item.productName} · ${l.item.color} · talla ${l.item.size} × ${l.qty}`) : []),
+    ];
+    if (kind === "VALE") return { operation: "devolucion", lines, payment: "Se emite un vale", amountLabel: "Valor del vale", amount: q.voucherAmount };
+    if (kind === "DINERO") {
+      const number = moneyMethod !== "EFECTIVO" ? ` · N° ${reference.trim()}` : "";
+      return {
+        operation: "devolucion",
+        lines,
+        payment: `Reembolso: ${METHOD_LABEL[moneyMethod].toLowerCase()}${number}`,
+        amountLabel: "Monto a devolver",
+        amount: q.refund?.amount ?? q.valueReturned,
+      };
+    }
+    const paid =
+      payMethod === "EFECTIVO"
+        ? `recibido ${formatCLP(receivedAmount ?? 0)}`
+        : `${payMethod === "TRANSFERENCIA" ? "referencia" : "N° de voucher"} ${payRef.trim()}`;
+    return {
+      operation: "cambio",
+      lines,
+      payment: toPay > 0 ? `Diferencia: ${PAY_LABEL[payMethod]} · ${paid}` : "Sin pago adicional",
+      amountLabel: toPay > 0 ? "La clienta paga" : "Valor devuelto",
+      amount: toPay > 0 ? (payQuote?.amount ?? toPay) : q.valueReturned,
+    };
+  }
 
   async function confirm() {
     if (!canConfirm || !sale || !quote) return;
-    setSubmitting(true);
     setError(null);
-    keyRef.current ??= crypto.randomUUID();
-    const res = await createReturnAction({
+    const payload: ReturnPayload = {
       saleId: sale.id,
       lines: selected.map(([saleLineId, p]) => ({ saleLineId, qty: p.qty, condition: p.condition })),
       reason,
       reasonNote: note.trim() || undefined,
       resolution: resolutionPayload(),
       approvalId: needsApproval && approved ? activeApproval!.id : undefined,
-      idempotencyKey: keyRef.current,
-    });
-    if (res.ok) {
-      try {
-        sessionStorage.removeItem(storageKey);
-      } catch {
-        // sin sessionStorage
-      }
-      router.push(`/pos/devoluciones/${res.returnId}`);
-      return;
-    }
-    setSubmitting(false);
+    };
+    // El contenido que define la clave: todo menos la aprobación, con las listas en orden fijo.
+    const byId = (a: string, b: string) => (a < b ? -1 : 1);
+    const content = {
+      saleId: payload.saleId,
+      lines: [...payload.lines].sort((a, b) => byId(a.saleLineId, b.saleLineId)),
+      reason: payload.reason,
+      reasonNote: payload.reasonNote,
+      resolution:
+        payload.resolution.kind === "CAMBIO"
+          ? { ...payload.resolution, newLines: [...payload.resolution.newLines].sort((a, b) => byId(a.variantId, b.variantId)) }
+          : payload.resolution,
+    };
+    const outcome = await attempt.submit({ content, payload, summary: returnSummary(sale, quote), userId: operatorId });
+    if (outcome.status !== "rechazada") return;
+    const res = outcome.result;
     if (res.code === "UNAUTHENTICATED") return setSessionExpired(true); // no se pierde nada: se pide el PIN y se reintenta con la misma clave
     setError(res.message);
     if (res.code === "APROBACION_INVALIDA" || res.code === "APROBACION_REQUERIDA") {
@@ -384,19 +453,44 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
 
   const lineCount = selected.reduce((a, [, p]) => a + p.qty, 0);
 
+  const relogin = sessionExpired && (
+    <PosRelogin
+      onDone={(who) => {
+        setReloggedAs(who);
+        setSessionExpired(false);
+        setError(null);
+        setNotice("Sesión renovada. Puedes continuar.");
+        if (!restored) void restore();
+      }}
+    />
+  );
+
+  // Sin confirmar: no hay nada que editar hasta saber si la devolución quedó registrada.
+  if (pending.phase === "en_duda" && pending.record?.summary) {
+    const record = pending.record;
+    return (
+      <div className="space-y-3">
+        {relogin}
+        <UnconfirmedPanel
+          summary={pending.record.summary}
+          sentAt={record.sentAt}
+          busy={pending.busy}
+          message={pending.message}
+          sameUser={record.userId === operatorId}
+          voucherRemoved={record.voucherRemoved === true}
+          onRetry={() => void attempt.retry(operatorId).then((r) => r.code === "UNAUTHENTICATED" && setSessionExpired(true))}
+          onVerify={() => void attempt.verify().then((r) => r.code === "UNAUTHENTICATED" && setSessionExpired(true))}
+        />
+      </div>
+    );
+  }
+  // El rechazo del primer envío puede llegar atrasado (después del aviso de los 30 segundos).
+  const returnError = error ?? (pending.phase === "libre" ? pending.message : null);
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]" inert={submitting}>
       <section className="space-y-4" aria-label="Devolución">
-        {sessionExpired && (
-          <PosRelogin
-            onDone={() => {
-              setSessionExpired(false);
-              setError(null);
-              setNotice("Sesión renovada. Puedes continuar.");
-              if (!restored) void restore();
-            }}
-          />
-        )}
+        {relogin}
         {notice && <Notice tone="info">{notice}</Notice>}
 
         {!sale ? (
@@ -744,7 +838,7 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
             </div>
           )}
 
-          {error && <Notice tone="danger" role="alert">{error}</Notice>}
+          {returnError && <Notice tone="danger" role="alert">{returnError}</Notice>}
           <Button type="button" size="lg" className="h-12 w-full text-base" disabled={!canConfirm} onClick={() => void confirm()}>
             {submitting ? <Loader2 className="animate-spin" /> : null}
             {submitting ? "Procesando…" : kind === "CAMBIO" ? "Confirmar cambio" : "Confirmar devolución"}
