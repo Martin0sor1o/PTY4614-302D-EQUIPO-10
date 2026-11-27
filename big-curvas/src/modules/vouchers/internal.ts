@@ -4,7 +4,7 @@ import { voucherStatus, type VoucherView } from "./types";
 
 // Utilidades internas del módulo vouchers (no se exportan desde index.ts).
 
-/** Vigencia del vale en días (RN-16, 3 meses 🟡). `settings` la sobrescribe; sin fila rige este valor (S-08). */
+/** Vigencia del vale en días (RN-16, 3 meses; validado con Belén el 26/11/2026). `settings` la sobrescribe; sin fila rige este valor (S-08). */
 export const SETTING_VALIDITY_DAYS = "store_credit_validity_days";
 export const VALIDITY_DAYS_DEFAULT = 90;
 

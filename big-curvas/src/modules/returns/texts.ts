@@ -22,6 +22,11 @@ export function returnDoneTitle(type: "DEVOLUCION" | "CAMBIO", number: string): 
   return type === "CAMBIO" ? `Cambio ${number} registrado` : `Devolución ${number} registrada`;
 }
 
+/** Lo que dice el resumen mientras no hay cotización: en un cambio sin prenda nueva todavía no hay saldo que calcular. */
+export function pendingSummaryText(isExchange: boolean, newLineCount: number): string {
+  return isExchange && newLineCount === 0 ? "Elige la prenda nueva para ver el saldo" : "Calculando…";
+}
+
 export function daysText(days: number): string {
   return `${days} ${days === 1 ? "día" : "días"}`;
 }

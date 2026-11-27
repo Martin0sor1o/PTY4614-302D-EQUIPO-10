@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { daysText, paidWithText, REFUND_METHOD_PHRASE, returnDoneTitle } from "./texts";
+import { daysText, paidWithText, pendingSummaryText, REFUND_METHOD_PHRASE, returnDoneTitle } from "./texts";
 
 describe("textos del flujo de cambios y devoluciones", () => {
   it("el medio de pago lleva tilde", () => {
@@ -15,6 +15,12 @@ describe("textos del flujo de cambios y devoluciones", () => {
 
   it("el medio del reembolso se nombra en español, no con el código interno", () => {
     expect(REFUND_METHOD_PHRASE.ANULACION_TRANSBANK).toBe("anulación en la máquina");
+  });
+
+  it("en un cambio sin prenda nueva el resumen pide elegirla; si no, está calculando", () => {
+    expect(pendingSummaryText(true, 0)).toBe("Elige la prenda nueva para ver el saldo");
+    expect(pendingSummaryText(true, 1)).toBe("Calculando…");
+    expect(pendingSummaryText(false, 0)).toBe("Calculando…"); // vale o dinero: no llevan prenda nueva
   });
 
   it("singular y plural de los días", () => {

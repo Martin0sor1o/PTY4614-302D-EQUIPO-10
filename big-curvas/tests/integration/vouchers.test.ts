@@ -36,7 +36,7 @@ const redeem = (voucherId: string, maxAmount: number, extra: { locationId?: stri
   );
 
 describe("emisión", () => {
-  it("crea el vale con saldo = monto inicial, el movimiento EMISION y vence a los 90 días (default 🟡)", async () => {
+  it("crea el vale con saldo = monto inicial, el movimiento EMISION y vence a los 90 días (valor por omisión, S-08)", async () => {
     const v = await issue(20_000);
     expect(v.code).toMatch(/^VAL-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
     const row = await db.voucher.findUniqueOrThrow({ where: { id: v.id }, include: { movements: true } });

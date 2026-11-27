@@ -15,8 +15,8 @@ export {
   type ApprovalNeed,
   type ReturnApprovalType,
 } from "./pricing";
-export { paidWithText, returnDoneTitle, daysText } from "./texts";
-export { RETURN_ASSUMPTIONS, RETURN_REASONS, RETURN_REASON_LABEL, type ReturnAssumption, type ReturnReasonCode } from "./rules";
+export { paidWithText, returnDoneTitle, daysText, pendingSummaryText } from "./texts";
+export { BELEN_VALIDATION_DATE, DELIVERED_ONLINE_OPEN_NOTE, RETURN_ASSUMPTIONS, RETURN_REASONS, RETURN_REASON_LABEL, type ReturnAssumption, type ReturnReasonCode } from "./rules";
 export type {
   QuotedLine,
   RefundMethod,

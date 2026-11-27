@@ -122,7 +122,7 @@ erDiagram
 
 **return_lines**: `id`, `return_id`, `sale_line_id`, `variant_id`, `quantity` (> 0), `amount` (≥ 0: lo pagado por esas unidades, con el descuento de su línea, prorrateado en pesos enteros), `condition` (`VENDIBLE` | `DANADA`). Único (`return_id`, `sale_line_id`). La prenda entra al stock de `returns.location_id`; una `DANADA` además sale como `MERMA`.
 
-**vouchers**: `id`, `code` (único, no nominativo, `VAL-XXXX-XXXX-XXXX`: 12 caracteres de un alfabeto de 32 sin ambiguos, 60 bits), `issued_location_id`, `initial_amount` (> 0), `balance` (saldo materializado, 0 ≤ saldo ≤ inicial), `expires_at` (vigencia `store_credit_validity_days`, 90 🟡), `active`, `created_by`, `created_at`, `updated_at`. Trigger `vouchers_protect`: no se borra y no cambia su código, monto inicial, vencimiento, ubicación ni emisor (solo `balance`, `active` y `updated_at`). El estado (vigente / agotado / vencido / desactivado) **se calcula**.
+**vouchers**: `id`, `code` (único, no nominativo, `VAL-XXXX-XXXX-XXXX`: 12 caracteres de un alfabeto de 32 sin ambiguos, 60 bits), `issued_location_id`, `initial_amount` (> 0), `balance` (saldo materializado, 0 ≤ saldo ≤ inicial), `expires_at` (vigencia `store_credit_validity_days`, 90, validado con Belén el 26/11/2026), `active`, `created_by`, `created_at`, `updated_at`. Trigger `vouchers_protect`: no se borra y no cambia su código, monto inicial, vencimiento, ubicación ni emisor (solo `balance`, `active` y `updated_at`). El estado (vigente / agotado / vencido / desactivado) **se calcula**.
 
 **voucher_movements** (solo INSERT, trigger `voucher_movements_immutable`): `id`, `voucher_id`, `type` (`EMISION` | `CANJE` | `REPOSICION`), `amount` (con signo: `EMISION` y `REPOSICION` > 0, `CANJE` < 0; CHECK), `balance_after` (≥ 0), `ref_type` (`RETURN` | `SALE`), `ref_id`, `user_id`, `idempotency_key` (único), `created_at`. Invariante: `balance` = `initial_amount` + Σ(movimientos que no son `EMISION`) = Σ(todos los movimientos), con una sola `EMISION` por el monto inicial (tests y `scripts/verify-db.sql`).
 
@@ -145,7 +145,7 @@ erDiagram
 
 **audit_log**: `id`, `user_id`, `location_id`, `action`, `entity`, `entity_id`, `before`, `after`, `created_at`.
 
-**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30 🟡), `store_credit_validity_days` (90 🟡), `voucher_seller_cap` (50000 🟡: tope del vale de una vendedora por operación), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡). Demo: `pin_max_attempts` (5), `pin_lock_minutes` (15).
+**settings** (editables por Belén; `value_int` o `value_text`, al menos uno): `max_seller_discount_bps` (**0** ✅: solo Belén da descuentos), `return_window_days` (30 ✅), `store_credit_validity_days` (90 ✅), `voucher_seller_cap` (50000 ✅: tope del vale de una vendedora por operación; los tres, validados con Belén el 26/11/2026), `free_shipping_threshold`, `couriers`, `approval_timeout_minutes` (10 🟡), `transfer_transit_alert_days` (3 🟡). Demo: `pin_max_attempts` (5), `pin_lock_minutes` (15).
 
 **stock_min_levels** (post-MVP): `variant_id`, `location_id`, `min_qty`, `target_qty` → sugerencias de reposición.
 
