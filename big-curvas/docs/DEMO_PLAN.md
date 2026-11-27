@@ -468,7 +468,7 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 
 ## Etapa 9 · Cambios, devoluciones y vales (ADR-021)
 
-Reglas S-01 a S-12 (`src/modules/returns/rules.ts`), validadas con Belén el 26/11/2026 (respuestas en `docs/PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierta Q-01. **La migración nueva no se aplica a Neon hasta decidirlo aparte.**
+Reglas S-01 a S-12 (`src/modules/returns/rules.ts`), validadas con Belén el 26/11/2026 (respuestas en `docs/PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierta Q-01. La migración `20261125210000_returns_vouchers` (solo agrega) está aplicada en la base de la demo, y la demo está publicada en la versión `9d33ef1`, con devoluciones y vales.
 
 ### Datos de ejemplo
 El seed con historial deja, dentro de la caja de un día pasado: una **devolución en efectivo** (pedida por la vendedora y aprobada por Belén), una **devolución a vale** y un **cambio con diferencia a pagar**. Queda un **vale vigente** con el código `VAL-DEMO-VALE-0001` (saldo $8.990). El stock final de los casos de prueba no cambia.
@@ -492,4 +492,3 @@ El seed con historial deja, dentro de la caja de un día pasado: una **devoluci�
 ### Pendientes de la Etapa 9
 - **Canje de vales en pedidos online** (RF-DEV-06 completo): hoy solo en el POS (S-12).
 - **Respuesta de Belén a Q-01** (devolver o cambiar un pedido online ya entregado): es la única pregunta de `PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md` sin responder.
-- **Despliegue:** la migración `20261125210000_returns_vouchers` solo agrega; se aplica a la base de la demo en el próximo despliegue, que se decide aparte.
