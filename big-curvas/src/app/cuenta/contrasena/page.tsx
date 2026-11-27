@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { logoutAction } from "@/app/(app)/session-actions";
 import { ApprovalPinForm, ChangePasswordForm } from "@/components/auth/change-password-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { LogoutForm } from "@/components/layout/logout-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Notice } from "@/components/ui/notice";
@@ -61,11 +61,11 @@ export default async function ChangePasswordPage() {
         ) : (
           <span />
         )}
-        <form action={logoutAction}>
+        <LogoutForm>
           <Button type="submit" variant="outline" size="sm">
             <LogOut aria-hidden /> Salir
           </Button>
-        </form>
+        </LogoutForm>
       </div>
     </AuthShell>
   );
