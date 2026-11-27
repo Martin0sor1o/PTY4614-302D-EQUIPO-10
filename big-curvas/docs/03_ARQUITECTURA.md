@@ -194,6 +194,15 @@ Multi-línea: una sola transacción, variantes ordenadas por (location_id, varia
 
 Ventas, pedidos, traspasos (enviar/recibir), recepciones y aprobaciones llevan `idempotencyKey` único.
 
+**Si se pierde la respuesta en la caja (cobro, devolución y cambio).** Antes de enviar, la pantalla guarda en la pestaña (`sessionStorage`) la clave y el envío exacto. La clave solo cambia si la persona cambia el contenido o después de un éxito: recargar no la cambia. Si hay corte de red, error del servidor o pasan 30 segundos sin respuesta, la pantalla muestra "No pudimos confirmar" y no deja editar nada. Solo ofrece:
+
+- **Verificar si ya se registró:** consulta de solo lectura por la clave, limitada a la ubicación.
+- **Reintentar:** reenvía lo mismo; si ya estaba registrado, el servidor devuelve la misma operación. Solo puede hacerlo quien envió. "Salir" borra el código de vale guardado; ese envío ya solo se puede verificar.
+
+**Si la persona queda bloqueada de forma permanente** (por ejemplo, el reintento se rechaza una y otra vez): se **cierra la pestaña** y, **antes de repetir la operación, se revisan las ventas del día** (POS → Ventas del día). En una devolución o un cambio se revisa además, en Cambio / Devolución, cuántas prendas de la venta original figuran como devueltas.
+
+Límites: la clave vive en la pestaña, así que al cerrarla se pierde. La aplicación envía estas acciones de a una: si la primera queda colgada sin error, "Reintentar" y "Verificar" esperan detrás de ella; recargar la página es seguro. Para ver el aviso después de cerrar la caja hay que volver a abrirla (la pantalla de venta exige caja abierta).
+
 ## 6. Flujos críticos
 
 ### 6.1 Venta en POS (por tienda)
