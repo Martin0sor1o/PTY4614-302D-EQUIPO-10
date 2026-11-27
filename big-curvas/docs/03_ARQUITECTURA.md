@@ -282,7 +282,7 @@ Una devolución o un cambio es **una sola transacción idempotente** (`returns.c
 7. Destino: **vale** (`issueVoucher`), **dinero** (efectivo desde la caja abierta, redondeado a $10) o **cambio** (vale temporal que se canjea al instante en `sales.createSaleInTx`; lo que sobra queda en el vale y la diferencia a pagar va con un medio de pago).
 8. `returns` + `return_lines` + `audit_log`.
 
-Anular la venta nueva de un cambio, o una venta con devoluciones, no se puede: para deshacer un cambio se devuelve la prenda nueva. Detalle, supuestos y riesgos en el ADR-021.
+Anular la venta nueva de un cambio, o una venta con devoluciones, no se puede: para deshacer un cambio se devuelve la prenda nueva. Detalle, reglas (validadas con Belén el 26/11/2026; sigue abierta Q-01) y riesgos en el ADR-021.
 
 ## 7. Dinero e impuestos
 

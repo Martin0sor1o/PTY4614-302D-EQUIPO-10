@@ -55,7 +55,7 @@ Desarrollar un sistema centralizado de gestión de inventario y ventas para Big 
 3. **Inventario**: stock por variante y ubicación, movimientos, ajustes, recepción de proveedores (tienda o bodega), **traslados con tránsito**, conteos y carga inicial (desde el Excel actual y conteo físico).
 4. **POS en la tienda**: venta con lector, efectivo/tarjeta/transferencia, redondeo del efectivo, caja compartida, ticket interno.
 5. **Aprobaciones de Belén** (remotas o con PIN): descuentos, reembolsos y anulaciones.
-6. **Cambios y devoluciones** (implementados con supuestos 🟡 por validar con Belén: P-09, P-16, P-17, P-22 y Q-01; ver ADR-021).
+6. **Cambios y devoluciones** (implementados; reglas validadas con Belén el 26/11/2026, con lo que se cierran P-09, P-16, P-17 y P-22; sigue abierta Q-01; ver ADR-021).
 7. **Pedidos online**: los registra Belén; se apartan al pagar en la bodega (o en la tienda con traslado); se preparan y despachan desde la bodega.
 8. **Reportes básicos**: ventas del día por medio de pago, cierre de caja, stock por ubicación, traslados en tránsito, kardex.
 

@@ -1,5 +1,5 @@
 // API pública de ReturnsService (server): cambios y devoluciones (RF-DEV-01 a 07, ADR-021). Las Server Actions importan solo
-// desde aquí. Para el navegador (cálculos puros, reglas 🟡 y tipos) usar "@/modules/returns/client".
+// desde aquí. Para el navegador (cálculos puros, reglas de ADR-021 y tipos) usar "@/modules/returns/client".
 //
 // Stock solo vía InventoryService (returnToStock / writeOff); vales en el módulo `vouchers`; venta del cambio con
 // `sales.createSaleInTx`; aprobaciones con `approvals`. Una devolución es UNA transacción idempotente.

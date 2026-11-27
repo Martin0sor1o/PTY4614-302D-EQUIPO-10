@@ -360,7 +360,7 @@ Usuarios: Belén (ADMIN) y Vendedora Rancagua. Reiniciar los datos con `pnpm db:
 5. **PIN presencial (RF-AUT-05).** En "Belén está aquí" se elige a la administradora y se ingresa **su** PIN: los fallos cuentan solo para esa persona. Hash **scrypt** de Node (sin dependencias nuevas), comparación de tiempo constante. **PIN de demo de Belén: el de la variable de entorno `DEMO_ADMIN_PIN`** (4 a 6 dígitos que elige quien monta la demo; no está en el repositorio; el seed lo hashea y la pantalla lo muestra como pista solo con `DEMO_MODE`). Bloqueo a los **5 fallos por 15 min** (`settings.pin_max_attempts` / `pin_lock_minutes`, valores de demo). El acierto reinicia el contador; un bloqueo vencido se limpia solo. Fallos y bloqueos quedan en `audit_log` (`PIN_FAILED`, `PIN_LOCKED`). La aprobación queda con método `PIN`.
 6. **Anulación de venta (RN-12).** Solo ventas POS `COMPLETADA` del **mismo día calendario en hora de Chile** (también para el ADMIN). Una transacción: consume la aprobación (vendedora) → `COMPLETADA → ANULADA` condicional → `InventoryService.reverseSale` (nueva operación: movimiento inverso `ANULACION_VENTA`, nada se borra) → `audit_log` (`SALE_VOID`, con `direct: true/false`). Las ventas online no se anulan por "Ventas del día": su anulación es el reembolso del pedido.
 7. **Caja.** Si se pagó en efectivo, el dinero sale de la caja **abierta**; sin caja abierta se rechaza (la aprobación sigue vigente para reintentar). Se guarda `sales.void_cash_session_id`. Efectivo esperado = inicial + efectivo de ventas `COMPLETADA` de la caja − efectivo de ventas de **otra** caja anuladas con esta abierta (`cashRefunded`). Una venta anulada en su propia caja simplemente no cuenta. Tarjeta o transferencia no tocan la caja.
-8. **Reembolso de pedido cancelado.** Lo registra Belén directamente (ADMIN, sin solicitud, regla 10b): medio y referencia son **texto libre** (P-17 sigue pendiente). La `Sale` pasa a `ANULADA` (sin mover stock: la cancelación ya lo repuso o liberó) y el aviso desaparece. Queda en `audit_log` (`ORDER_REFUND`, `direct: true`) y en el historial del pedido. Condicional e idempotente: reembolsar dos veces → `CONFLICT`.
+8. **Reembolso de pedido cancelado.** Lo registra Belén directamente (ADMIN, sin solicitud, regla 10b): medio y referencia son **texto libre** (P-17 se cerró el 26/11/2026 y este flujo no cambia). La `Sale` pasa a `ANULADA` (sin mover stock: la cancelación ya lo repuso o liberó) y el aviso desaparece. Queda en `audit_log` (`ORDER_REFUND`, `direct: true`) y en el historial del pedido. Condicional e idempotente: reembolsar dos veces → `CONFLICT`.
 9. **Acciones directas del ADMIN** (regla 10b): su descuento (`DISCOUNT_OVERRIDE`), su anulación (`SALE_VOID` directa) y el reembolso (`ORDER_REFUND`) no generan solicitud pero sí `audit_log`. Un descuento aprobado deja `DISCOUNT_APPROVED`.
 10. **Esquema (migración `20261021120000_approvals`).** `users.pin_hash / failed_pin_attempts / pin_locked_until`; `sales.voided_at / voided_by / void_reason / void_approval_id (UNIQUE) / void_cash_session_id` y CHECK (`ANULADA` ⇔ `voided_at`); `online_orders.refunded_at / refunded_by / refund_method / refund_reference`; CHECK de monto de aprobación. `cash_sessions_one_open_per_location_idx` se verificó intacto.
 11. **Acceso.** Solo ADMIN aprueba, rechaza y ve la bandeja. Solo una VENDEDORA de la ubicación pide aprobaciones (no BODEGA ni ADMIN) y solo consulta las de su ubicación. El PIN lo opera la vendedora de esa ubicación o el ADMIN. BODEGA no anula.
@@ -434,7 +434,7 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 
 - **Varias administradoras con PIN:** hoy la elección de quién aprueba es explícita (los fallos cuentan solo para ella), pero la lista de administradoras se muestra a la vendedora en la caja; en producción conviene identificar a la administradora de otra forma (p. ej. escaneando una credencial) y definir quién puede aprobar en cada ubicación.
 - **Notificaciones push** (RF-AUT-06): hoy Belén ve las solicitudes por refresco cada ~3 s con la pestaña abierta.
-- **Reembolso en la caja:** el reembolso de pedidos online no pasa por la caja de la tienda (el dinero se mueve fuera del POS); el medio de reembolso es texto libre hasta resolver **P-17**.
+- **Reembolso en la caja:** el reembolso de pedidos online no pasa por la caja de la tienda (el dinero se mueve fuera del POS); el medio de reembolso sigue en texto libre; el cierre de **P-17** (26/11/2026) no cambia este flujo.
 - **Cambios, devoluciones y cambios fuera de plazo:** implementados en la Etapa 9 (ADR-021). `CAMBIO_SIN_BOLETA` sigue sin flujo: sin venta registrada no hay devolución (S-02).
 - **Vencimiento sin job:** las solicitudes vencidas se marcan al consultarlas; con volumen real conviene un job (GitHub Actions → endpoint protegido, ADR-010) que las limpie.
 - **Un descuento aprobado cubre todo el carrito** con una sola aprobación (todas las líneas con descuento sobre el límite); si se quiere aprobar por línea, hay que partir la solicitud.
@@ -468,7 +468,7 @@ Usuario: Belén (ADMIN). Cargar los datos con `pnpm db:seed:history` (Docker y `
 
 ## Etapa 9 · Cambios, devoluciones y vales (ADR-021)
 
-Reglas con supuestos 🟡 (S-01 a S-12, `src/modules/returns/rules.ts`); cada uno es una pregunta para Belén en `docs/PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`. **La migración nueva no se aplica a Neon hasta decidirlo aparte.**
+Reglas S-01 a S-12 (`src/modules/returns/rules.ts`), validadas con Belén el 26/11/2026 (respuestas en `docs/PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierta Q-01. La migración `20261125210000_returns_vouchers` (solo agrega) está aplicada en la base de la demo, y la demo está publicada en la versión `9d33ef1`, con devoluciones y vales.
 
 ### Datos de ejemplo
 El seed con historial deja, dentro de la caja de un día pasado: una **devolución en efectivo** (pedida por la vendedora y aprobada por Belén), una **devolución a vale** y un **cambio con diferencia a pagar**. Queda un **vale vigente** con el código `VAL-DEMO-VALE-0001` (saldo $8.990). El stock final de los casos de prueba no cambia.
@@ -477,7 +477,7 @@ El seed con historial deja, dentro de la caja de un día pasado: una **devoluci�
 
 | # | Caso | Pasos | Resultado esperado |
 |---|------|-------|--------------------|
-| 1 | **Devolución a vale** | Vendedora → POS → **Cambio / Devolución** → elegir una venta reciente → 1 prenda, motivo, **Vale** → Confirmar | Comprobante con el **código del vale**, saldo y vencimiento (90 días 🟡). La prenda vuelve al stock de la tienda (kardex: `Devolución`) |
+| 1 | **Devolución a vale** | Vendedora → POS → **Cambio / Devolución** → elegir una venta reciente → 1 prenda, motivo, **Vale** → Confirmar | Comprobante con el **código del vale**, saldo y vencimiento (90 días). La prenda vuelve al stock de la tienda (kardex: `Devolución`) |
 | 2 | **Reembolso con aprobación** | Misma pantalla, destino **Reembolso** → "Pedir aprobación a Belén" → Belén aprueba (celular o "Belén está aquí") | La caja pasa a "Aprobado por Belén" y confirma. La aprobación queda **Usada**. Con efectivo: sale de la caja abierta |
 | 3 | **Aviso del medio original** | Venta pagada con tarjeta → Reembolso → cambiar el medio a **Efectivo** | Aviso "La venta no se pagó en efectivo: lo sugerido es la anulación en la máquina" y botón para volver al medio original. No bloquea |
 | 4 | **Cambio** | Destino **Cambio** → buscar la prenda nueva | El resumen muestra prendas nuevas, **diferencia a pagar** (con medio de pago) o **saldo a favor en vale** |
@@ -491,5 +491,4 @@ El seed con historial deja, dentro de la caja de un día pasado: una **devoluci�
 
 ### Pendientes de la Etapa 9
 - **Canje de vales en pedidos online** (RF-DEV-06 completo): hoy solo en el POS (S-12).
-- **Respuestas de Belén** a las preguntas de `PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`, en especial **Q-01** (devolver o cambiar un pedido online ya entregado).
-- **Despliegue:** la migración `20261125210000_returns_vouchers` solo agrega; se aplica a la base de la demo en el próximo despliegue, que se decide aparte.
+- **Respuesta de Belén a Q-01** (devolver o cambiar un pedido online ya entregado): es la única pregunta de `PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md` sin responder.

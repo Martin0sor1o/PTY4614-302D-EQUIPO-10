@@ -8,7 +8,7 @@ import {
   VOUCHER_SELLER_CAP_DEFAULT,
 } from "./rules";
 
-// Valores vigentes de las reglas 🟡 (ADR-021): `settings` si la fila existe y es válida; si no, el valor por omisión.
+// Valores vigentes de las reglas de ADR-021: `settings` si la fila existe y es válida; si no, el valor por omisión.
 
 export interface ReturnPolicy {
   /** S-01 */
@@ -20,7 +20,7 @@ export interface ReturnPolicy {
 
 const positiveInt = (v: number | null | undefined, fallback: number) => (typeof v === "number" && Number.isInteger(v) && v > 0 ? v : fallback);
 
-/** Valores vigentes: `settings` si la fila existe y es válida; si no, el valor por omisión del supuesto. */
+/** Valores vigentes: `settings` si la fila existe y es válida; si no, el valor por omisión de la regla. */
 export async function getReturnPolicy(reader: Pick<Tx, "setting">): Promise<ReturnPolicy> {
   const rows = await reader.setting.findMany({
     where: { key: { in: [SETTING_RETURN_WINDOW_DAYS, SETTING_VOUCHER_SELLER_CAP, SETTING_VALIDITY_DAYS] } },

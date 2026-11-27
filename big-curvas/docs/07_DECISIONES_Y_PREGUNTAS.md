@@ -99,7 +99,7 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
   - **Sin 2FA, sin recuperación por email, sin límite por IP y sin cambio de PIN por la propia vendedora:** fuera de alcance de esta iteración.
 - **Pendiente (bootstrap de datos para producción real):** hoy ubicaciones, `settings` (límites de PIN, descuento, couriers) y catálogo solo los crea el seed de la demo. Para producción hace falta un **bootstrap propio** (ubicaciones `TIENDA_RANCAGUA` y `BODEGA`, `settings` y carga inicial del catálogo, sin usuarios ni datos de ejemplo), que además debe correr antes de `auth:create-admin` y de vincular el primer equipo de caja. Anotado también en el plan de trabajo. Mientras no exista, el bloqueo de PIN usa los valores por omisión del código (5 intentos y 15 min).
 
-### ADR-021 · Cambios, devoluciones y vales — *Aceptada (2026-11-25; supuestos 🟡 pendientes de validar con Belén)*
+### ADR-021 · Cambios, devoluciones y vales — *Aceptada (2026-11-25); reglas validadas con Belén el 26/11/2026*
 - **Contexto:** RF-DEV-01 a 07 y RN-10, 11, 15, 16, 17 y 24 seguían en 🟡 (P-09, P-16, P-17, P-22). Hacía falta una devolución o cambio que mueva stock, caja y vales sin romper las reglas críticas (stock solo vía `InventoryService`, movimientos inmutables, dinero en CLP enteros, aprobaciones de un solo uso, permisos por rol y ubicación).
 - **Decisión:**
   - **Una devolución es UNA transacción idempotente** (`returns.createReturn`): venta elegible → caja (si hay efectivo o cambio) → `lockStock` → guardia anti sobre-devolución → aprobación → stock (`InventoryService.returnToStock`, y `writeOff` si la prenda llega dañada) → destino (vale, dinero o cambio) → `returns` + `return_lines` + `audit_log`. Si algo falla, todo se revierte, la aprobación incluida.
@@ -115,28 +115,28 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
   - **Código del vale:** credencial **al portador** (no nominativo), así que se protege como tal: 12 caracteres de un alfabeto de 32 sin ambiguos (sin 0, O, 1, I) elegidos con `crypto.randomInt` (uniforme, sin sesgo): 32^12 = 2^60 combinaciones, nada secuencial ni derivado de datos del vale (`VAL-XXXX-XXXX-XXXX`). **La búsqueda por código tiene límite de intentos:** reutiliza `auth_throttles` (el mismo mecanismo que el código de vinculación de un equipo) con clave **SHA-256 del id del usuario** (sin `AUTH_SECRET`, porque este flujo corre en la demo, que no lo tiene), nunca el id ni el código en claro (corrección del 2026-11-25: la primera versión usaba el HMAC y el canje fallaba en la demo; los tests no lo vieron porque siempre inyectaban el secreto, por eso existe el perfil `pnpm test:demo`); cada búsqueda se cuenta **antes** de mirar la tabla, 10 fallos seguidos bloquean 15 minutos y un acierto reinicia el contador. En `audit_log` solo van los últimos 4 caracteres del código. Un código fijo solo existe para el seed de la demo (`DEMO_MODE`).
   - **FK financieras con `ON DELETE RESTRICT`** (`returns.approval_id`, `cash_session_id`, `voucher_id`, `new_sale_id` y `payments.voucher_id`): nada de lo que respalda un reembolso se borra ni se desvincula en silencio. Índice parcial `payments(voucher_id) WHERE voucher_id IS NOT NULL`.
   - **Módulos:** los vales van en `src/modules/vouchers` (módulo hoja) porque el doc 03 dibuja `returns → sales`: `sales` no puede importar `returns`. `sales` canjea y anula (repone el saldo), `returns` emite y canjea. La cuadratura de caja (`sales/cash.ts`) y `assertNoReturns` leen `returns` con consultas de solo-lectura (excepción acotada a la regla de no importar internos de otro módulo: no se importa el módulo, solo se lee la tabla).
-- **Supuestos 🟡** (aprobados el 2026-11-25; viven en `src/modules/returns/rules.ts` y los numéricos se sobrescriben en `settings`; cada uno es una pregunta para Belén):
+- **Reglas** (aplicadas como supuestos desde el 2026-11-25 y confirmadas sin cambios por Belén el 26/11/2026; viven en `src/modules/returns/rules.ts` y los numéricos se sobrescriben en `settings`). Sobre pedidos online **ya entregados** no hay respuesta (Q-01): lo que S-01, S-02 y S-10 aplican a esos pedidos sigue abierto.
 
-  | Id | Regla ambigua | Valor aplicado 🟡 | Pregunta |
-  |----|---------------|-------------------|----------|
-  | S-01 | Plazo | 30 días corridos desde la venta (online: desde la entrega); fuera de plazo pide aprobación (`settings.return_window_days`) | P-09 |
-  | S-02 | ¿Hace falta la venta? | Sí, registrada y no anulada; pedido online solo despachado o entregado | P-09, Q-01 |
-  | S-03 | Estado de la prenda | Vendible vuelve al stock; dañada entra y sale como merma | P-09 |
-  | S-04 | Cuánto se devuelve | Lo pagado por la prenda (con el descuento de su línea), prorrateado en pesos enteros; sin envío | P-09 |
-  | S-05 | Cambio | Cualquier valor, sin descuentos en lo nuevo; diferencia a pagar con un medio; a favor queda en vale | P-16 |
-  | S-06 | Reembolso en dinero | Vendedora con aprobación de Belén; medio sugerido = el original; efectivo redondeado a $10 y desde la caja abierta | P-17, P-09 |
-  | S-07 | Venta pagada con vale | Solo se devuelve en vale o cambio | P-09 |
-  | S-08 | Vale | 90 días (`settings.store_credit_validity_days`), uso parcial, no nominativo, tope de la vendedora $50.000 (`settings.voucher_seller_cap`), vencido no se reactiva | P-09 |
-  | S-09 | Motivos | Talla · Falla · No es lo esperado · Me arrepentí · Otro (con nota) | P-09 |
-  | S-10 | Dónde se procesa | Tienda (vendedora o Belén) y bodega solo Belén (sin cambios ni efectivo); el envío de un cambio online no se automatiza | P-22, P-09, Q-01 |
-  | S-11 | Anular una venta con devoluciones | No se puede (tampoco la venta de un cambio: se devuelve la prenda nueva); anular una venta pagada con vale repone su saldo (sin extender el vencimiento) | P-09 |
-  | S-12 | Canje del vale | Cubre hasta su saldo; solo en el POS por ahora (pedidos online, después) | P-09 |
+  | Id | Regla | Valor aplicado | Pregunta | Estado |
+  |----|-------|----------------|----------|--------|
+  | S-01 | Plazo | 30 días corridos desde la venta (online: desde la entrega); fuera de plazo pide aprobación (`settings.return_window_days`) | P-09 | ✅ validado con Belén el 26/11/2026. Su aplicación a pedidos online ya entregados sigue abierta (Q-01) |
+  | S-02 | ¿Hace falta la venta? | Sí, registrada y no anulada; pedido online solo despachado o entregado | P-09, Q-01 | ✅ validado con Belén el 26/11/2026. Su aplicación a pedidos online ya entregados sigue abierta (Q-01) |
+  | S-03 | Estado de la prenda | Vendible vuelve al stock; dañada entra y sale como merma | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-04 | Cuánto se devuelve | Lo pagado por la prenda (con el descuento de su línea), prorrateado en pesos enteros; sin envío | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-05 | Cambio | Cualquier valor, sin descuentos en lo nuevo; diferencia a pagar con un medio; a favor queda en vale | P-16 | ✅ validado con Belén el 26/11/2026 |
+  | S-06 | Reembolso en dinero | Vendedora con aprobación de Belén; medio sugerido = el original; efectivo redondeado a $10 y desde la caja abierta | P-17, P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-07 | Venta pagada con vale | Solo se devuelve en vale o cambio | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-08 | Vale | 90 días (`settings.store_credit_validity_days`), uso parcial, no nominativo, tope de la vendedora $50.000 (`settings.voucher_seller_cap`), vencido no se reactiva | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-09 | Motivos | Talla · Falla · No es lo esperado · Me arrepentí · Otro (con nota) | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-10 | Dónde se procesa | Tienda (vendedora o Belén) y bodega solo Belén (sin cambios ni efectivo); el envío de un cambio online no se automatiza | P-22, P-09, Q-01 | ✅ validado con Belén el 26/11/2026. Su aplicación a pedidos online ya entregados sigue abierta (Q-01) |
+  | S-11 | Anular una venta con devoluciones | No se puede (tampoco la venta de un cambio: se devuelve la prenda nueva); anular una venta pagada con vale repone su saldo (sin extender el vencimiento) | P-09 | ✅ validado con Belén el 26/11/2026 |
+  | S-12 | Canje del vale | Cubre hasta su saldo; solo en el POS por ahora (pedidos online, después) | P-09 | ✅ validado con Belén el 26/11/2026 |
 
 - **Cómo se prueba:** integración contra el Postgres de Docker (nunca Neon): caminos felices (vale, dinero con aprobación, cambio con diferencia a pagar y a favor, pedido online en tienda y en bodega), sobre-devolución, plazo y tope, doble envío (idempotencia), acceso cruzado entre ubicaciones, vale vencido/inactivo/sin saldo, aprobación de un solo uso y amarrada al hash, caja cerrada, redondeo de efectivo, inmutabilidad de movimientos y saldos de vale, doble gasto de un vale desde dos ventas, **dos devoluciones simultáneas de la misma línea**, **una devolución contra la anulación de la misma venta** y **dos cambios cruzados simultáneos** (sin ese `lockStock` el test falla con `deadlock detected`).
 - **Migración (solo agrega):** 4 tablas, 5 enums y 1 valor de enum, 2 columnas, 15 índices, 12 CHECK y 2 triggers; no toca los triggers, los CHECK ni los índices existentes (incluido `cash_sessions_one_open_per_location_idx`). Probada con `prisma migrate deploy` sobre una base limpia y sobre una con los datos de la demo; `verify-db.sql` pasa a 31 tablas, 44 CHECK, 60 índices, 4 triggers y 6 migraciones, más la invariante de saldo de los vales. **Rollback:** como solo agrega, el código anterior sigue funcionando con el esquema nuevo; `VALE_SOBRE_TOPE` no se puede quitar de un enum, pero es inofensivo.
-- **Riesgos aceptados:** (1) los supuestos pueden cambiar con la respuesta de Belén: viven en un solo lugar y el cambio es acotado; (2) el vale es una credencial al portador: quien lo vea lo puede gastar; se mitiga con el código largo, el límite de intentos y la posibilidad de desactivarlo; (3) un cambio toca dos conjuntos de variantes y bloquea más filas que una venta (orden canónico + test); (4) reponer un vale vencido (al anular la venta que lo canjeó) no extiende su vigencia: se informará a Belén.
+- **Riesgos aceptados:** (1) la respuesta a Q-01 puede cambiar cómo se aplican las reglas a un pedido online ya entregado, y Belén puede ajustar una regla ya validada: viven en un solo lugar y el cambio es acotado; (2) el vale es una credencial al portador: quien lo vea lo puede gastar; se mitiga con el código largo, el límite de intentos y la posibilidad de desactivarlo; (3) un cambio toca dos conjuntos de variantes y bloquea más filas que una venta (orden canónico + test); (4) reponer un vale vencido (al anular la venta que lo canjeó) no extiende su vigencia: se informará a Belén.
 - **UI y datos de demo:** pestaña **Cambio / Devolución** del POS (con aprobación de Belén, comprobante con el código del vale y aviso del medio original), canje del vale en el cobro, filas de devoluciones y vales en la cuadratura de caja, vista **Vales** de Belén (con historial y desactivación), pestaña **Devoluciones** en Reportes y escenario en el seed de la demo (una devolución en efectivo, una a vale y un cambio; vale vigente `VAL-DEMO-VALE-0001`).
-- **Pendiente:** canje de vales en pedidos online (RF-DEV-06 completo, S-12) y las respuestas de Belén (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`).
+- **Pendiente:** canje de vales en pedidos online (RF-DEV-06 completo; S-12, validado, lo deja solo en el POS por ahora) y la respuesta de Belén a Q-01 (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`).
 
 ## 2. Preguntas abiertas
 
@@ -145,16 +145,12 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 | P-04 | Confirmar el nombre de la app de boletas ("Veci" ¿= Vessi?) y si tiene integración o API. Contacto del contador | ADR-007, post-MVP | No |
 | P-06 | Volumen: ventas diarias en tienda y pedidos online diarios (aprox.) | Dimensionamiento | No |
 | P-08b | Tipos de promociones que hacen (%, liquidaciones, 2x1) | RF-POS-13/14 | F2 |
-| P-09 | Cambios y devoluciones: plazo, ¿dinero o vale?, vigencia del vale, envío de cambios online (hoy: supuestos en 🟡) | RN-10, 15, 16, 17 | F3 |
 | P-11 | Envíos: couriers (Starken, Blue Express o Chilexpress), cómo se cobra, envío gratis, ¿hay retiro y dónde? | RF-PED-06/07/08 | Etapa 5 |
-| P-16 | Cambio con diferencia a favor de la clienta: ¿vale o dinero? | RF-DEV-02 | F3 |
-| P-17 | Reembolso de compra con tarjeta: ¿anulación en la máquina, transferencia o efectivo? | RF-DEV-03 | F3 |
 | P-18 | ¿Promociones se suman o se aplica la mayor? | RN-20 | F2 |
 | P-19 | ¿Dónde está la bodega (comuna)? | Operación | No |
 | P-20 | Equipos e internet en la bodega | R-04, hardware | F4 |
 | P-21 | Catálogo: cantidad de modelos y sistema de tallas | Seed, importación | F2 |
-| P-22 | ¿Quién registra las devoluciones de pedidos online que llegan por courier a la bodega? | RF-DEV-07 | F3 |
-| Q-01 | **¿Se puede devolver o cambiar un pedido online ya entregado, y cómo?** (¿en la tienda o por courier a la bodega? ¿quién paga el envío de vuelta? ¿el plazo corre desde la entrega?). Sin supuesto nuevo: rigen S-01, S-02 y S-10 tal como se aprobaron (ADR-021) | RF-DEV-07, RN-17 | F3 |
+| Q-01 | **¿Se puede devolver o cambiar un pedido online ya entregado, y cómo?** (¿en la tienda o por courier a la bodega? ¿quién paga el envío de vuelta? ¿el plazo corre desde la entrega?). 🟡 Sin respuesta en la reunión del 26/11/2026: para esos pedidos se siguen aplicando S-01, S-02 y S-10 como supuesto (ADR-021) | RF-DEV-07, RN-17, RN-24 | F3 |
 | P-23 | Prenda que llega en un traslado sin venir en la lista: ¿qué se hace? | RF-INV-09 | Etapa 4 (demo: se rechaza) |
 | P-28 | Validar con Belén cómo se resuelven las diferencias de traslado (RN-30). ¿Hace falta registrar también "error de recepción" (se escaneó de más en destino)? | RN-30 | No (demo con propuesta) |
 | P-29 | Contador: tratamiento tributario (IVA/boleta) del costo de envío cobrado en los pedidos online | Boletas, `sales.shipping_cost` | No |
@@ -178,6 +174,10 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 | Boletas | App de boletas + Transbank + BancoEstado; registrados en el SII; sin facturas (C1) |
 | Registro actual | Excel manual, separado por medio de pago (C2) |
 | Medios de pago | Efectivo, tarjeta y transferencia (C8) |
+| P-09 | Cambios y devoluciones: plazo de **30 días** (S-01); reembolso en dinero solo con aprobación de Belén (S-06) y un vale no se convierte en dinero (S-07); el vale vence a los **90 días** (S-08); el envío de un cambio online no se automatiza: se registra un pedido nuevo con su envío, que paga la clienta (S-10). También confirmó S-02 a S-04, S-09, S-11 y S-12. Sobre pedidos online ya entregados, ver Q-01 (reunión 26/11/2026) |
+| P-16 | Cambio con diferencia a favor de la clienta: **en vale**, no en dinero (S-05) (reunión 26/11/2026) |
+| P-17 | Reembolso: se sugiere el **mismo medio con que pagó**; una compra con tarjeta se anula en la máquina (S-06) (reunión 26/11/2026). El flujo de reembolso de un pedido online cancelado no cambia: medio y referencia siguen en texto libre |
+| P-22 | Las devoluciones de pedidos online que llegan por courier a la bodega las registra **Belén**, sin cambios ni efectivo (S-10) (reunión 26/11/2026) |
 | Códigos de barra | Solo los jeans; se etiquetará todo (C4) |
 | Ofertas | Solo online o en ambos canales (V6) |
 | Transición online | Cuando parta el sistema, lo online saldrá de la bodega (V7) |
@@ -194,3 +194,4 @@ Etapa 1 (~enero 2027): tienda + bodega, traslados, POS, aprobaciones. Etapa 2 (~
 | 2026-11-24 | **ADR-019:** la demo y el staging pasan a Neon (Postgres 17, Oregon) por el vencimiento de la base gratuita de Render. La producción sigue en ADR-010 |
 | 2026-11-24 | **ADR-020:** autenticación real propia (contraseña `scrypt` para la administradora, dispositivo POS + PIN de 6 dígitos para la caja, sesiones en la BD). El PIN demo sale del repositorio (`DEMO_ADMIN_PIN`). RF-USR-01 y RF-USR-02 implementados. Pendiente: bootstrap de datos para producción real |
 | 2026-11-25 | **ADR-021:** cambios, devoluciones y vales (migración que solo agrega: `returns`, `return_lines`, `vouchers`, `voucher_movements`). Supuestos 🟡 S-01 a S-12 aplicados y listados como preguntas para Belén; pregunta nueva Q-01 |
+| 2026-11-26 | **Reunión con Belén:** reglas S-01 a S-12 de ADR-021 validadas sin cambios; se cierran P-09, P-16, P-17 y P-22. Q-01 sigue abierta, igual que P-11 y P-24 |

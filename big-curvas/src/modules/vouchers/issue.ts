@@ -22,7 +22,7 @@ const MAX_CODE_TRIES = 5;
  * Emite un vale (ADR-021, RN-16): fila con saldo = monto inicial + movimiento EMISION (+monto), en la transacción de
  * quien llama (`returns`). Código aleatorio de alta entropía (`code.ts`); si choca con otro (casi imposible) se reintenta
  * con INSERT … ON CONFLICT DO NOTHING (un error de clave única abortaría la transacción). Vence a los
- * `store_credit_validity_days` (90 🟡). `code` fijo solo existe para el seed de la demo (DEMO_MODE).
+ * `store_credit_validity_days` (90). `code` fijo solo existe para el seed de la demo (DEMO_MODE).
  */
 export async function issueVoucher(
   tx: Tx,
