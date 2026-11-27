@@ -54,6 +54,9 @@ export const createSaleSchema = createSaleBase.refine(needsPayment, needsPayment
 /** Lo que envía el navegador al confirmar una venta (sin ubicación: sale de la sesión). */
 export const saleRequestSchema = createSaleBase.omit({ locationId: true }).refine(needsPayment, needsPaymentMessage);
 
+/** Consulta por la clave de un envío cuya respuesta se perdió. */
+export const attemptKeySchema = z.object({ locationId: id, idempotencyKey });
+
 export const searchSchema = z.object({
   locationId: id,
   query: z.string().trim().min(1).max(100),

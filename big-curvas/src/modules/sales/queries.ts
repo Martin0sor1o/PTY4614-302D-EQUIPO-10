@@ -6,7 +6,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { startOfDaySantiago } from "@/lib/dates";
 import { emptyByMethod, loadSaleView } from "./internal";
 import { effectivePrice, type PaymentMethodCode } from "./pricing";
-import { searchSchema } from "./schemas";
+import { attemptKeySchema, searchSchema } from "./schemas";
 import type { DaySales, PosItem, SaleView } from "./types";
 
 // Consultas de SOLO LECTURA del POS. El stock de las demás ubicaciones se muestra únicamente como consulta.
@@ -113,6 +113,16 @@ export async function getSaleForActor(actor: Actor, saleId: string): Promise<Sal
   if (!sale) throw new AppError("NOT_FOUND", "La venta no existe.");
   assertAccess(actor, { roles: ROLES, locationId: sale.location.id });
   return sale;
+}
+
+/**
+ * ¿Quedó registrada la venta de esta clave en esta tienda? SOLO LECTURA: la caja la usa cuando se pierde la respuesta del
+ * cobro. Una clave de otra ubicación responde igual que una inexistente (no revela nada).
+ */
+export async function findSaleByAttemptKey(input: { actor: Actor; locationId: string; idempotencyKey: string }): Promise<{ id: string; number: string } | null> {
+  assertAccess(input.actor, { roles: ROLES, locationId: input.locationId });
+  const { locationId, idempotencyKey } = parseInput(attemptKeySchema, input);
+  return db.sale.findFirst({ where: { idempotencyKey, locationId }, select: { id: true, number: true } });
 }
 
 /** Ventas de la tienda en el día calendario de Chile (America/Santiago) que contiene `now`, con total por medio de pago. */

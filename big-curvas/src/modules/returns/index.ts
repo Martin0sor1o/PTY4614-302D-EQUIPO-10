@@ -7,7 +7,7 @@
 export { createReturn, type CreateReturnInput } from "./create-return";
 export { quoteReturn, returnBinding } from "./quote";
 export { requestReturnApproval } from "./approvals";
-export { getReturn, getSaleForReturn, searchSalesForReturn } from "./queries";
+export { getReturn, getSaleForReturn, searchSalesForReturn, findReturnByAttemptKey } from "./queries";
 export { getReturnPolicy, type ReturnPolicy } from "./policy";
 export {
   createReturnRequestSchema,

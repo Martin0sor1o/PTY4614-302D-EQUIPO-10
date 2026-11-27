@@ -5,10 +5,20 @@ import { parseInput } from "@/lib/validation";
 import type { Prisma } from "@/generated/prisma/client";
 import { loadSaleForReturn, variantLabels } from "./internal";
 import { getReturnPolicy } from "./policy";
-import { searchSalesSchema } from "./schemas";
+import { returnAttemptKeySchema, searchSalesSchema } from "./schemas";
 import type { ReturnableSale, ReturnSaleHit, ReturnView } from "./types";
 
 const ROLES = ["ADMIN", "VENDEDORA"] as const;
+
+/**
+ * ¿Quedó registrada la devolución (o el cambio) de esta clave en esta ubicación? SOLO LECTURA: la usa la caja cuando se
+ * pierde la respuesta. Una clave de otra ubicación responde igual que una inexistente.
+ */
+export async function findReturnByAttemptKey(input: { actor: Actor; locationId: string; idempotencyKey: string }): Promise<{ id: string; number: string } | null> {
+  assertAccess(input.actor, { roles: ROLES, locationId: input.locationId });
+  const { locationId, idempotencyKey } = parseInput(returnAttemptKeySchema, input);
+  return db.return.findFirst({ where: { idempotencyKey, locationId }, select: { id: true, number: true } });
+}
 
 /** Una devolución completa para el comprobante. Lecturas secuenciales (puede llamarse con el pool, ya confirmada la operación). */
 export async function loadReturnView(

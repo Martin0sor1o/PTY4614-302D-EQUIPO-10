@@ -68,6 +68,17 @@ export const SLOW_MESSAGE = "El servidor no ha respondido en 30 segundos. Puedes
 export const NOT_FOUND_MESSAGE =
   "Todavía no aparece registrada. Si la conexión está lenta, el primer envío puede estar en camino: usa “Reintentar”, que envía lo mismo.";
 
+export const OTHER_USER_MESSAGE = "Este envío lo hizo otra persona: solo ella puede reintentarlo. Puedes verificar si quedó registrado.";
+
+/**
+ * En el SERVIDOR: ¿es un reintento hecho por alguien distinto de quien envió? Si el primer envío no alcanzó a llegar,
+ * repetirlo registraría la operación a nombre de otra persona.
+ */
+export function isRetryByAnotherUser(payload: unknown, currentUserId: string): boolean {
+  const owner = (payload as { retryOfUserId?: unknown } | null | undefined)?.retryOfUserId;
+  return typeof owner === "string" && owner !== currentUserId;
+}
+
 const TIMEOUT = Symbol("timeout");
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT> {

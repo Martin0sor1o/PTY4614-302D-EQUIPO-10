@@ -13,7 +13,7 @@ export {
   getCashSession,
   getCashClosingTotals,
 } from "./cash";
-export { searchPosItems, getPosItemsByIds, getSaleForActor, listSalesOfDay } from "./queries";
+export { searchPosItems, getPosItemsByIds, getSaleForActor, listSalesOfDay, findSaleByAttemptKey } from "./queries";
 export { SETTING_MAX_DISCOUNT, getDiscountLimitBps } from "./internal";
 export { getDiscountLimit } from "./settings";
 export { saleRequestSchema, paymentInputSchema } from "./schemas";

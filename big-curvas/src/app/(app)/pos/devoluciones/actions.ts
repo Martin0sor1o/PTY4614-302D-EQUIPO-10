@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { SessionLocation } from "@/lib/access";
 import { isAppError, userMessage } from "@/lib/errors";
+import { isRetryByAnotherUser, OTHER_USER_MESSAGE } from "@/lib/pending-attempt";
 import { requireAccess } from "@/modules/auth";
 import {
   createReturn,
   createReturnRequestSchema,
+  findReturnByAttemptKey,
   getSaleForReturn,
   quoteReturn,
   quoteReturnRequestSchema,
@@ -26,7 +28,7 @@ import type { ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 // y delegan en returns, que vuelve a validar rol y ubicación (regla 10). Los errores de negocio vuelven como datos.
 // VENDEDORA: su tienda. ADMIN: la ubicación elegida en "Operando en" (tienda o bodega: Belén registra ahí las devoluciones).
 
-export type Failure = { ok: false; message: string; code?: string };
+export type Failure = { ok: false; message: string; code?: string; uncertain?: boolean };
 
 const failure = (error: unknown): Failure => ({ ok: false, message: userMessage(error), code: isAppError(error) ? error.code : undefined });
 const invalid = (error: z.ZodError): Failure => ({ ok: false, message: error.issues[0]?.message ?? "Datos inválidos." });
@@ -134,11 +136,24 @@ export async function createReturnAction(payload: unknown): Promise<{ ok: true; 
   try {
     const { user, location } = await context();
     if (!location) return NO_LOCATION;
+    if (isRetryByAnotherUser(payload, user.id)) return { ok: false, message: OTHER_USER_MESSAGE, code: "FORBIDDEN" };
     const { result } = await createReturn({ actor: user, locationId: location.id, ...parsed.data });
     revalidatePath("/stock");
     revalidatePath("/pos", "layout");
     revalidatePath("/vales");
     return { ok: true, returnId: result.id, number: result.number };
+  } catch (error) {
+    // Un error que no es de negocio pudo ocurrir después de guardar: la caja lo trata como "sin confirmar".
+    return { ...failure(error), uncertain: isAppError(error) ? undefined : true };
+  }
+}
+
+/** ¿Quedó registrada la devolución o el cambio de este envío? SOLO LECTURA. Server Action (POST): la clave nunca va en la URL. */
+export async function checkReturnAttemptAction(idempotencyKey: string): Promise<{ ok: true; found: { id: string; number: string } | null } | Failure> {
+  try {
+    const { user, location } = await context();
+    if (!location) return NO_LOCATION;
+    return { ok: true, found: await findReturnByAttemptKey({ actor: user, locationId: location.id, idempotencyKey }) };
   } catch (error) {
     return failure(error);
   }

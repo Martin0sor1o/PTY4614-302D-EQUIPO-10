@@ -53,6 +53,9 @@ export const quoteReturnRequestSchema = quoteBase.omit({ locationId: true });
 export const requestReturnApprovalRequestSchema = requestBase.omit({ locationId: true }).refine(withNote, noteMessage);
 export const createReturnRequestSchema = createBase.omit({ locationId: true }).refine(withNote, noteMessage);
 
+/** Consulta por la clave de un envío cuya respuesta se perdió. */
+export const returnAttemptKeySchema = z.object({ locationId: id, idempotencyKey });
+
 export const searchSalesSchema = z.object({
   locationId: id,
   query: z.string().trim().max(60).default(""),
