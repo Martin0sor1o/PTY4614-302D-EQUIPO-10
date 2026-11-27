@@ -6,7 +6,7 @@ Sistema web que centraliza el **inventario, las ventas en tienda (POS) y los ped
 
 **Demo en línea:** <https://big-curvas-demo.onrender.com> (datos de ejemplo; el servicio gratuito se duerme con la inactividad y la primera visita puede tardar unos 50 segundos).
 
-> **Estado:** demo funcional completa (etapas 1 a 8), base de datos en Neon, autenticación real con contraseña y PIN, y **784 pruebas automáticas** aprobadas. Los cambios, devoluciones y vales están implementados con supuestos por validar con la clienta (todavía sin desplegar en la demo publicada); queda pendiente la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
+> **Estado:** demo funcional completa (etapas 1 a 9), base de datos en Neon, autenticación real con contraseña y PIN, y **784 pruebas automáticas** aprobadas. La demo está publicada en la versión `9d33ef1`, con cambios, devoluciones y vales, cuyas reglas quedaron validadas con Belén el 26/11/2026; queda pendiente la puesta en producción con la clienta (ver [Limitaciones y próximos pasos](#limitaciones-y-próximos-pasos)).
 
 ---
 
@@ -29,7 +29,7 @@ Un sistema único que lleva el stock **por prenda (talla y color) y por ubicaci�
 | **Aprobaciones** | La dueña autoriza descuentos, anulaciones y reembolsos desde su celular o con su PIN | ✅ |
 | **Reportes** | Ventas por medio de pago, más vendidos, stock bajo, prendas sin rotación y lista del viernes | ✅ |
 | **Acceso real** | Administradora con contraseña; vendedoras con PIN en el equipo de caja vinculado a su tienda | ✅ |
-| **Cambios y devoluciones** | Devolución a vale, a dinero (con aprobación de la dueña) o cambio, con vales de saldo; los supuestos están marcados 🟡 y listados como preguntas para la clienta | ✅ 🟡 |
+| **Cambios y devoluciones** | Devolución a vale, a dinero (con aprobación de la dueña) o cambio, con vales de saldo; reglas validadas con Belén el 26/11/2026 | ✅ |
 
 ## Tecnologías
 
@@ -173,7 +173,7 @@ El trabajo se hace en ramas cortas (`feat/NNN-nombre`, `fix/NNN-nombre`, `docs/N
 - [x] Rediseño visual con criterios de accesibilidad (etapa 8)
 - [x] Autenticación real: contraseña para la administradora y PIN en el equipo de caja (ADR-020)
 - [ ] Pruebas de aceptación con la clienta y las vendedoras
-- [x] Cambios, devoluciones y vales (etapa 9, ADR-021): implementados con supuestos 🟡; falta validarlos con la clienta y desplegarlos
+- [x] Cambios, devoluciones y vales (etapa 9, ADR-021): reglas validadas con Belén el 26/11/2026 y publicados en la demo
 - [ ] Manual de usuario, informe final, presentación y defensa
 
 ### Etapas del sistema
@@ -189,12 +189,12 @@ El trabajo se hace en ramas cortas (`feat/NNN-nombre`, `fix/NNN-nombre`, `docs/N
 | 6.5 | Reportes y dashboard | ✅ |
 | 7 | Pulido, publicación en Render y base de datos en Neon | ✅ |
 | 8 | Rediseño visual | ✅ |
-| 9 | Cambios, devoluciones y vales (supuestos 🟡 por validar con la clienta; sin desplegar) | ✅ |
+| 9 | Cambios, devoluciones y vales (reglas validadas con Belén el 26/11/2026) | ✅ |
 | — | Autenticación real (contraseña, dispositivo de caja y PIN) | ✅ |
 
 ## Limitaciones y próximos pasos
 
-- **Cambios y devoluciones** no están implementados: dependen de reglas que la clienta debe confirmar (plazos, vale o dinero, reembolso con tarjeta). Están listadas como preguntas abiertas en el [plan de trabajo](big-curvas/docs/05_PLAN_DE_TRABAJO.md).
+- **Cambios y devoluciones:** los vales todavía no se canjean en pedidos online y falta definir cómo se devuelve o cambia un pedido online ya entregado (pregunta abierta en el [plan de trabajo](big-curvas/docs/05_PLAN_DE_TRABAJO.md)).
 - **La demo pública no pide contraseña** (modo demo): solo debe usarse con datos ficticios. El login real existe y se activa sin `DEMO_MODE`, pero todavía no se despliega un servicio con cuentas reales.
 - **Servicio gratuito:** Render duerme la aplicación con la inactividad y Neon tiene límites de uso; no es una configuración de producción.
 - **Seguridad pendiente:** sin segundo factor, sin recuperación de contraseña por correo y sin límite de intentos por dirección IP.

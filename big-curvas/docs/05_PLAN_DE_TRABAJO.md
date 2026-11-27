@@ -14,7 +14,7 @@ Supuesto de capacidad: **1 desarrollador ~20 h/semana con desarrollo asistido** 
 
 ## 2. Estado actual (noviembre de 2026, rama `feature/demo`)
 
-La demo está completa y publicada (Render + Neon). En la rama `feature/demo` están también los **cambios, devoluciones y vales** (etapa 9, ADR-021), con **784 pruebas automáticas** aprobadas. Sus reglas son supuestos 🟡 que esperan las respuestas de Belén (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); La migración nueva **ya está aplicada en la base de la demo**, pero la versión publicada sigue siendo la anterior: el primer despliegue se revirtió porque el canje de vales exigía `AUTH_SECRET`, que la demo no tiene. La corrección está en `fix/022-demo-sin-auth-secret` y se despliega aparte.
+La demo está completa y publicada (Render + Neon) en la versión `9d33ef1` de la rama `feature/demo`, que incluye los **cambios, devoluciones y vales** (etapa 9, ADR-021) y su migración. El sistema tiene **784 pruebas automáticas** aprobadas. Belén validó las reglas de devoluciones (S-01 a S-12) el 26/11/2026 (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierto cómo se devuelve o cambia un pedido online ya entregado (Q-01).
 
 | Etapa de la demo | Estado |
 |------------------|--------|
@@ -28,13 +28,13 @@ La demo está completa y publicada (Render + Neon). En la rama `feature/demo` es
 | 6.5 Reportes y dashboard | ✅ |
 | 7. Pulido y publicación en Render | ✅ |
 | 8. Rediseño visual (dirección D) | ✅ |
-| 9. Cambios, devoluciones y vales (supuestos 🟡 por validar con Belén) | ✅ en código; sin desplegar |
+| 9. Cambios, devoluciones y vales (reglas validadas con Belén el 26/11/2026) | ✅ publicada en la demo |
 
 | Otros avances | Estado |
 |---------------|--------|
 | Base de datos de la demo en Neon (ADR-019): conexión directa para migraciones, respaldo y restauración probados, `scripts/verify-db.sql` | ✅ |
 | Autenticación real (ADR-020): contraseña de la administradora, dispositivo de caja + PIN, sesiones, bloqueo por intentos, auditoría; la demo sigue igual con `DEMO_MODE` | ✅ |
-| Cambios y devoluciones (módulo `returns`) | ⏳ Pendiente (reglas por validar con Belén) |
+| Cambios y devoluciones (módulo `returns`) | ✅ Publicado en la demo; pendientes el canje de vales en pedidos online y Q-01 |
 | Bootstrap de datos y servicio con login real para producción | ⏳ Pendiente (ver F1) |
 
 ## 3. Hoja de ruta
@@ -88,7 +88,7 @@ Autenticación real (Belén con contraseña, vendedoras con PIN), backups, stagi
 - ⏳ Fuera de alcance de la autenticación por ahora: 2FA, recuperación por email, límite por IP, cambio de PIN por la propia vendedora y cabeceras de seguridad HTTP.
 
 ### F2–F3 – Completar inventario y POS
-Importación desde el Excel actual, impresión de etiquetas, conteos, cambios y devoluciones (según las reglas que confirme Belén), promociones por canal, reportes por medio de pago.
+Importación desde el Excel actual, impresión de etiquetas, conteos, canje de vales en pedidos online y lo que responda Belén sobre Q-01, promociones por canal, reportes por medio de pago.
 
 ### F4 – Etiquetado, carga inicial y salida de la Etapa 1
 - **Etiquetar toda la ropa** que no tenga código (tienda y bodega): es el trabajo más grande de la salida. Planificarlo con Belén por categorías, en las semanas previas.
@@ -136,14 +136,11 @@ Alternativa para ahorrar: una sola impresora de etiquetas en la tienda, y Belén
 
 ## 8. Preguntas abiertas con Belén
 
-Cada pregunta tiene su detalle en `07_DECISIONES_Y_PREGUNTAS.md`. Mientras no se respondan, la demo usa el supuesto indicado (marcado como 🟡 en los documentos).
+Cada pregunta tiene su detalle en `07_DECISIONES_Y_PREGUNTAS.md`. Mientras no se respondan, la demo usa el supuesto indicado (marcado como 🟡 en los documentos). El 26/11/2026 Belén respondió P-09, P-16, P-17 y P-22 (cambios, devoluciones y vales), que quedaron cerradas.
 
 | ID | Pregunta | Qué bloquea | Supuesto actual |
 |----|----------|-------------|-----------------|
-| P-09 | Cambios y devoluciones: plazo, ¿dinero o vale?, vigencia del vale, envío de cambios online | Módulo de devoluciones (RN-10, 15, 16, 17) | Sin implementar; supuestos en 🟡 |
-| P-16 | Cambio con diferencia a favor de la clienta: ¿vale o dinero? | RF-DEV-02 | Sin implementar |
-| P-17 | Reembolso de una compra con tarjeta: ¿anulación en la máquina, transferencia o efectivo? | RF-DEV-03 | Sin implementar (los reembolsos de pedidos online se registran con aprobación) |
-| P-22 | ¿Quién registra las devoluciones de pedidos online que llegan por courier a la bodega? | RF-DEV-07 | Sin implementar |
+| Q-01 | ¿Se puede devolver o cambiar un pedido online ya entregado, y cómo? | Cierre de RF-DEV-07 | 🟡 A esos pedidos se les aplican S-01, S-02 y S-10 como supuesto |
 | P-24 | ¿Qué reportes quiere ver Belén a diario o semanalmente? | Dashboards y reportes definitivos | La demo trae cinco reportes propuestos (etapa 6.5) |
 | P-11 | Envíos: couriers (Starken, Blue Express o Chilexpress), cómo se cobra, envío gratis, ¿hay retiro y dónde? | Pedidos online (RF-PED-06/07/08) | Despacho solo por courier, costo de envío ingresado a mano |
 | P-28 | ¿Cómo se resuelven las diferencias de traslado (RN-30)? ¿Hace falta registrar también "error de recepción" (se escaneó de más en destino)? | Cierre de traslados | Merma, reenvío o error de envío; el sobrante solo se resuelve como error de envío |

@@ -27,7 +27,7 @@ import {
   type ReturnSaleHitLite,
   type ReturnableSaleLite,
 } from "@/app/(app)/pos/devoluciones/actions";
-import { paidWithText } from "@/modules/returns/client";
+import { paidWithText, pendingSummaryText } from "@/modules/returns/client";
 
 // Flujo "Cambio / Devolución" (RF-DEV-01 a 07): buscar la venta → elegir prendas → motivo → destino (vale, dinero o cambio) →
 // confirmar. El navegador solo MUESTRA lo que cotiza el servidor (quoteReturnAction); el servidor recalcula todo al confirmar.
@@ -708,7 +708,7 @@ export function ReturnFlow({ locationName, isStore, demoPinHint }: { locationNam
           ) : quoteError ? (
             <Notice tone="danger" role="alert">{quoteError}</Notice>
           ) : (
-            <p className="text-sm text-muted-foreground">Calculando…</p>
+            <p className="text-sm text-muted-foreground">{pendingSummaryText(kind === "CAMBIO", newLines.length)}</p>
           )}
 
           {needsApproval && (

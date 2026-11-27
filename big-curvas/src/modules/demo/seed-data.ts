@@ -188,19 +188,19 @@ export const DEMO_SETTINGS: { key: string; valueInt?: number; valueText?: string
   {
     key: "return_window_days",
     valueInt: 30,
-    description: "Cambios y devoluciones: días desde la venta (o la entrega, en pedidos online) para cambiar o devolver sin aprobación. Supuesto S-01 (P-09, pendiente de validar con Belén).",
+    description: "Cambios y devoluciones: días desde la venta (o la entrega, en pedidos online) para cambiar o devolver sin aprobación. Regla S-01 (P-09), validada con Belén el 26/11/2026; su aplicación a pedidos online ya entregados sigue abierta (Q-01).",
     isDemoValue: true,
   },
   {
     key: "store_credit_validity_days",
     valueInt: 90,
-    description: "Vales: días de vigencia desde que se emiten (RN-16, 3 meses). Supuesto S-08 (P-09, pendiente de validar con Belén).",
+    description: "Vales: días de vigencia desde que se emiten (RN-16, 3 meses). Regla S-08 (P-09), validada con Belén el 26/11/2026.",
     isDemoValue: true,
   },
   {
     key: "voucher_seller_cap",
     valueInt: 50000,
-    description: "Vales: monto máximo (CLP) que una vendedora puede entregar por operación sin la aprobación de Belén. Supuesto S-08 (P-09, pendiente de validar con Belén).",
+    description: "Vales: monto máximo (CLP) que una vendedora puede entregar por operación sin la aprobación de Belén. Regla S-08 (P-09), validada con Belén el 26/11/2026.",
     isDemoValue: true,
   },
   {
