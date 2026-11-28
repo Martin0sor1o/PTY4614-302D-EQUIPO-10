@@ -13,6 +13,7 @@ import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { APPROVER_PIN_MIN, cleanApproverPin } from "./pin-input";
 
 const POLL_MS = 3000;
 
@@ -205,9 +206,9 @@ export function ApprovalWait({
               placeholder="PIN"
               className="h-10 w-32 text-center text-lg tracking-widest"
               value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/D/g, "").slice(0, 8))}
+              onChange={(e) => setPin(cleanApproverPin(e.target.value))}
             />
-            <PendingButton type="submit" disabled={pin.length < 4 || !approverId} pending={pending} pendingLabel="Verificando…">
+            <PendingButton type="submit" disabled={pin.length < APPROVER_PIN_MIN || !approverId} pending={pending} pendingLabel="Verificando…">
               Aprobar con PIN
             </PendingButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => (setPinOpen(false), setPin(""), setPinError(null))}>
