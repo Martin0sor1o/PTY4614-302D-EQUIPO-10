@@ -19,6 +19,7 @@ import { lookupVoucherAction, type VoucherLite } from "@/app/(app)/pos/devolucio
 import { formatDate } from "@/lib/dates";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
+import { DecisionStrip } from "@/components/approvals/decision-ui";
 import { PosRelogin } from "@/components/pos/pos-relogin";
 import { flashStore } from "@/lib/flash";
 import {
@@ -744,6 +745,7 @@ export function PosTerminal({
                 }}
                 closeLabel={activeApproval.status === "PENDIENTE" ? "Cancelar espera" : "Entendido"}
                 demoPinHint={demoPinHint}
+                onSessionExpired={() => setSessionExpired(true)}
               />
             )}
           </section>
@@ -895,6 +897,8 @@ export function PosTerminal({
           )}
         </div>
         )}
+
+        {activeApproval && overLimitIdx.length > 0 && <DecisionStrip key={activeApproval.id} approval={activeApproval} />}
 
         {saleError && (
           <Notice tone="danger" role="alert" className="py-2" data-testid="sale-error">

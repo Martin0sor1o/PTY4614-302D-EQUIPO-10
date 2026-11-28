@@ -841,6 +841,7 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
                   }}
                   closeLabel="Pedir otra"
                   demoPinHint={demoPinHint}
+                  onSessionExpired={() => setSessionExpired(true)}
                 />
               ) : askOpen ? (
                 <div className="space-y-2">
