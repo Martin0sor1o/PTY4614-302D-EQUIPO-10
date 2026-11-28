@@ -86,6 +86,15 @@ Los colores de producto del seed (`seed-data.ts`) son datos, no interfaz, y no p
 
 `EmptyLine` (texto + acción) y `EmptyAction` (enlace con forma de botón). La acción aparece solo si lleva a algo que la persona puede hacer ahí. `reload` fuerza una recarga completa cuando la pantalla tiene campos que guardan lo escrito (búsqueda de Stock, filtro de Reportes).
 
+### Escaneo en el POS (`components/pos/scan-feedback*`)
+
+La caja se usa con lector de códigos: el feedback nunca quita el foco del campo, no retrasa la lectura siguiente y no cambia cómo se busca.
+
+- **Destello de línea:** al agregar una prenda o sumarle una unidad (lector, lista de resultados o «+»), la línea se marca 0,9 s con fondo `--tone-ok-soft` y borde `--tone-ok`, detrás del texto. El carrito reconstruido al recargar no destella. Con movimiento reducido no se anima: queda fijo ese mismo rato.
+- **Lo que no se agregó** (código inexistente, sin más unidades, sin respuesta del servidor): aviso rojo bajo el campo, con ícono y título, en una región `aria-live="polite"` que existe siempre. Cada aviso es nuevo aunque el texto se repita, y su borde destella. «Sin stock en esta tienda» conserva su recuadro con dónde hay.
+- **Sonido:** apagado por omisión, un tono corto generado por el navegador (sin archivos) y **solo al agregar**: que no suene también avisa. El interruptor (`role="switch"`) va al final del carrito, devuelve el foco al campo y se guarda en `localStorage` (`bc-pos-beep`) con `try/catch`; sin almacenamiento vale mientras dure la pestaña.
+- **Contraste:** el test de tokens cubre el texto sobre `--tone-ok-soft` y los bordes del destello.
+
 ## Impresión
 
 `globals.css` define dos páginas con nombre, y solo sale el documento (los controles llevan `print:hidden`):
