@@ -14,7 +14,7 @@ Supuesto de capacidad: **1 desarrollador ~20 h/semana con desarrollo asistido** 
 
 ## 2. Estado actual (noviembre de 2026, rama `feature/demo`)
 
-La demo está completa y publicada (Render + Neon) en la versión `9d33ef1` de la rama `feature/demo`, que incluye los **cambios, devoluciones y vales** (etapa 9, ADR-021) y su migración. El sistema tiene **835 pruebas automáticas** aprobadas. Belén validó las reglas de devoluciones (S-01 a S-12) el 26/11/2026 (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierto cómo se devuelve o cambia un pedido online ya entregado (Q-01).
+La demo está completa y publicada (Render + Neon). La versión publicada es la de la rama `feature/demo` en el último despliegue manual, e incluye los **cambios, devoluciones y vales** (etapa 9, ADR-021) y su migración. El sistema tiene **929 pruebas automáticas** aprobadas. Belén validó las reglas de devoluciones (S-01 a S-12) el 26/11/2026 (`PREGUNTAS_PARA_BELEN_DEVOLUCIONES.md`); sigue abierto cómo se devuelve o cambia un pedido online ya entregado (Q-01).
 
 | Etapa de la demo | Estado |
 |------------------|--------|

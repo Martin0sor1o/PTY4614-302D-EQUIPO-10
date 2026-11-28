@@ -63,6 +63,9 @@ Los colores de producto del seed (`seed-data.ts`) son datos, no interfaz, y no p
 | Botón con progreso | `components/ui/pending-button.tsx` | «Cobrando…», «Guardando…» |
 | Esqueleto de carga | `components/ui/skeleton.tsx` + `loading.tsx` | Reportes, Stock y Kardex |
 | Vacío con siguiente paso | `components/ui/empty-state.tsx` | «Aún no hay ventas hoy» → «Ir a vender» |
+| Feedback al escanear | `components/pos/scan-feedback*` | Destello, «No se agregó nada», sonido opcional |
+| Decisión de Belén en la caja | `components/approvals/`, `components/pos/void-done.tsx` | «Aprobado por Belén ✓», «En vivo» |
+| Gráficos de Reportes (apartado propio) | `components/reports/` | Barras por medio de pago y últimas 8 semanas |
 
 ### Aviso de confirmación
 
