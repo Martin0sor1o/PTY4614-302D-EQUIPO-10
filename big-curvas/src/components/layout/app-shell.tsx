@@ -6,12 +6,13 @@ import { countPendingTransfers } from "@/modules/inventory";
 import { countPendingApprovals } from "@/modules/approvals";
 import { countOrdersToPrepare } from "@/modules/orders";
 import { listLocations } from "@/modules/locations";
-import { logoutAction, setActiveLocationAction } from "@/app/(app)/session-actions";
+import { setActiveLocationAction } from "@/app/(app)/session-actions";
 import { Wordmark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { DesktopRail, MobileBar } from "./app-nav";
+import { LogoutForm } from "./logout-form";
 import { navItemsFor } from "./nav";
 
 const ROLE_LABEL = { ADMIN: "Administradora", VENDEDORA: "Vendedora", BODEGA: "Bodega" } as const;
@@ -52,11 +53,11 @@ export async function AppShell({ user, children }: { user: SessionUser; children
             <div className="font-semibold">{user.name}</div>
             <div className="text-brand-pink/80">{ROLE_LABEL[user.role]}</div>
           </div>
-          <form action={logoutAction}>
+          <LogoutForm>
             <Button type="submit" variant="onDark" size="lg" className="w-full">
               <LogOut aria-hidden /> Salir
             </Button>
-          </form>
+          </LogoutForm>
         </MobileBar>
 
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b bg-card/60 px-4 py-2.5 md:px-6 print:hidden">
@@ -105,11 +106,11 @@ export async function AppShell({ user, children }: { user: SessionUser; children
               <div className="font-semibold">{user.name}</div>
               <div className="text-xs text-muted-foreground">{ROLE_LABEL[user.role]}</div>
             </div>
-            <form action={logoutAction}>
+            <LogoutForm>
               <Button type="submit" variant="outline" size="sm">
                 <LogOut aria-hidden /> Salir
               </Button>
-            </form>
+            </LogoutForm>
           </div>
         </header>
 

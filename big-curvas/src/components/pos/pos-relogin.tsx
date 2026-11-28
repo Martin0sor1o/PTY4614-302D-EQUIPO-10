@@ -18,7 +18,7 @@ interface Operator {
  * pantalla de login —y perder el carrito— se pide el PIN aquí mismo: el carrito sigue en la pantalla y, al volver a
  * entrar, el cobro se reintenta con el mismo carrito.
  */
-export function PosRelogin({ onDone }: { onDone: () => void }) {
+export function PosRelogin({ onDone }: { onDone: (userId: string) => void }) {
   const [operators, setOperators] = useState<Operator[] | null>(null);
   const [userId, setUserId] = useState("");
   const [pin, setPin] = useState("");
@@ -48,7 +48,7 @@ export function PosRelogin({ onDone }: { onDone: () => void }) {
     setMessage(null);
     startTransition(async () => {
       const res = await pinReloginAction({ userId, pin });
-      if (res.ok) return onDone();
+      if (res.ok) return onDone(userId);
       setMessage(res.message);
       setPin("");
     });

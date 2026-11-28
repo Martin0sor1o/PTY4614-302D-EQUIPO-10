@@ -25,7 +25,7 @@ export default async function ReturnsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Cambio / Devolución · {location.name}</h1>
         <p className="text-sm text-muted-foreground">La prenda devuelta entra al stock de {location.name}.</p>
       </div>
-      <ReturnFlow locationName={location.name} isStore={isStore} demoPinHint={demoPinHint()} />
+      <ReturnFlow key={location.id} userId={user.id} locationName={location.name} isStore={isStore} demoPinHint={demoPinHint()} />
     </div>
   );
 }

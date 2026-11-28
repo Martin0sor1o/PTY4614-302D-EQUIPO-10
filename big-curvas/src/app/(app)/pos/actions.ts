@@ -6,10 +6,12 @@ import { z } from "zod";
 import type { SessionLocation } from "@/lib/access";
 import { isAppError, userMessage } from "@/lib/errors";
 import { parseCLP } from "@/lib/money";
+import { isRetryByAnotherUser, OTHER_USER_MESSAGE } from "@/lib/pending-attempt";
 import { requireAccess } from "@/modules/auth";
 import {
   closeCashSession,
   createSale,
+  findSaleByAttemptKey,
   getPosItemsByIds,
   openCashSession,
   saleRequestSchema,
@@ -26,6 +28,8 @@ export type ActionFailure = {
   code?: string;
   variantId?: string;
   needsNotes?: boolean;
+  /** Falló algo inesperado: no se sabe si la operación alcanzó a registrarse. */
+  uncertain?: boolean;
 };
 
 function failure(error: unknown): ActionFailure {
@@ -81,12 +85,25 @@ export async function createSaleAction(payload: unknown): Promise<{ ok: true; sa
   try {
     const { user, location } = await posContext();
     if (!location) return NO_LOCATION;
+    if (isRetryByAnotherUser(payload, user.id)) return { ok: false, message: OTHER_USER_MESSAGE, code: "FORBIDDEN" };
     const parsed = saleRequestSchema.safeParse(payload);
     if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Datos de la venta inválidos." };
     const { result } = await createSale({ actor: user, locationId: location.id, ...parsed.data });
     revalidatePath("/stock");
     revalidatePath("/pos/ventas");
     return { ok: true, saleId: result.id, number: result.number };
+  } catch (error) {
+    // Un error que no es de negocio pudo ocurrir después de guardar: la caja lo trata como "sin confirmar".
+    return { ...failure(error), uncertain: isAppError(error) ? undefined : true };
+  }
+}
+
+/** ¿Quedó registrada la venta de este envío? SOLO LECTURA. Es una Server Action (POST): la clave nunca va en la URL. */
+export async function checkSaleAttemptAction(idempotencyKey: string): Promise<{ ok: true; found: { id: string; number: string } | null } | ActionFailure> {
+  try {
+    const { user, location } = await posContext();
+    if (!location) return NO_LOCATION;
+    return { ok: true, found: await findSaleByAttemptKey({ actor: user, locationId: location.id, idempotencyKey }) };
   } catch (error) {
     return failure(error);
   }
