@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Ban } from "lucide-react";
 import { requestVoidApprovalAction, voidSaleAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
+import { VoidDone, type VoidResult } from "@/components/pos/void-done";
 import { Button } from "@/components/ui/button";
 import { PendingButton } from "@/components/ui/pending-button";
 import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
@@ -34,19 +35,31 @@ export interface DaySaleRow {
  * Anular una venta del día (RN-12). La vendedora la pide y la ejecuta sola cuando Belén aprueba (RF-AUT-03);
  * Belén (ADMIN) la anula directo, sin solicitud, y queda en audit_log.
  */
-function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; isAdmin: boolean; demoPinHint: string | null; onClose: () => void }) {
+function VoidPanel({
+  row,
+  isAdmin,
+  demoPinHint,
+  onClose,
+  onVoided,
+}: {
+  row: DaySaleRow;
+  isAdmin: boolean;
+  demoPinHint: string | null;
+  onClose: () => void;
+  /** El servidor confirmó la anulación. El aviso lo muestra la tabla: al refrescar, este panel desaparece. */
+  onVoided: (result: VoidResult) => void;
+}) {
   const router = useRouter();
   const [reason, setReason] = useState("");
   const [approval, setApproval] = useState<ApprovalLite | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const requestKey = useRef(crypto.randomUUID());
   const voidKey = useRef(crypto.randomUUID());
   const executing = useRef(false);
 
-  function execute(approvalId?: string) {
+  function execute(approvalId?: string, approvedBy: string | null = null) {
     if (executing.current) return;
     executing.current = true;
     setError(null);
@@ -55,7 +68,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
       executing.current = false;
       setConfirmOpen(false);
       if (!res.ok) return setError(res.message);
-      setDone(`La venta ${res.number} quedó anulada y el stock se repuso.`);
+      onVoided({ number: res.number, approvedBy: approvalId ? approvedBy : null, withApproval: approvalId !== undefined });
       router.refresh();
     });
   }
@@ -68,14 +81,6 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
       if (!res.ok) return setError(res.message);
       setApproval(res.approval);
     });
-  }
-
-  if (done) {
-    return (
-      <Notice tone="ok" role="status" data-testid="void-done">
-        {done}
-      </Notice>
-    );
   }
 
   return (
@@ -127,7 +132,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
             approval={approval}
             onStatus={(a) => {
               setApproval(a);
-              if (a.status === "APROBADA") execute(a.id); // la caja continúa sola al aprobarse
+              if (a.status === "APROBADA") execute(a.id, a.decidedByName); // la caja continúa sola al aprobarse
             }}
             onClose={() => (approval.status === "PENDIENTE" ? onClose() : (setApproval(null), requestKey.current = crypto.randomUUID()))}
             closeLabel={approval.status === "PENDIENTE" ? "Cancelar espera" : "Entendido"}
@@ -141,7 +146,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
                   <Notice tone="danger" className="py-2">
                     {error}
                   </Notice>
-                  <PendingButton type="button" size="sm" onClick={() => execute(approval.id)} pending={pending} pendingLabel="Anulando…">
+                  <PendingButton type="button" size="sm" onClick={() => execute(approval.id, approval.decidedByName)} pending={pending} pendingLabel="Anulando…">
                     Reintentar anulación
                   </PendingButton>
                   <p className="text-xs text-muted-foreground">La aprobación sigue vigente mientras no venza.</p>
@@ -168,78 +173,88 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
 
 export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow[]; isAdmin: boolean; demoPinHint: string | null }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [voidResult, setVoidResult] = useState<VoidResult | null>(null);
   return (
-    <div className="rounded-3xl border bg-card shadow-soft">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>N° venta</TableHead>
-            <TableHead>Hora</TableHead>
-            <TableHead>Vendedora</TableHead>
-            <TableHead className="text-center">Prendas</TableHead>
-            <TableHead>Medio de pago</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead className="text-right">Cobrado</TableHead>
-            <TableHead className="w-32" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 && (
+    <div className="space-y-3">
+      <VoidDone result={voidResult} onClose={() => setVoidResult(null)} />
+      <div className="rounded-3xl border bg-card shadow-soft">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                <EmptyLine action={<EmptyAction href="/pos">Ir a vender</EmptyAction>}>Aún no hay ventas hoy.</EmptyLine>
-              </TableCell>
+              <TableHead>N° venta</TableHead>
+              <TableHead>Hora</TableHead>
+              <TableHead>Vendedora</TableHead>
+              <TableHead className="text-center">Prendas</TableHead>
+              <TableHead>Medio de pago</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Cobrado</TableHead>
+              <TableHead className="w-32" />
             </TableRow>
-          )}
-          {rows.map((s) => (
-            <Fragment key={s.id}>
-              <TableRow data-testid="day-sale" data-voided={s.voided ? "true" : undefined} className={cn(s.voided && "bg-tone-danger-soft/60 text-muted-foreground")}>
-                <TableCell className="font-mono">
-                  <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
-                    {s.number}
-                  </Link>
-                  {s.voided && (
-                    <StatusBadge tone="danger" icon={Ban} className="ml-2 font-sans" data-testid="voided-badge">
-                      Anulada
-                    </StatusBadge>
-                  )}
-                </TableCell>
-                <TableCell className="tabular-nums">{s.time}</TableCell>
-                <TableCell>{s.sellerName}</TableCell>
-                <TableCell className="text-center tabular-nums">{s.units}</TableCell>
-                <TableCell>{s.methods}</TableCell>
-                <TableCell className={cn("text-right tabular-nums", s.voided && "line-through")}>{formatCLP(s.total)}</TableCell>
-                <TableCell className={cn("text-right font-medium tabular-nums", s.voided && "line-through")}>{formatCLP(s.collected)}</TableCell>
-                <TableCell className="text-right">
-                  {s.voided ? (
-                    <span className="text-xs">
-                      {s.voided.byName} · {s.voided.time}
-                    </span>
-                  ) : (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setOpenId(openId === s.id ? null : s.id)} data-testid="void-button">
-                      Anular
-                    </Button>
-                  )}
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <EmptyLine action={<EmptyAction href="/pos">Ir a vender</EmptyAction>}>Aún no hay ventas hoy.</EmptyLine>
                 </TableCell>
               </TableRow>
-              {s.voided?.reason && (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-1 text-xs text-muted-foreground">
-                    Motivo de la anulación: {s.voided.reason}
+            )}
+            {rows.map((s) => (
+              <Fragment key={s.id}>
+                <TableRow data-testid="day-sale" data-voided={s.voided ? "true" : undefined} className={cn(s.voided && "bg-tone-danger-soft/60 text-muted-foreground")}>
+                  <TableCell className="font-mono">
+                    <Link href={`/pos/ticket/${s.id}`} className="text-brand-ink underline-offset-4 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
+                      {s.number}
+                    </Link>
+                    {s.voided && (
+                      <StatusBadge tone="danger" icon={Ban} className="ml-2 font-sans" data-testid="voided-badge">
+                        Anulada
+                      </StatusBadge>
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular-nums">{s.time}</TableCell>
+                  <TableCell>{s.sellerName}</TableCell>
+                  <TableCell className="text-center tabular-nums">{s.units}</TableCell>
+                  <TableCell>{s.methods}</TableCell>
+                  <TableCell className={cn("text-right tabular-nums", s.voided && "line-through")}>{formatCLP(s.total)}</TableCell>
+                  <TableCell className={cn("text-right font-medium tabular-nums", s.voided && "line-through")}>{formatCLP(s.collected)}</TableCell>
+                  <TableCell className="text-right">
+                    {s.voided ? (
+                      <span className="text-xs">
+                        {s.voided.byName} · {s.voided.time}
+                      </span>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={() => (setVoidResult(null), setOpenId(openId === s.id ? null : s.id))} data-testid="void-button">
+                        Anular
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
-              )}
-              {openId === s.id && !s.voided && (
-                <TableRow>
-                  <TableCell colSpan={8}>
-                    <VoidPanel row={s} isAdmin={isAdmin} demoPinHint={demoPinHint} onClose={() => setOpenId(null)} />
-                  </TableCell>
-                </TableRow>
-              )}
-            </Fragment>
-          ))}
-        </TableBody>
-      </Table>
+                {s.voided?.reason && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-1 text-xs text-muted-foreground">
+                      Motivo de la anulación: {s.voided.reason}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {openId === s.id && !s.voided && (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <VoidPanel
+                        row={s}
+                        isAdmin={isAdmin}
+                        demoPinHint={demoPinHint}
+                        onClose={() => setOpenId(null)}
+                        onVoided={(result) => (setVoidResult(result), setOpenId(null))}
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </Fragment>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

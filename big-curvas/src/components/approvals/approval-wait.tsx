@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CheckCheck, CheckCircle2, Clock, KeyRound, Loader2, TimerOff, XCircle } from "lucide-react";
+import { Clock, KeyRound, Loader2 } from "lucide-react";
 import {
   approveWithPinAction,
   getApprovalStatusAction,
@@ -13,9 +13,13 @@ import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { decisionAnnouncement, decisionView } from "./decision";
+import { DECISION_ICON, DecisionAnnouncer, LiveLink } from "./decision-ui";
 import { APPROVER_PIN_MIN, cleanApproverPin } from "./pin-input";
+import { LINK_OK, linkProblem, watchApproval } from "./watch-approval";
 
-const POLL_MS = 3000;
+/** Identificadores estables de cada estado final. */
+const APPROVAL_TEST_ID = { APROBADA: "approved", RECHAZADA: "rechazada", VENCIDA: "vencida", USADA: "usada" } as const;
 
 function secondsSince(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
@@ -45,15 +49,20 @@ export function ApprovalWait({
   onClose,
   closeLabel = "Cerrar",
   demoPinHint,
+  onSessionExpired,
 }: {
   approval: ApprovalLite;
   onStatus: (a: ApprovalLite) => void;
   onClose: () => void;
   closeLabel?: string;
   demoPinHint: string | null;
+  /** La consulta respondió que la sesión venció: la pantalla pide volver a entrar (la espera sigue). */
+  onSessionExpired?: () => void;
 }) {
   const [current, setCurrent] = useState(approval);
-  const [, tick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [link, setLink] = useState(LINK_OK);
+  const sessionExpired = useRef(onSessionExpired);
   const [pinOpen, setPinOpen] = useState(false);
   const [approvers, setApprovers] = useState<{ id: string; name: string; lockedUntil: string | null }[]>([]);
   const [approverId, setApproverId] = useState("");
@@ -63,24 +72,27 @@ export function ApprovalWait({
   const pinKey = useRef(crypto.randomUUID());
   const reported = useRef(approval.status);
 
-  // Consulta cada ~3 s mientras esté PENDIENTE; el reloj de "hace N s" se refresca cada segundo.
+  // Consulta cada ~3 s mientras esté PENDIENTE (watch-approval); el reloj de "hace N s" avanza cada segundo.
   useEffect(() => {
-    const clock = setInterval(() => tick((n) => n + 1), 1000);
+    const clock = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(clock);
   }, []);
   useEffect(() => {
+    sessionExpired.current = onSessionExpired;
+  }, [onSessionExpired]);
+  useEffect(() => {
     if (current.status !== "PENDIENTE") return;
-    let stopped = false;
-    const poll = async () => {
-      const res = await getApprovalStatusAction(current.id);
-      if (stopped || !res.ok) return;
-      setCurrent(res.approval);
-    };
-    const id = setInterval(() => void poll(), POLL_MS);
-    return () => {
-      stopped = true;
-      clearInterval(id);
-    };
+    let lastCode: string | undefined;
+    return watchApproval<ApprovalLite>({
+      query: () => getApprovalStatusAction(current.id),
+      onApproval: setCurrent,
+      onLink: (next) => {
+        // Se avisa una vez por vencimiento, no en cada consulta.
+        if (next.code === "UNAUTHENTICATED" && lastCode !== "UNAUTHENTICATED") sessionExpired.current?.();
+        lastCode = next.code;
+        setLink(next);
+      },
+    });
   }, [current.id, current.status]);
 
   useEffect(() => {
@@ -118,111 +130,110 @@ export function ApprovalWait({
   }
 
   const status = current.status;
+  const view = decisionView(current, now);
+  let body;
 
-  if (status === "APROBADA") {
-    return (
-      <Notice tone="ok" icon={CheckCircle2} role="status" title={`Aprobado por ${current.decidedByName ?? "Belén"}${current.method === "PIN" ? " (con PIN, en la tienda)" : ""}`} data-testid="approval-approved">
-        {current.decisionComment && <p>“{current.decisionComment}”</p>}
-        <p>Válida una sola vez, {untilText(current.expiresAt)}.</p>
+  if (view && status !== "PENDIENTE") {
+    // Cada estado final se distingue por color, ícono y título.
+    body = (
+      <Notice tone={view.tone} icon={DECISION_ICON[status]} title={<span className="text-base">{view.title}</span>} data-testid={`approval-${APPROVAL_TEST_ID[status]}`}>
+        {view.detail && <p>{view.detail}</p>}
+        {status === "APROBADA" ? (
+          <p>Válida una sola vez, {untilText(current.expiresAt)}.</p>
+        ) : (
+          <Button type="button" variant="outline" size="sm" className="mt-2 bg-card" onClick={onClose}>
+            {closeLabel}
+          </Button>
+        )}
       </Notice>
     );
-  }
+  } else {
+    body = (
+      <div className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="approval-waiting">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-base font-bold">
+            <Loader2 className="size-5 animate-spin" aria-hidden /> Esperando a Belén…
+          </p>
+          <StatusBadge tone="neutral" icon={Clock}>
+            pedida {ago(current.createdAt)} · {untilText(current.expiresAt)}
+          </StatusBadge>
+        </div>
+        <p className="font-semibold">{current.headline}</p>
+        <LiveLink problem={linkProblem(link, now)} />
 
-  if (status !== "PENDIENTE") {
-    // Cada estado final se distingue por color, ícono y título: rechazada (rojo), vencida (gris) o ya usada (azul).
-    const view =
-      status === "RECHAZADA"
-        ? { tone: "danger" as const, icon: XCircle, title: "Belén rechazó la solicitud", text: current.decisionComment ? `“${current.decisionComment}”` : null }
-        : status === "VENCIDA"
-          ? { tone: "neutral" as const, icon: TimerOff, title: "La solicitud venció", text: "Nadie respondió a tiempo. Si todavía la necesitas, pide una nueva." }
-          : { tone: "info" as const, icon: CheckCheck, title: "Esta aprobación ya se usó", text: null };
-    return (
-      <Notice tone={view.tone} icon={view.icon} role="alert" title={view.title} data-testid={`approval-${status.toLowerCase()}`}>
-        {view.text && <p>{view.text}</p>}
-        <Button type="button" variant="outline" size="sm" className="mt-2 bg-card" onClick={onClose}>
-          {closeLabel}
-        </Button>
-      </Notice>
+        {!pinOpen ? (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => void openPin()}>
+              <KeyRound /> Belén está aquí
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              {closeLabel}
+            </Button>
+          </div>
+        ) : (
+          <form
+            className="space-y-2 rounded-2xl border bg-card p-3 text-foreground"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitPin();
+            }}
+          >
+            <p className="text-sm font-bold">Aprobación presencial con PIN</p>
+            {approvers.length > 1 && (
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Administradora que aprueba">
+                {approvers.map((a) => (
+                  <Button
+                    key={a.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={approverId === a.id}
+                    variant={approverId === a.id ? "default" : "outline"}
+                    size="sm"
+                    disabled={a.lockedUntil !== null}
+                    onClick={() => setApproverId(a.id)}
+                  >
+                    {a.name}
+                    {a.lockedUntil ? " (bloqueada)" : ""}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {approvers.length === 1 && <p className="text-sm text-muted-foreground">Aprueba: {approvers[0].name}</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                autoFocus
+                aria-label="PIN de la administradora"
+                placeholder="PIN"
+                className="h-10 w-32 text-center text-lg tracking-widest"
+                value={pin}
+                onChange={(e) => setPin(cleanApproverPin(e.target.value))}
+              />
+              <PendingButton type="submit" disabled={pin.length < APPROVER_PIN_MIN || !approverId} pending={pending} pendingLabel="Verificando…">
+                Aprobar con PIN
+              </PendingButton>
+              <Button type="button" variant="ghost" size="sm" onClick={() => (setPinOpen(false), setPin(""), setPinError(null))}>
+                Volver
+              </Button>
+            </div>
+            {demoPinHint && <p className="text-xs text-muted-foreground">DEMO: el PIN de Belén es {demoPinHint}.</p>}
+            {pinError && (
+              <Notice tone="danger" role="alert" className="py-2" data-testid="pin-error">
+                {pinError}
+              </Notice>
+            )}
+          </form>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-tone-warn/30 bg-tone-warn-soft p-3 text-sm text-tone-warn" data-testid="approval-waiting" role="status" aria-live="polite">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-base font-bold">
-          <Loader2 className="size-5 animate-spin" aria-hidden /> Esperando a Belén…
-        </p>
-        <StatusBadge tone="neutral" icon={Clock}>
-          pedida {ago(current.createdAt)} · {untilText(current.expiresAt)}
-        </StatusBadge>
-      </div>
-      <p className="font-semibold">{current.headline}</p>
-
-      {!pinOpen ? (
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" className="bg-card" onClick={() => void openPin()}>
-            <KeyRound /> Belén está aquí
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            {closeLabel}
-          </Button>
-        </div>
-      ) : (
-        <form
-          className="space-y-2 rounded-2xl border bg-card p-3 text-foreground"
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitPin();
-          }}
-        >
-          <p className="text-sm font-bold">Aprobación presencial con PIN</p>
-          {approvers.length > 1 && (
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Administradora que aprueba">
-              {approvers.map((a) => (
-                <Button
-                  key={a.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={approverId === a.id}
-                  variant={approverId === a.id ? "default" : "outline"}
-                  size="sm"
-                  disabled={a.lockedUntil !== null}
-                  onClick={() => setApproverId(a.id)}
-                >
-                  {a.name}
-                  {a.lockedUntil ? " (bloqueada)" : ""}
-                </Button>
-              ))}
-            </div>
-          )}
-          {approvers.length === 1 && <p className="text-sm text-muted-foreground">Aprueba: {approvers[0].name}</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              autoFocus
-              aria-label="PIN de la administradora"
-              placeholder="PIN"
-              className="h-10 w-32 text-center text-lg tracking-widest"
-              value={pin}
-              onChange={(e) => setPin(cleanApproverPin(e.target.value))}
-            />
-            <PendingButton type="submit" disabled={pin.length < APPROVER_PIN_MIN || !approverId} pending={pending} pendingLabel="Verificando…">
-              Aprobar con PIN
-            </PendingButton>
-            <Button type="button" variant="ghost" size="sm" onClick={() => (setPinOpen(false), setPin(""), setPinError(null))}>
-              Volver
-            </Button>
-          </div>
-          {demoPinHint && <p className="text-xs text-muted-foreground">DEMO: el PIN de Belén es {demoPinHint}.</p>}
-          {pinError && (
-            <Notice tone="danger" role="alert" className="py-2" data-testid="pin-error">
-              {pinError}
-            </Notice>
-          )}
-        </form>
-      )}
+    <div>
+      <DecisionAnnouncer text={decisionAnnouncement(current)} />
+      {body}
     </div>
   );
 }
