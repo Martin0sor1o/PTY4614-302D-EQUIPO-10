@@ -63,6 +63,9 @@ const TEXT_PAIRS: [string, string, number][] = [
   ["tone-danger-foreground", "tone-danger", 4.5],
   ["paper-ink", "paper", 4.5],
   ["paper-muted", "paper", 4.5],
+  // Destello de la línea recién agregada en el POS: el texto de la línea pasa un momento sobre este fondo.
+  ["foreground", "tone-ok-soft", 4.5],
+  ["muted-foreground", "tone-ok-soft", 4.5],
   ...TONES.map((t): [string, string, number] => [`tone-${t}`, `tone-${t}-soft`, 5.5]),
 ];
 
@@ -73,6 +76,10 @@ const UI_PAIRS: [string, string, number][] = [
   ["ring", "background", 3],
   ["ring", "card", 3],
   ["sidebar-ring", "sidebar", 3],
+  // Bordes del destello al escanear.
+  ["tone-ok", "card", 3],
+  ["tone-ok", "tone-ok-soft", 3],
+  ["tone-danger", "tone-danger-soft", 3],
 ];
 
 describe("contraste de los tokens de color (WCAG AA)", () => {
