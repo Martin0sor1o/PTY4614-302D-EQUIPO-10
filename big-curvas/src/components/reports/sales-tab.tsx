@@ -1,20 +1,14 @@
+import type { ReactNode } from "react";
 import { formatCLP } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { SalesByPaymentMethod, SalesPeriodRow } from "@/modules/reports";
+import { BarList } from "./bar-list";
+import { paymentBars, shareText } from "./charts";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { barPercent, pluralize, periodLabel } from "./format";
 import { Definitions, EmptyState, ResetRangeAction } from "./shared";
 
-// Los tres medios se distinguen por color Y por rótulo, monto y porcentaje (la barra nunca es lo único que informa).
-const METHODS = [
-  { key: "efectivo", label: "Efectivo", bar: "bg-brand-black" },
-  { key: "tarjeta", label: "Tarjeta", bar: "bg-primary" },
-  { key: "transferencia", label: "Transferencia", bar: "bg-input" },
-] as const;
-
 const PERIOD_HEAD = { day: "Día", week: "Semana", month: "Mes" } as const;
-
-const percent = (value: number, total: number) => (total > 0 ? Math.round((100 * value) / total) : 0);
 
 /** Celular (bajo sm): una tarjeta por período, con el total a la vista y el desglose por medio de pago. */
 function PeriodCard({ r, groupBy, maxTotal, hasOthers }: { r: SalesPeriodRow; groupBy: SalesByPaymentMethod["groupBy"]; maxTotal: number; hasOthers: boolean }) {
@@ -58,8 +52,8 @@ function PeriodCard({ r, groupBy, maxTotal, hasOthers }: { r: SalesPeriodRow; gr
   );
 }
 
-/** `resetHref`: solo si el rango o el canal no son los de siempre. */
-export function SalesTab({ report, resetHref }: { report: SalesByPaymentMethod; resetHref?: string }) {
+/** `resetHref`: solo si el rango o el canal no son los de siempre. `weekly`: el gráfico de 8 semanas, que no usa el rango. */
+export function SalesTab({ report, resetHref, weekly }: { report: SalesByPaymentMethod; resetHref?: string; weekly?: ReactNode }) {
   const { rows, totals, voided, pendingRefunds, groupBy } = report;
   const maxTotal = Math.max(0, ...rows.map((r) => r.total));
   const hasOthers = totals.otros > 0;
@@ -67,9 +61,12 @@ export function SalesTab({ report, resetHref }: { report: SalesByPaymentMethod; 
   return (
     <div className="space-y-4">
       {totals.count === 0 ? (
-        <EmptyState title="No hay ventas en este rango" action={resetHref ? <ResetRangeAction href={resetHref} /> : null}>
-          Prueba con otras fechas o con “Tienda y online”. Las ventas anuladas no se cuentan.
-        </EmptyState>
+        <>
+          <EmptyState title="No hay ventas en este rango" action={resetHref ? <ResetRangeAction href={resetHref} /> : null}>
+            Prueba con otras fechas o con “Tienda y online”. Las ventas anuladas no se cuentan.
+          </EmptyState>
+          {weekly}
+        </>
       ) : (
         <>
           <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="sales-totals">
@@ -85,32 +82,33 @@ export function SalesTab({ report, resetHref }: { report: SalesByPaymentMethod; 
             </div>
             <div className="rounded-3xl border bg-card p-4 shadow-soft sm:col-span-2">
               <div className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Por medio de pago</div>
-              <ul className="mt-3 space-y-3">
-                {METHODS.map((m) => (
-                  <li key={m.key} className="space-y-1 text-sm">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="flex items-center gap-2 font-semibold">
-                        <span aria-hidden className={cn("size-3 rounded-full", m.bar)} />
-                        {m.label}
-                      </span>
-                      <span className="tabular-nums">
-                        <span className="font-bold">{formatCLP(totals[m.key])}</span>
-                        <span className="text-muted-foreground"> · {percent(totals[m.key], totals.total)} %</span>
-                      </span>
-                    </div>
-                    <span className="block h-3 overflow-hidden rounded-full bg-secondary" aria-hidden>
-                      <span className={cn("block h-full rounded-full", m.bar)} style={{ width: `${barPercent(totals[m.key], totals.total)}%` }} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <BarList
+                label="Total cobrado por medio de pago en el rango elegido"
+                className="mt-3"
+                dots
+                items={paymentBars(totals).map((b) => ({
+                  key: b.key,
+                  label: b.label,
+                  value: formatCLP(b.amount),
+                  detail: shareText(b.amount, totals.total),
+                  width: barPercent(b.amount, totals.total),
+                  barClass: b.barClass,
+                }))}
+              />
               {totals.tarjeta > 0 && (
                 <p className="mt-3 text-sm text-muted-foreground">
                   Tarjeta = débito {formatCLP(totals.debito)} + crédito {formatCLP(totals.credito)}
                 </p>
               )}
+              {hasOthers && (
+                <p className="mt-1 text-sm text-muted-foreground" data-testid="others-note">
+                  Otros = pagos con vale, también el crédito de un cambio. Suma en el total cobrado, pero ahí no entra plata nueva.
+                </p>
+              )}
             </div>
           </div>
+
+          {weekly}
 
           <ul className="space-y-3 sm:hidden" aria-label={PERIOD_HEAD[groupBy]}>
             {rows.map((r) => (

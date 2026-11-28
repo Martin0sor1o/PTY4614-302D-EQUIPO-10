@@ -80,6 +80,11 @@ const UI_PAIRS: [string, string, number][] = [
   ["tone-ok", "card", 3],
   ["tone-ok", "tone-ok-soft", 3],
   ["tone-danger", "tone-danger-soft", 3],
+  // Barras de Reportes contra su pista (el dato también va escrito en cada fila).
+  ["primary", "secondary", 3],
+  ["brand-black", "secondary", 3],
+  ["input", "secondary", 3],
+  ["tone-neutral", "secondary", 3],
 ];
 
 describe("contraste de los tokens de color (WCAG AA)", () => {

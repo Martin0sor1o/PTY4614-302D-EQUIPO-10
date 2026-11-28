@@ -22,6 +22,8 @@ import { REPORT_TABS, ReportTabs, type ReportTabId } from "@/components/reports/
 import { SalesTab } from "@/components/reports/sales-tab";
 import { SummaryCards } from "@/components/reports/summary-cards";
 import { TopSellersTab } from "@/components/reports/top-sellers-tab";
+import { WeeklyChart } from "@/components/reports/weekly-chart";
+import { lastWeeksRange } from "@/components/reports/charts";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +88,7 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
       {tab === "ventas" && (
         <div className="space-y-4">
           <RangeFilter tab="ventas" from={from} to={to} channel={channel} groupBy={groupBy} />
-          <SalesView actor={actor} from={from} to={to} channel={channel} groupBy={groupBy} resetHref={resetHref} />
+          <SalesView actor={actor} from={from} to={to} today={today} channel={channel} groupBy={groupBy} resetHref={resetHref} />
         </div>
       )}
       {tab === "mas-vendidos" && (
@@ -110,9 +112,21 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
 
 type Actor = Awaited<ReturnType<typeof requirePageAccess>>;
 
-async function SalesView({ actor, from, to, channel, groupBy, resetHref }: { actor: Actor; from: string; to: string; channel: "todos" | "tienda" | "online"; groupBy: "day" | "week" | "month"; resetHref?: string }) {
-  const r = await load(() => getSalesByPaymentMethod({ actor, from, to, channel, groupBy }));
-  return r.ok ? <SalesTab report={r.data} resetHref={resetHref} /> : <RangeError message={r.error} />;
+async function SalesView({ actor, from, to, today, channel, groupBy, resetHref }: { actor: Actor; from: string; to: string; today: string; channel: "todos" | "tienda" | "online"; groupBy: "day" | "week" | "month"; resetHref?: string }) {
+  const [r, weeks] = await Promise.all([
+    load(() => getSalesByPaymentMethod({ actor, from, to, channel, groupBy })),
+    // Las 8 semanas: la misma consulta, UNA vez, agrupada por semana. No usan el rango elegido; sí el canal.
+    getSalesByPaymentMethod({ actor, ...lastWeeksRange(today), channel, groupBy: "week" }),
+  ]);
+  const weekly = <WeeklyChart report={weeks} />;
+  return r.ok ? (
+    <SalesTab report={r.data} resetHref={resetHref} weekly={weekly} />
+  ) : (
+    <>
+      <RangeError message={r.error} />
+      {weekly}
+    </>
+  );
 }
 
 async function TopSellersView({ actor, from, to, resetHref }: { actor: Actor; from: string; to: string; resetHref?: string }) {

@@ -105,6 +105,15 @@ Vale para el descuento en la venta, el reembolso o cambio y la anulación de «V
 - **Lector de pantalla:** una región fija anuncia la decisión una vez (`DecisionAnnouncer`). El recuadro de espera ya no es `aria-live`: su reloj cambia cada segundo.
 - **PIN en la caja:** el campo deja solo dígitos, con el largo que acepta el servidor (4 a 12).
 
+## Gráficos de Reportes (`components/reports/`)
+
+Barras horizontales en CSS, sin dependencias, en la pestaña Ventas (solo ADMIN, como el resto de Reportes).
+
+- **Forma:** una fila por categoría, con nombre, monto en CLP y detalle **en texto**. La barra solo ilustra (`aria-hidden`), así que nada depende del color ni de ver el gráfico. La tabla por período se mantiene como alternativa. Sin hover: todos los valores ya están escritos.
+- **Por medio de pago** (rango elegido): suman el total cobrado. «Otros» se llama igual que en la tabla y aparece solo si hay; son pagos con vale, incluido el crédito de un cambio. Un medio con plata nunca se rotula «0 %».
+- **Últimas 8 semanas:** de lunes a domingo, hasta hoy, en hora de Chile. No usan el rango de fechas (la pantalla lo dice) y sí el canal. Son **una** llamada a `getSalesByPaymentMethod` agrupada por semana, en paralelo con la del rango. La semana en curso va rayada y rotulada «(en curso)». Se muestran aunque el rango no tenga ventas o sea inválido.
+- **Color:** los medios de pago conservan los colores de marca (negro, vino y grises), que no sirven como paleta de categorías por sí solos: por eso cada fila va rotulada. Las semanas usan un solo color.
+
 ## Impresión
 
 `globals.css` define dos páginas con nombre, y solo sale el documento (los controles llevan `print:hidden`):
