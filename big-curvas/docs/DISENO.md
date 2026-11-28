@@ -55,6 +55,37 @@ Los colores de producto del seed (`seed-data.ts`) son datos, no interfaz, y no p
 - **Celular:** Stock, Preparar pedido y Recibir traslado pasan a tarjetas; Pedidos y Traslados reordenan o esconden columnas en vez de desplazarse.
 - Radios grandes (`--radius` = 14 px) y botones en píldora.
 
+## Feedback: avisos, progreso, carga y vacíos
+
+| Componente | Dónde | Para qué |
+|---|---|---|
+| Aviso de confirmación | `lib/flash.ts`, `components/feedback/` | «Venta RGA-000197 cobrada · $27.990 · vuelto $2.010» |
+| Botón con progreso | `components/ui/pending-button.tsx` | «Cobrando…», «Guardando…» |
+| Esqueleto de carga | `components/ui/skeleton.tsx` + `loading.tsx` | Reportes, Stock y Kardex |
+| Vacío con siguiente paso | `components/ui/empty-state.tsx` | «Aún no hay ventas hoy» → «Ir a vender» |
+
+### Aviso de confirmación
+
+- **Solo después de la confirmación del servidor.** En «en duda» o «sin confirmar» nunca aparece. En la caja y en devoluciones sale tanto al confirmar el envío como al «Reintentar» o «Verificar», y una sola vez.
+- **Cómo se usa.** Si la acción cambia de pantalla: quien recibe la confirmación llama a `flashStore.expect(tipo, id)` y la pantalla de destino pone `<ConfirmedFlash>` con el texto armado desde sus datos (`components/feedback/messages.ts`). Así los montos son los que guardó el servidor. Si no cambia de pantalla (aprobar y rechazar): `flashStore.show(texto, tono)`.
+- **En `onDone` de un envío pendiente, `expect` va dentro de `try/catch`:** un error ahí dejaría una venta confirmada como «sin confirmar».
+- **Códigos de vale:** siempre enmascarados (`maskVoucherCode`).
+- **Accesibilidad:** la región `role="status"` con `aria-live="polite"` se monta en el layout y existe aunque esté vacía (si se creara junto con el texto, el lector de pantalla podría no anunciarlo). No toma el foco y no se imprime.
+- **Posición:** arriba en celular (abajo están los botones de Aprobaciones) y abajo al centro en escritorio (no tapa el pago del POS). Dura 8 s, se pausa con el puntero o el foco encima y se puede cerrar. Sin animación de entrada.
+- **No reemplaza a `Notice`:** los errores y las advertencias siguen en línea, junto a lo que falló.
+
+### Botón con progreso
+
+`<PendingButton pending={…} pendingLabel="Guardando…">`: spinner, texto en curso, deshabilitado y `aria-busy`. Se ve menos apagado que un botón deshabilitado para que el texto se lea. Solo presenta el estado: no ejecuta nada ni genera claves de idempotencia. `ConfirmDialog` acepta `pendingLabel` (por omisión, «Procesando…»).
+
+### Esqueleto de carga
+
+`SkeletonScreen` anuncia qué se carga (texto solo para lector de pantalla) y las piezas `Skeleton` son decorativas. Con movimiento reducido quedan quietas. No usa colores nuevos. Con `loading.tsx` la respuesta se envía por partes: una redirección de una página sin permiso llega dentro del contenido (código 200) en vez de un 307; la página igual se corta antes de consultar datos.
+
+### Vacíos con siguiente paso
+
+`EmptyLine` (texto + acción) y `EmptyAction` (enlace con forma de botón). La acción aparece solo si lleva a algo que la persona puede hacer ahí. `reload` fuerza una recarga completa cuando la pantalla tiene campos que guardan lo escrito (búsqueda de Stock, filtro de Reportes).
+
 ## Impresión
 
 `globals.css` define dos páginas con nombre, y solo sale el documento (los controles llevan `print:hidden`):
