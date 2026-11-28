@@ -196,6 +196,26 @@
   outline-color: var(--sidebar-ring);
 }
 
+/* Escaneo en el POS: destello que se desvanece. No mueve nada ni retrasa el trabajo. */
+@keyframes scan-flash {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.scan-flash {
+  animation: scan-flash 900ms ease-out forwards;
+}
+/* Sin movimiento queda fijo hasta que se quita (si solo se acortara, no se vería). */
+@media (prefers-reduced-motion: reduce) {
+  .scan-flash {
+    animation: none !important;
+  }
+}
+
 /* Respeta prefers-reduced-motion: sin animaciones ni transiciones. */
 @media (prefers-reduced-motion: reduce) {
   *,

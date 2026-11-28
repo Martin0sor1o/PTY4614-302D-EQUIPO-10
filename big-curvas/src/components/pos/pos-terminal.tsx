@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Minus, Plus, ScanBarcode, Trash2 } from "lucide-react";
 import { formatCLP, parseCLP, percentToBps } from "@/lib/money";
@@ -21,6 +21,18 @@ import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/po
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { PosRelogin } from "@/components/pos/pos-relogin";
 import { flashStore } from "@/lib/flash";
+import {
+  beeper,
+  beepPref,
+  NO_BUMPS,
+  notFoundNotice,
+  scanNotice,
+  searchFailedNotice,
+  trackBumps,
+  unitLimitNotice,
+  type ScanNotice,
+} from "@/components/pos/scan-feedback";
+import { BeepToggle, Flash, ScanNoticeRegion } from "@/components/pos/scan-feedback-ui";
 import { Textarea } from "@/components/ui/textarea";
 
 // Pantalla de venta. El navegador solo MUESTRA los cálculos (funciones puras de sales/client): el servidor recalcula
@@ -84,7 +96,9 @@ export function PosTerminal({
   const [results, setResults] = useState<PosItem[]>([]);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [blocked, setBlocked] = useState<PosItem | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  /** Sube en cada intento sin stock: la misma prenda escaneada otra vez se vuelve a destacar y anunciar. */
+  const [blockedSeq, setBlockedSeq] = useState(0);
+  const [notice, setNotice] = useState<ScanNotice | null>(null);
   const [method, setMethod] = useState<PaymentMethodCode>("EFECTIVO");
   const [received, setReceived] = useState("");
   const [reference, setReference] = useState("");
@@ -161,7 +175,7 @@ export function PosTerminal({
     }
     setCart(lines);
     setRestored(true);
-    if (lines.length < saved.length) setNotice("Algunas prendas de tu carrito ya no tienen stock y se quitaron.");
+    if (lines.length < saved.length) setNotice(scanNotice("warn", "Algunas prendas de tu carrito ya no tienen stock y se quitaron."));
   }, [storageKey]);
 
   useEffect(() => {
@@ -179,6 +193,24 @@ export function PosTerminal({
     }
   }, [cart, restored, storageKey, pending.phase]);
 
+  // Líneas nuevas o con más unidades: destellan y, si está activado, suena un tono. El carrito reconstruido no cuenta.
+  const [bumps, setBumps] = useState(NO_BUMPS);
+  const nextBumps = trackBumps(bumps, cart, (l) => [l.item.variantId, l.qty], restored);
+  if (nextBumps !== bumps) setBumps(nextBumps);
+  const beepOn = useSyncExternalStore(beepPref.subscribe, beepPref.get, beepPref.getServerSnapshot);
+  const beeped = useRef(0);
+  useEffect(() => {
+    if (bumps.count <= beeped.current) return;
+    beeped.current = bumps.count;
+    if (beepPref.get()) beeper.play();
+  }, [bumps.count]);
+
+  function toggleBeep() {
+    beepPref.set(!beepOn);
+    if (!beepOn) beeper.play(); // al activarlo suena una vez, para saber cómo se oye
+    focusScan();
+  }
+
   // Búsqueda por nombre/SKU mientras se escribe (con pausa). Enter la resuelve al tiro (lector de códigos).
   useEffect(() => {
     const q = query.trim();
@@ -189,7 +221,7 @@ export function PosTerminal({
       if (seq !== searchSeq.current) return;
       if (res.ok) setResults(res.items);
       else if (res.code === "UNAUTHENTICATED") setSessionExpired(true);
-      else setNotice(res.message);
+      else setNotice(scanNotice("warn", res.message));
     }, 250);
     return () => clearTimeout(t);
   }, [query]);
@@ -200,6 +232,10 @@ export function PosTerminal({
     setNotice(null);
     if (item.here.available <= 0) {
       setBlocked(item);
+      setBlockedSeq((n) => n + 1);
+      setQuery(""); // se cierra la lista de resultados para que el aviso quede a la vista
+      setResults([]);
+      focusScan();
       return;
     }
     setBlocked(null);
@@ -207,7 +243,7 @@ export function PosTerminal({
       const existing = prev.find((l) => l.item.variantId === item.variantId);
       if (!existing) return [...prev, { item, qty: 1, discountPct: "0" }];
       if (existing.qty + 1 > item.here.available) {
-        setNotice(`Solo hay ${item.here.available} disponible${item.here.available === 1 ? "" : "s"} de ${item.sku} en ${locationName}.`);
+        setNotice(unitLimitNotice(item.here.available, item.sku, locationName));
         return prev;
       }
       return prev.map((l) => (l.item.variantId === item.variantId ? { ...l, item, qty: l.qty + 1 } : l));
@@ -223,7 +259,7 @@ export function PosTerminal({
     const res = await searchItemsAction(q);
     if (!res.ok) {
       if (res.code === "UNAUTHENTICATED") setSessionExpired(true);
-      else setNotice(res.message);
+      else setNotice(scanNotice("danger", res.message));
       return;
     }
     const lower = q.toLowerCase();
@@ -232,11 +268,12 @@ export function PosTerminal({
     if (pick) {
       addItem(pick);
     } else if (res.items.length === 0) {
-      setNotice(`No se encontró ninguna prenda para “${q}”.`);
+      setBlocked(null); // que no quede a la vista el aviso de un escaneo anterior
+      setNotice(notFoundNotice(q));
     } else {
       setResults(res.items);
       setQuery(q);
-      setNotice(`${res.items.length} prendas coinciden con “${q}”: elige una.`);
+      setNotice(scanNotice("warn", `${res.items.length} prendas coinciden con “${q}”: elige una.`));
     }
   }
 
@@ -248,7 +285,13 @@ export function PosTerminal({
     setQuery("");
     setResults([]);
     // Cola: varios escaneos seguidos se procesan en orden.
-    queue.current = queue.current.then(() => resolveScan(raw)).catch(() => undefined);
+    queue.current = queue.current
+      .then(() => resolveScan(raw))
+      .catch(() => {
+        // Sin respuesta (conexión cortada): antes no se veía nada y la prenda parecía agregada.
+        setBlocked(null);
+        setNotice(searchFailedNotice(raw.trim()));
+      });
   }
 
   function setQty(variantId: string, qty: number) {
@@ -260,7 +303,7 @@ export function PosTerminal({
         if (qty <= 0) return [];
         const max = l.item.here.available;
         if (qty > max) {
-          setNotice(`Solo hay ${max} disponible${max === 1 ? "" : "s"} de ${l.item.sku} en ${locationName}.`);
+          setNotice(unitLimitNotice(max, l.item.sku, locationName));
           return [{ ...l, qty: max }];
         }
         return [{ ...l, qty }];
@@ -441,7 +484,7 @@ export function PosTerminal({
         setReloggedAs(who);
         setSessionExpired(false);
         setError(null);
-        setNotice("Sesión renovada. Puedes continuar con la venta.");
+        setNotice(scanNotice("warn", "Sesión renovada. Puedes continuar con la venta."));
         if (!restored) void restoreCart(); // el carrito guardado no se había podido reconstruir
         focusScan();
       }}
@@ -535,16 +578,11 @@ export function PosTerminal({
           )}
         </div>
 
-        <div role="status" aria-live="polite">
-          {notice && (
-            <Notice tone="warn" className="py-2">
-              {notice}
-            </Notice>
-          )}
-        </div>
+        <ScanNoticeRegion notice={notice} />
 
         {blocked && (
-          <Notice tone="danger" role="alert" data-testid="no-stock-alert">
+          <Notice key={blockedSeq} tone="danger" role="alert" className="relative" data-testid="no-stock-alert">
+            <Flash tone="alert" />
             <p className="font-semibold">
               <span>
                 {blocked.productName} · {blocked.color} · talla {blocked.size} ({blocked.sku}): no hay disponible en {locationName}
@@ -578,7 +616,8 @@ export function PosTerminal({
                 const issue = lineIssues[i];
                 const failed = failedVariantId === l.item.variantId;
                 return (
-                  <li key={l.item.variantId} className={cn("grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center", (issue || failed) && "bg-tone-danger-soft")}>
+                  <li key={l.item.variantId} className={cn("relative isolate grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center", (issue || failed) && "bg-tone-danger-soft")}>
+                    {nextBumps.pulses[l.item.variantId] !== undefined && <Flash key={nextBumps.pulses[l.item.variantId]} tone="line" />}
                     <div className="min-w-0">
                       <div className="truncate font-medium">
                         {l.item.productName} <span className="font-normal text-muted-foreground">· {l.item.color} · talla {l.item.size}</span>
@@ -709,12 +748,15 @@ export function PosTerminal({
             )}
           </section>
         )}
-        <p className="text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="min-w-0 flex-1 basis-72 text-xs text-muted-foreground">
           {limitBps === 0
             ? `Los descuentos los da solo Belén${isAdmin ? " (como administradora puedes aplicarlos; los que superan el límite quedan registrados)" : ": cualquier descuento requiere su aprobación"}.`
             : `Descuento máximo por línea sin aprobación: ${limitBps / 100} %${isAdmin ? " (como administradora puedes superarlo; queda registrado)" : ""}.`}{" "}
           Precios con IVA incluido.
-        </p>
+          </p>
+          <BeepToggle on={beepOn} onToggle={toggleBeep} />
+        </div>
       </section>
 
       <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start" aria-label="Pago">
