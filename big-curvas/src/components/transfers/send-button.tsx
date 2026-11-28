@@ -4,7 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Send } from "lucide-react";
 import { sendTransferAction } from "@/app/(app)/traslados/actions";
-import { Button } from "@/components/ui/button";
+import { flashStore } from "@/lib/flash";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 /** Enviar: baja el stock del origen. La clave se conserva entre reintentos para que no se envíe dos veces. */
@@ -23,6 +24,7 @@ export function SendTransferButton({ transferId, number, fromName, units }: { tr
         setConfirmOpen(false);
         return setError(res.message);
       }
+      flashStore.expect("traslado-enviado", transferId);
       router.push(`/traslados/${transferId}/guia`);
       router.refresh();
     });
@@ -30,15 +32,16 @@ export function SendTransferButton({ transferId, number, fromName, units }: { tr
 
   return (
     <div className="space-y-1">
-      <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending}>
-        <Send /> {pending ? "Enviando…" : "Enviar traslado"}
-      </Button>
+      <PendingButton type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} pending={pending} pendingLabel="Enviando…">
+        <Send /> Enviar traslado
+      </PendingButton>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Enviar traslado"
         description={`¿Enviar ${number}? Se descontarán ${units} unidad${units === 1 ? "" : "es"} del stock de ${fromName}.`}
         confirmLabel="Sí, enviar"
+        pendingLabel="Enviando…"
         pending={pending}
         onConfirm={send}
       />

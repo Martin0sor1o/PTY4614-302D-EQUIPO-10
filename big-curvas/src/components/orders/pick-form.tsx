@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, ScanLine } from "lucide-react";
 import { prepareOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -204,9 +205,9 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
         <p className="text-sm text-muted-foreground" data-testid="pick-total">
           Escaneadas {picked} de {expected} unidades
         </p>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending || !complete}>
-          {pending ? "Preparando…" : "Confirmar preparación"}
-        </Button>
+        <PendingButton type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={!complete} pending={pending} pendingLabel="Preparando…">
+          Confirmar preparación
+        </PendingButton>
       </div>
 
       <ConfirmDialog
@@ -215,6 +216,7 @@ export function PickForm({ orderId, number, lines }: { orderId: string; number: 
         title="Confirmar preparación"
         description={`¿Confirmar la preparación de ${number}? El stock de la bodega bajará en ${expected} unidad${expected === 1 ? "" : "es"}.`}
         confirmLabel="Sí, confirmar"
+        pendingLabel="Preparando…"
         pending={pending}
         onConfirm={confirm}
         finalFocusRef={inputRef}

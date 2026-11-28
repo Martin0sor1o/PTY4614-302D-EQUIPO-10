@@ -3,6 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { formatDateTime } from "@/lib/dates";
 import { requirePageAccess } from "@/modules/auth";
+import { ConfirmedFlash } from "@/components/feedback/confirmed-flash";
+import { transferSentFlashText } from "@/components/feedback/messages";
 import { PrintButton } from "@/components/pos/print-button";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,6 +24,7 @@ export default async function TransferGuidePage({ params }: PageProps<"/traslado
 
   return (
     <div className="space-y-4">
+      <ConfirmedFlash kind="traslado-enviado" id={t.id} message={transferSentFlashText(t)} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <Link href={`/traslados/${t.id}`} className="inline-flex items-center text-sm text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">

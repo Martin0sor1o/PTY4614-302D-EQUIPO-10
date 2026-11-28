@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmPaymentAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -134,9 +135,9 @@ export function PayForm({
         </p>
       )}
 
-      <Button type="button" size="lg" className="h-11 px-4" onClick={confirm} disabled={pending}>
-        {pending ? "Confirmando…" : "Confirmar pago"}
-      </Button>
+      <PendingButton type="button" size="lg" className="h-11 px-4" onClick={confirm} pending={pending} pendingLabel="Confirmando…">
+        Confirmar pago
+      </PendingButton>
 
       <ConfirmDialog
         open={confirmOpen}
@@ -144,6 +145,7 @@ export function PayForm({
         title="Confirmar pago"
         description={`¿Confirmar el pago de ${formatCLP(quote.amount)} del pedido ${number}? ${what} y se registrará la venta.`}
         confirmLabel="Sí, confirmar pago"
+        pendingLabel="Confirmando…"
         pending={pending}
         onConfirm={execute}
       />

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { changePasswordAction, setApprovalPinAction } from "@/app/cuenta/contrasena/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
@@ -50,9 +50,9 @@ export function ChangePasswordForm({ minLength }: { minLength: number }) {
           {message}
         </p>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full" disabled={pending}>
-        {pending ? "Guardando…" : "Cambiar contraseña"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full" pending={pending} pendingLabel="Guardando…">
+        Cambiar contraseña
+      </PendingButton>
     </form>
   );
 }
@@ -107,9 +107,9 @@ export function ApprovalPinForm({ hasPin }: { hasPin: boolean }) {
             {message.text}
           </p>
         ))}
-      <Button type="submit" variant="outline" size="lg" className="h-11" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar PIN"}
-      </Button>
+      <PendingButton type="submit" variant="outline" size="lg" className="h-11" pending={pending} pendingLabel="Guardando…">
+        Guardar PIN
+      </PendingButton>
     </form>
   );
 }

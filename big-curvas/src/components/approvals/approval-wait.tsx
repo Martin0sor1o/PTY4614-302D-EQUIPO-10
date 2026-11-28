@@ -9,6 +9,7 @@ import {
   type ApprovalLite,
 } from "@/app/(app)/pos/approvals-actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -206,9 +207,9 @@ export function ApprovalWait({
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/D/g, "").slice(0, 8))}
             />
-            <Button type="submit" disabled={pending || pin.length < 4 || !approverId}>
-              {pending ? "Verificando…" : "Aprobar con PIN"}
-            </Button>
+            <PendingButton type="submit" disabled={pin.length < 4 || !approverId} pending={pending} pendingLabel="Verificando…">
+              Aprobar con PIN
+            </PendingButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => (setPinOpen(false), setPin(""), setPinError(null))}>
               Volver
             </Button>

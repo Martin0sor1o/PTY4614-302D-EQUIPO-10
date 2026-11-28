@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { fillShortageAction } from "@/app/(app)/pedidos/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LineSourcePicker, needsStore, type PickerLine } from "./source-picker";
 
@@ -75,15 +75,16 @@ export function FillShortage({
           {message}
         </p>
       )}
-      <Button type="button" onClick={submit} disabled={pending}>
-        {pending ? "Completando…" : "Completar faltante"}
-      </Button>
+      <PendingButton type="button" onClick={submit} pending={pending} pendingLabel="Completando…">
+        Completar faltante
+      </PendingButton>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Completar faltante"
         description={`¿Completar el faltante de ${number} (${units} unidad${units === 1 ? "" : "es"})?`}
         confirmLabel="Sí, completar"
+        pendingLabel="Completando…"
         pending={pending}
         onConfirm={execute}
       />

@@ -7,6 +7,8 @@ import { Ban } from "lucide-react";
 import { requestVoidApprovalAction, voidSaleAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
+import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
@@ -99,21 +101,20 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
           )}
           <div className="flex gap-2">
             {isAdmin ? (
-              <Button
+              <PendingButton
                 type="button"
                 variant="danger"
-                disabled={pending}
                 onClick={() => {
                   if (reason.trim().length < 3) return setError("Escribe el motivo de la anulación.");
                   setConfirmOpen(true);
                 }}
-              >
-                {pending ? "Anulando…" : "Anular venta"}
-              </Button>
+                pending={pending} pendingLabel="Anulando…">
+                Anular venta
+              </PendingButton>
             ) : (
-              <Button type="button" disabled={pending} onClick={request} data-testid="ask-void">
-                {pending ? "Enviando…" : "Pedir aprobación a Belén"}
-              </Button>
+              <PendingButton type="button" onClick={request} data-testid="ask-void" pending={pending} pendingLabel="Enviando…">
+                Pedir aprobación a Belén
+              </PendingButton>
             )}
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
@@ -140,9 +141,9 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
                   <Notice tone="danger" className="py-2">
                     {error}
                   </Notice>
-                  <Button type="button" size="sm" onClick={() => execute(approval.id)} disabled={pending}>
+                  <PendingButton type="button" size="sm" onClick={() => execute(approval.id)} pending={pending} pendingLabel="Anulando…">
                     Reintentar anulación
-                  </Button>
+                  </PendingButton>
                   <p className="text-xs text-muted-foreground">La aprobación sigue vigente mientras no venza.</p>
                 </div>
               )}
@@ -156,6 +157,7 @@ function VoidPanel({ row, isAdmin, demoPinHint, onClose }: { row: DaySaleRow; is
         title="Anular venta"
         description={`¿Anular la venta ${row.number}? La prenda vuelve al stock.`}
         confirmLabel="Sí, anular"
+        pendingLabel="Anulando…"
         tone="danger"
         pending={pending}
         onConfirm={() => execute()}
@@ -185,7 +187,7 @@ export function DaySalesTable({ rows, isAdmin, demoPinHint }: { rows: DaySaleRow
           {rows.length === 0 && (
             <TableRow>
               <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                Aún no hay ventas hoy.
+                <EmptyLine action={<EmptyAction href="/pos">Ir a vender</EmptyAction>}>Aún no hay ventas hoy.</EmptyLine>
               </TableCell>
             </TableRow>
           )}

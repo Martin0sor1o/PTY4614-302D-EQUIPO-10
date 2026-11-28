@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
 import { StockSearch } from "@/components/stock/stock-search";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const searchSchema = z.object({ q: z.string().trim().max(100).optional().catch(undefined) });
@@ -69,6 +70,12 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
   const myLocationId = user.location?.id ?? user.activeLocation?.id;
   // "Por resolver" aparece solo si hay faltantes de traslados sin resolver entre las prendas mostradas.
   const showPending = rows.some((r) => r.pendingResolution > 0);
+  // Recarga completa: el campo de búsqueda guarda lo escrito y así vuelve vacío (y con el foco).
+  const clearSearch = q ? (
+    <EmptyAction href="/stock" reload>
+      Limpiar búsqueda
+    </EmptyAction>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -93,7 +100,9 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
       {/* Celular (bajo sm): una tarjeta por variante, sin scroll horizontal. */}
       <ul className="space-y-3 sm:hidden" aria-label="Variantes">
         {rows.length === 0 && (
-          <li className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">No hay prendas que coincidan con la búsqueda.</li>
+          <li className="rounded-2xl border bg-card p-6">
+            <EmptyLine action={clearSearch}>No hay prendas que coincidan con la búsqueda.</EmptyLine>
+          </li>
         )}
         {rows.map((r) => (
           <li key={r.variantId} className="rounded-2xl border bg-card p-3 shadow-soft">
@@ -178,7 +187,7 @@ export default async function StockPage({ searchParams }: PageProps<"/stock">) {
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5 + locations.length + (showPending ? 1 : 0)} className="py-10 text-center text-muted-foreground">
-                  No hay prendas que coincidan con la búsqueda.
+                  <EmptyLine action={clearSearch}>No hay prendas que coincidan con la búsqueda.</EmptyLine>
                 </TableCell>
               </TableRow>
             )}

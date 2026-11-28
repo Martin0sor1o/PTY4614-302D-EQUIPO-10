@@ -1,16 +1,16 @@
 import { formatCLP } from "@/lib/money";
 import type { TopSellers } from "@/modules/reports";
 import { barPercent, dayLabel, pluralize } from "./format";
-import { Definitions, EmptyState } from "./shared";
+import { Definitions, EmptyState, ResetRangeAction } from "./shared";
 
-export function TopSellersTab({ report }: { report: TopSellers }) {
+export function TopSellersTab({ report, resetHref }: { report: TopSellers; resetHref?: string }) {
   const { models } = report;
   const maxUnits = Math.max(0, ...models.map((m) => m.units));
 
   return (
     <div className="space-y-4">
       {models.length === 0 ? (
-        <EmptyState title="No hay ventas en este rango">Prueba con otras fechas. Las ventas anuladas y los pedidos cancelados no se cuentan.</EmptyState>
+        <EmptyState title="No hay ventas en este rango" action={resetHref ? <ResetRangeAction href={resetHref} /> : null}>Prueba con otras fechas. Las ventas anuladas y los pedidos cancelados no se cuentan.</EmptyState>
       ) : (
         <>
           <p className="text-sm text-muted-foreground" data-testid="top-summary">

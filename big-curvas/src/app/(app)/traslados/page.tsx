@@ -6,6 +6,7 @@ import { requirePageAccess } from "@/modules/auth";
 import { countPendingTransfers, listTransfers, type TransferBucket, type TransferListItem } from "@/modules/inventory";
 import { formatDateTime, formatTimeWithSeconds } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
 import { TransferStatusBadge } from "@/components/transfers/status-badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -122,6 +123,8 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
   const visible = BUCKETS.filter((b) => b !== "con-diferencias" || isAdmin);
   const bucket: TransferBucket = tab && visible.includes(tab) ? tab : counts.porRecibir > 0 ? "por-recibir" : "por-enviar";
   const rows = await listTransfers({ bucket, locationId });
+  // Solo «Por enviar» tiene un siguiente paso, y solo con una ubicación desde la cual crear.
+  const emptyAction = bucket === "por-enviar" && user.activeLocation ? <EmptyAction href="/traslados/nuevo">Nuevo traslado</EmptyAction> : null;
   const badge: Partial<Record<TransferBucket, number>> = {
     "por-enviar": counts.porEnviar,
     "por-recibir": counts.porRecibir,
@@ -174,7 +177,11 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
       </nav>
 
       <ul className="space-y-3 md:hidden" aria-label="Traslados">
-        {rows.length === 0 && <li className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">{EMPTY[bucket]}</li>}
+        {rows.length === 0 && (
+          <li className="rounded-2xl border bg-card p-6">
+            <EmptyLine action={emptyAction}>{EMPTY[bucket]}</EmptyLine>
+          </li>
+        )}
         {rows.map((t) => (
           <TransferCard key={t.id} t={t} bucket={bucket} />
         ))}
@@ -196,7 +203,7 @@ export default async function TransfersPage({ searchParams }: PageProps<"/trasla
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
-                  {EMPTY[bucket]}
+                  <EmptyLine action={emptyAction}>{EMPTY[bucket]}</EmptyLine>
                 </TableCell>
               </TableRow>
             )}

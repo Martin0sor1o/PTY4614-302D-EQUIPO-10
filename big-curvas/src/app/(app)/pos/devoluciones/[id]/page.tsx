@@ -3,8 +3,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
+import { logUnexpectedError } from "@/lib/log-error";
 import { requirePageAccess } from "@/modules/auth";
 import { getReturn } from "@/modules/returns";
+import { getSaleForActor } from "@/modules/sales";
+import { ConfirmedFlash } from "@/components/feedback/confirmed-flash";
+import { returnFlashText } from "@/components/feedback/messages";
 import { PrintButton } from "@/components/pos/print-button";
 import { ReturnReceipt } from "@/components/pos/return-receipt";
 import { buttonVariants } from "@/components/ui/button";
@@ -29,8 +33,17 @@ export default async function ReturnReceiptPage({ params }: PageProps<"/pos/devo
     throw error;
   }
 
+  // Solo para el aviso: cuánto pagó la clienta por la diferencia de un cambio. Si fallara, el comprobante igual se muestra.
+  const exchangeSale = ret.newSale
+    ? await getSaleForActor(user, ret.newSale.id).catch((error: unknown) => {
+        if (!isAppError(error)) logUnexpectedError(error);
+        return null;
+      })
+    : null;
+
   return (
     <div className="space-y-4">
+      <ConfirmedFlash kind="devolucion" id={ret.id} message={returnFlashText(ret, exchangeSale)} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">

@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelOrderAction, markDeliveredAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,9 +55,9 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
         <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
           Volver
         </Button>
-        <Button type="button" variant="danger" onClick={submit} disabled={pending}>
-          {pending ? "Cancelando…" : "Confirmar cancelación"}
-        </Button>
+        <PendingButton type="button" variant="danger" onClick={submit} pending={pending} pendingLabel="Cancelando…">
+          Confirmar cancelación
+        </PendingButton>
       </div>
       <ConfirmDialog
         open={confirmOpen}
@@ -64,6 +65,7 @@ export function CancelOrder({ orderId, number, consequence }: { orderId: string;
         title="Cancelar pedido"
         description={`¿Cancelar el pedido ${number}? ${consequence}`}
         confirmLabel="Sí, cancelar pedido"
+        pendingLabel="Cancelando…"
         tone="danger"
         pending={pending}
         onConfirm={execute}
@@ -92,15 +94,16 @@ export function DeliverOrder({ orderId, number }: { orderId: string; number: str
 
   return (
     <div className="space-y-1">
-      <Button type="button" onClick={() => setConfirmOpen(true)} disabled={pending}>
-        {pending ? "Guardando…" : "Marcar como entregado"}
-      </Button>
+      <PendingButton type="button" onClick={() => setConfirmOpen(true)} pending={pending} pendingLabel="Guardando…">
+        Marcar como entregado
+      </PendingButton>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Marcar como entregado"
         description={`¿Marcar el pedido ${number} como entregado?`}
         confirmLabel="Sí, marcar"
+        pendingLabel="Guardando…"
         pending={pending}
         onConfirm={submit}
       />

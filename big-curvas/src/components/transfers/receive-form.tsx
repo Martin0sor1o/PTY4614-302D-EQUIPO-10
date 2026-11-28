@@ -4,7 +4,9 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, ScanLine } from "lucide-react";
 import { receiveTransferAction } from "@/app/(app)/traslados/actions";
+import { flashStore } from "@/lib/flash";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -82,6 +84,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
         setConfirmOpen(false);
         return setMessage({ kind: "error", text: res.message });
       }
+      flashStore.expect("traslado-recibido", transferId);
       router.push(`/traslados/${transferId}`);
       router.refresh();
     });
@@ -219,9 +222,9 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
             </StatusBadge>
           )}
         </p>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} disabled={pending}>
-          {pending ? "Recibiendo…" : "Confirmar recepción"}
-        </Button>
+        <PendingButton type="button" size="lg" className="h-11 px-4" onClick={() => setConfirmOpen(true)} pending={pending} pendingLabel="Recibiendo…">
+          Confirmar recepción
+        </PendingButton>
       </div>
 
       <ConfirmDialog
@@ -230,6 +233,7 @@ export function ReceiveForm({ transferId, number, lines }: { transferId: string;
         title="Confirmar recepción"
         description={summary}
         confirmLabel="Sí, recibir"
+        pendingLabel="Recibiendo…"
         pending={pending}
         onConfirm={confirm}
         finalFocusRef={inputRef}

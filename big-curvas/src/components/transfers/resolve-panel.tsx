@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { resolveDifferencesAction } from "@/app/(app)/traslados/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Textarea } from "@/components/ui/textarea";
 import { RESOLUTION_LABEL, type Resolution } from "./labels";
 
@@ -139,9 +139,9 @@ export function ResolvePanel({ transferId, lines }: { transferId: string; lines:
               {error}
             </p>
           )}
-          <Button type="button" size="lg" className="h-11 px-4" onClick={submit} disabled={pending || chosen.length === 0}>
-            {pending ? "Resolviendo…" : chosen.length === 0 ? "Resolver" : `Resolver ${chosen.length} ${chosen.length === 1 ? "prenda" : "prendas"}`}
-          </Button>
+          <PendingButton type="button" size="lg" className="h-11 px-4" onClick={submit} disabled={chosen.length === 0} pending={pending} pendingLabel="Resolviendo…">
+            {chosen.length === 0 ? "Resolver" : `Resolver ${chosen.length} ${chosen.length === 1 ? "prenda" : "prendas"}`}
+          </PendingButton>
         </>
       )}
     </section>

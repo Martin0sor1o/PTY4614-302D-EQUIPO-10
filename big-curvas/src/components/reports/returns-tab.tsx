@@ -3,7 +3,7 @@ import type { ReturnsReport, ReturnsReportRow } from "@/modules/reports";
 import { RETURN_REASON_LABEL, type ReturnReasonCode } from "@/modules/returns/client";
 import { Assumption } from "@/components/ui/assumption";
 import { dayLabel, pluralize } from "./format";
-import { Definitions, EmptyState } from "./shared";
+import { Definitions, EmptyState, ResetRangeAction } from "./shared";
 
 function Stat({ label, value, testId, hint }: { label: string; value: string; testId: string; hint?: string }) {
   return (
@@ -48,9 +48,9 @@ function Breakdown({ title, rows, testId, label }: { title: string; rows: Return
 }
 
 /** Reporte de devoluciones y cambios (solo ADMIN, solo lectura): por motivo, por ubicación y por destino. */
-export function ReturnsTab({ report }: { report: ReturnsReport }) {
+export function ReturnsTab({ report, resetHref }: { report: ReturnsReport; resetHref?: string }) {
   if (report.totalReturns === 0) {
-    return <EmptyState title="No hay devoluciones ni cambios en este rango">Prueba con otras fechas. Aquí aparecen por motivo, por ubicación y por destino (dinero, vale o cambio).</EmptyState>;
+    return <EmptyState title="No hay devoluciones ni cambios en este rango" action={resetHref ? <ResetRangeAction href={resetHref} /> : null}>Prueba con otras fechas. Aquí aparecen por motivo, por ubicación y por destino (dinero, vale o cambio).</EmptyState>;
   }
   return (
     <div className="space-y-4">

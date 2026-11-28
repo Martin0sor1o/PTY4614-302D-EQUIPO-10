@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { linkDeviceAction } from "@/app/vincular/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -45,9 +45,9 @@ export function LinkDeviceForm() {
           {message}
         </p>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full" disabled={pending || code.replace(/[\s-]/g, "").length < 8}>
-        {pending ? "Vinculando…" : "Vincular este equipo"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full" disabled={code.replace(/[\s-]/g, "").length < 8} pending={pending} pendingLabel="Vinculando…">
+        Vincular este equipo
+      </PendingButton>
     </form>
   );
 }

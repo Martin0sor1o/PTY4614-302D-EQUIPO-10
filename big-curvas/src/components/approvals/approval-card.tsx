@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Check, Clock, MapPin, UserRound, X } from "lucide-react";
 import { approveAction, rejectAction } from "@/app/(app)/aprobaciones/actions";
 import { TYPE_LABEL } from "./labels";
-import { Button } from "@/components/ui/button";
+import { approvalFlashText } from "@/components/feedback/messages";
+import { flashStore } from "@/lib/flash";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -42,6 +44,8 @@ export function ApprovalCard({ data }: { data: CardData }) {
   const [comment, setComment] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Cuál de los dos se pulsó: solo ese muestra el progreso; el otro queda deshabilitado.
+  const [deciding, setDeciding] = useState<"approve" | "reject">("approve");
   const key = useRef(crypto.randomUUID());
   // El «hace N s» depende del reloj: se calcula solo en el cliente tras montar. Hasta entonces servidor y cliente
   // muestran la misma hora fija, así que no hay diferencia de hidratación.
@@ -55,6 +59,7 @@ export function ApprovalCard({ data }: { data: CardData }) {
 
   function decide(kind: "approve" | "reject") {
     setMessage(null);
+    setDeciding(kind);
     startTransition(async () => {
       const payload = { requestId: data.id, comment: comment.trim() || undefined, idempotencyKey: key.current };
       const res = kind === "approve" ? await approveAction(payload) : await rejectAction(payload);
@@ -64,6 +69,8 @@ export function ApprovalCard({ data }: { data: CardData }) {
         router.refresh();
         return;
       }
+      const flash = approvalFlashText(res.status, data);
+      if (flash) flashStore.show(flash.text, flash.tone);
       router.refresh();
     });
   }
@@ -132,20 +139,31 @@ export function ApprovalCard({ data }: { data: CardData }) {
 
       {/* Dos botones grandes y bien separados (16 px) para no tocar el equivocado. */}
       <div className="grid grid-cols-2 gap-4">
-        <Button
+        <PendingButton
           type="button"
           variant="outline"
           size="lg"
           className="h-14 border-tone-danger text-base text-tone-danger hover:bg-tone-danger-soft hover:text-tone-danger max-md:h-14"
           disabled={pending}
+          pending={pending && deciding === "reject"}
+          pendingLabel="Rechazando…"
           onClick={() => decide("reject")}
           data-testid="reject"
         >
           <X /> Rechazar
-        </Button>
-        <Button type="button" size="lg" className="h-14 text-base max-md:h-14" disabled={pending} onClick={() => decide("approve")} data-testid="approve">
+        </PendingButton>
+        <PendingButton
+          type="button"
+          size="lg"
+          className="h-14 text-base max-md:h-14"
+          disabled={pending}
+          pending={pending && deciding === "approve"}
+          pendingLabel="Aprobando…"
+          onClick={() => decide("approve")}
+          data-testid="approve"
+        >
           <Check /> Aprobar
-        </Button>
+        </PendingButton>
       </div>
 
       {data.expiresAt && (

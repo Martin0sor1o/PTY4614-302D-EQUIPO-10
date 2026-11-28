@@ -10,6 +10,7 @@ import {
   updateDraftAction,
 } from "@/app/(app)/traslados/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -152,9 +153,9 @@ export function TransferEditor({
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <Button type="submit" variant="outline" size="lg" className="h-11 px-4" disabled={searching}>
-          {searching ? "Buscando…" : "Buscar"}
-        </Button>
+        <PendingButton type="submit" variant="outline" size="lg" className="h-11 px-4" pending={searching} pendingLabel="Buscando…">
+          Buscar
+        </PendingButton>
       </form>
 
       {message && (
@@ -256,9 +257,9 @@ export function TransferEditor({
           <Button type="button" variant="outline" size="lg" className="h-11 px-4" onClick={cancel} disabled={pending}>
             {transferId ? "Anular borrador" : "Cancelar"}
           </Button>
-          <Button type="button" size="lg" className="h-11 px-4" onClick={save} disabled={pending || lines.length === 0}>
-            {pending ? "Guardando…" : "Guardar borrador"}
-          </Button>
+          <PendingButton type="button" size="lg" className="h-11 px-4" onClick={save} disabled={lines.length === 0} pending={pending} pendingLabel="Guardando…">
+            Guardar borrador
+          </PendingButton>
         </div>
       </div>
 
@@ -268,6 +269,7 @@ export function TransferEditor({
         title="Anular borrador"
         description="¿Anular este borrador? No se puede deshacer."
         confirmLabel="Sí, anular"
+        pendingLabel="Anulando…"
         tone="danger"
         pending={pending}
         onConfirm={confirmCancel}

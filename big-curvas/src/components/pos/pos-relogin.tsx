@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { listReloginOperatorsAction, pinReloginAction } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
@@ -92,9 +93,9 @@ export function PosRelogin({ onDone }: { onDone: (userId: string) => void }) {
                 className={cn("h-11 w-40 text-center text-lg tracking-[0.4em]")}
               />
             </div>
-            <Button type="submit" size="lg" className="h-11" disabled={pending || pin.length < 6 || !userId}>
-              {pending ? "Entrando…" : "Continuar"}
-            </Button>
+            <PendingButton type="submit" size="lg" className="h-11" disabled={pin.length < 6 || !userId} pending={pending} pendingLabel="Entrando…">
+              Continuar
+            </PendingButton>
           </div>
           {message && (
             <p role="alert" className="text-sm font-medium text-tone-danger">
