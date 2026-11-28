@@ -95,6 +95,16 @@ La caja se usa con lector de códigos: el feedback nunca quita el foco del campo
 - **Sonido:** apagado por omisión, un tono corto generado por el navegador (sin archivos) y **solo al agregar**: que no suene también avisa. El interruptor (`role="switch"`) va al final del carrito, devuelve el foco al campo y se guarda en `localStorage` (`bc-pos-beep`) con `try/catch`; sin almacenamiento vale mientras dure la pestaña.
 - **Contraste:** el test de tokens cubre el texto sobre `--tone-ok-soft` y los bordes del destello.
 
+### La decisión de Belén en la caja (`components/approvals/`)
+
+Vale para el descuento en la venta, el reembolso o cambio y la anulación de «Ventas del día». Es solo presentación: la consulta es la de siempre (cada 3 s, `getApprovalStatusAction`) y el servidor sigue comprobando la aprobación al usarla.
+
+- **«Aprobado por Belén ✓» o el rechazo con su comentario** llegan sin recargar, en el recuadro de la solicitud. En la venta se repiten en una línea junto a «Confirmar venta» (`DecisionStrip`): con un carrito largo, el recuadro puede quedar fuera de la vista. No toman el foco.
+- **«En vivo»** mientras las consultas llegan (`watch-approval.ts`). Si fallan dos seguidas o una tarda más de 10 s, lo dice: «Esperando a Belén…» ya no oculta que no hay respuesta. Si la sesión venció, lo dice y abre el reingreso con PIN (venta y devoluciones; en la anulación solo se avisa). Nunca hay dos consultas a la vez, salvo que una se abandone a los 15 s.
+- **Anulación:** el resultado queda sobre la tabla (`VoidDone`), porque al refrescar desaparece el panel desde el que se pidió. Aparece solo cuando el servidor confirmó.
+- **Lector de pantalla:** una región fija anuncia la decisión una vez (`DecisionAnnouncer`). El recuadro de espera ya no es `aria-live`: su reloj cambia cada segundo.
+- **PIN en la caja:** el campo deja solo dígitos, con el largo que acepta el servidor (4 a 12).
+
 ## Impresión
 
 `globals.css` define dos páginas con nombre, y solo sale el documento (los controles llevan `print:hidden`):
