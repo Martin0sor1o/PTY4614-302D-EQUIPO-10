@@ -9,6 +9,7 @@ import { CloseCashForm, OpenCashForm } from "@/components/pos/cash-forms";
 import { METHOD_LABEL } from "@/components/pos/ticket";
 import { VoucherSummary } from "@/components/pos/voucher-summary";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyAction } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 const searchSchema = z.object({ cerrada: z.string().max(64).optional().catch(undefined) });
 
-async function ClosedSummary({ sessionId }: { sessionId: string }) {
+async function ClosedSummary({ sessionId, canReopen }: { sessionId: string; canReopen: boolean }) {
   const { user } = await posPageContext();
   let session;
   try {
@@ -38,6 +39,12 @@ async function ClosedSummary({ sessionId }: { sessionId: string }) {
           Abierta el {formatDateTime(session.openedAt)} por {session.openedByName} · cerrada por {session.closedByName} · {totals.salesCount}{" "}
           {totals.salesCount === 1 ? "venta" : "ventas"}
         </CardDescription>
+        {canReopen && (
+          <div className="pt-2">
+            {/* Lleva al formulario de apertura, más abajo, y deja el foco en el monto inicial. */}
+            <EmptyAction href="#openingCash">Abrir caja</EmptyAction>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <dl className="grid max-w-md grid-cols-[1fr_auto] gap-x-6 gap-y-1 text-sm">
@@ -111,7 +118,7 @@ export default async function CashPage({ searchParams }: PageProps<"/pos/caja">)
     <div className="space-y-4">
       <h1 className="text-3xl font-bold tracking-tight">Caja · {location.name}</h1>
 
-      {cerrada && <ClosedSummary sessionId={cerrada} />}
+      {cerrada && <ClosedSummary sessionId={cerrada} canReopen={!session} />}
 
       {session ? (
         <Card className="max-w-xl">

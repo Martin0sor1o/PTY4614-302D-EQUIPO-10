@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { passwordLoginAction } from "@/app/login/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -41,9 +41,9 @@ export function PasswordLoginForm() {
           {message}
         </p>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full" disabled={pending}>
-        {pending ? "Entrando…" : "Entrar"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full" pending={pending} pendingLabel="Entrando…">
+        Entrar
+      </PendingButton>
     </form>
   );
 }

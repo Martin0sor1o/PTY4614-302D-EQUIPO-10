@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { refundOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,15 +74,16 @@ export function RefundOrder({ orderId, number, saleNumber, amount }: { orderId: 
           {message}
         </p>
       )}
-      <Button type="button" onClick={submit} disabled={pending}>
-        {pending ? "Registrando…" : "Registrar reembolso"}
-      </Button>
+      <PendingButton type="button" onClick={submit} pending={pending} pendingLabel="Registrando…">
+        Registrar reembolso
+      </PendingButton>
       <ConfirmDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title="Registrar reembolso"
         description={`¿Registrar el reembolso de ${formatCLP(amount)} del pedido ${number}? La venta ${saleNumber} pasará a anulada.`}
         confirmLabel="Sí, registrar"
+        pendingLabel="Registrando…"
         pending={pending}
         onConfirm={execute}
       />

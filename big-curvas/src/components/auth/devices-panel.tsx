@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { createPairingAction, revokeDeviceAction } from "@/app/(app)/ajustes/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Notice } from "@/components/ui/notice";
@@ -56,9 +57,9 @@ export function PairDevicePanel({ stores }: { stores: StoreOption[] }) {
           <Label htmlFor="pair-name">Nombre del equipo</Label>
           <Input id="pair-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Caja Tienda Rancagua" maxLength={60} autoComplete="off" />
         </div>
-        <Button type="submit" size="lg" className="h-11" disabled={pending || name.trim().length < 2}>
-          {pending ? "Generando…" : "Generar código"}
-        </Button>
+        <PendingButton type="submit" size="lg" className="h-11" disabled={name.trim().length < 2} pending={pending} pendingLabel="Generando…">
+          Generar código
+        </PendingButton>
       </form>
       {message && (
         <p role="alert" className="text-sm font-medium text-tone-danger">
@@ -105,9 +106,9 @@ export function RevokeDeviceButton({ deviceId, deviceName }: { deviceId: string;
   return (
     <span className="inline-flex flex-wrap items-center gap-2" role="group" aria-label={`Confirmar revocar ${deviceName}`}>
       <span className="text-sm">¿Revocar «{deviceName}»?</span>
-      <Button type="button" variant="danger" size="sm" onClick={revoke} disabled={pending}>
-        {pending ? "Revocando…" : "Sí, revocar"}
-      </Button>
+      <PendingButton type="button" variant="danger" size="sm" onClick={revoke} pending={pending} pendingLabel="Revocando…">
+        Sí, revocar
+      </PendingButton>
       <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(false)} disabled={pending}>
         No
       </Button>

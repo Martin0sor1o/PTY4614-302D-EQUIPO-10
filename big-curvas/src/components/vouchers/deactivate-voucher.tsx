@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { deactivateVoucherAction } from "@/app/(app)/vales/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 
 /** Desactivar un vale (no se borra: queda su saldo y su historial). Pide el motivo y queda en la auditoría. */
@@ -44,9 +45,9 @@ export function DeactivateVoucher({ voucherId, code }: { voucherId: string; code
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit" variant="destructive" disabled={pending || reason.trim().length < 3} data-testid="deactivate-confirm">
-          {pending ? "Desactivando…" : "Desactivar"}
-        </Button>
+        <PendingButton type="submit" variant="destructive" disabled={reason.trim().length < 3} data-testid="deactivate-confirm" pending={pending} pendingLabel="Desactivando…">
+          Desactivar
+        </PendingButton>
         <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
           Cancelar
         </Button>

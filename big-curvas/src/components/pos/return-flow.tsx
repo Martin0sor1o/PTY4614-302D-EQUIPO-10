@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Minus, Plus, Search, Trash2 } from "lucide-react";
+import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { formatCLP, parseCLP } from "@/lib/money";
 import { formatDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ import { UnconfirmedPanel } from "@/components/attempts/unconfirmed-panel";
 import { useAttempt } from "@/components/attempts/use-attempt";
 import type { AttemptSummary } from "@/lib/pending-attempt";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
+import { EmptyAction } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -20,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Assumption } from "@/components/ui/assumption";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { PosRelogin } from "@/components/pos/pos-relogin";
+import { flashStore } from "@/lib/flash";
 import type { ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import {
   checkReturnAttemptAction,
@@ -123,6 +126,11 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
         sessionStorage.removeItem(storageKey);
       } catch {
         // sin sessionStorage
+      }
+      try {
+        flashStore.expect("devolucion", id); // el comprobante muestra el aviso con los datos del servidor
+      } catch {
+        // el aviso es secundario: nunca puede dejar una operación confirmada como "sin confirmar"
       }
       router.push(`/pos/devoluciones/${id}`);
     },
@@ -512,15 +520,22 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <Button type="submit" size="lg" className="h-12 px-4" disabled={searching}>
-                {searching ? <Loader2 className="animate-spin" /> : <Search />} Buscar
-              </Button>
+              <PendingButton type="submit" size="lg" className="h-12 px-4" pending={searching} pendingLabel="Buscando…">
+                <Search /> Buscar
+              </PendingButton>
             </form>
             {error && <p role="alert" className="text-sm font-medium text-tone-danger">{error}</p>}
             {hits === null ? (
               <p className="text-sm text-muted-foreground">Cargando…</p>
             ) : hits.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No se encontraron ventas. Prueba con otro número.</p>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">No se encontraron ventas. Prueba con otro número.</p>
+                {query.trim() !== "" && (
+                  <Button type="button" variant="outline" onClick={() => (setQuery(""), void search(""))}>
+                    Ver ventas recientes
+                  </Button>
+                )}
+              </div>
             ) : (
               <ul className="divide-y rounded-2xl border" aria-label="Ventas">
                 {hits.map((h) => (
@@ -789,7 +804,15 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
               {quote.warnings
                 .filter((w) => !/sugerido es devolver|era /.test(w))
                 .map((w) => (
-                  <Notice key={w} tone="warn">{w}</Notice>
+                  <Notice key={w} tone="warn">
+                    {w}
+                    {/No hay caja abierta/.test(w) && (
+                      <div className="mt-2">
+                        {/* Lo elegido queda guardado en la pestaña: al volver, la devolución sigue ahí. */}
+                        <EmptyAction href="/pos/caja">Abrir caja</EmptyAction>
+                      </div>
+                    )}
+                  </Notice>
                 ))}
               {quote.approval.required ? (
                 <Notice tone="warn" title="Necesita la aprobación de Belén" data-testid="needs-approval">
@@ -824,9 +847,9 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
                   {askError && <p role="alert" className="text-sm font-medium text-tone-danger">{askError}</p>}
                   <p className="text-sm text-muted-foreground">Se le avisa a Belén con el motivo que elegiste.</p>
                   <div className="flex gap-2">
-                    <Button type="button" disabled={asking || !reason || !noteOk} onClick={() => void sendApproval()}>
-                      {asking ? <Loader2 className="animate-spin" /> : null} Enviar a Belén
-                    </Button>
+                    <PendingButton type="button" disabled={!reason || !noteOk} pending={asking} pendingLabel="Enviando…" onClick={() => void sendApproval()}>
+                      Enviar a Belén
+                    </PendingButton>
                     <Button type="button" variant="outline" onClick={() => setAskOpen(false)}>Cancelar</Button>
                   </div>
                 </div>
@@ -839,10 +862,17 @@ export function ReturnFlow({ userId, locationName, isStore, demoPinHint }: { use
           )}
 
           {returnError && <Notice tone="danger" role="alert">{returnError}</Notice>}
-          <Button type="button" size="lg" className="h-12 w-full text-base" disabled={!canConfirm} onClick={() => void confirm()}>
-            {submitting ? <Loader2 className="animate-spin" /> : null}
-            {submitting ? "Procesando…" : kind === "CAMBIO" ? "Confirmar cambio" : "Confirmar devolución"}
-          </Button>
+          <PendingButton
+            type="button"
+            size="lg"
+            className="h-12 w-full text-base"
+            disabled={!canConfirm}
+            pending={submitting}
+            pendingLabel={kind === "CAMBIO" ? "Registrando cambio…" : "Registrando devolución…"}
+            onClick={() => void confirm()}
+          >
+            {kind === "CAMBIO" ? "Confirmar cambio" : "Confirmar devolución"}
+          </PendingButton>
           {issue && !submitting && sale && <p className="text-center text-xs text-muted-foreground">{issue}</p>}
           {lineCount > 0 && <p className="text-center text-xs text-muted-foreground">{lineCount} {lineCount === 1 ? "prenda" : "prendas"} · {locationName}</p>}
         </div>

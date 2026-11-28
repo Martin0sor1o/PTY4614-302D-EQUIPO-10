@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/dates";
 import { requirePageAccess } from "@/modules/auth";
 import { loadTransfer } from "../load-transfer";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
+import { ConfirmedFlash } from "@/components/feedback/confirmed-flash";
+import { transferReceivedFlashText } from "@/components/feedback/messages";
 import { RESOLUTION_SHORT } from "@/components/transfers/labels";
 import { ResolvePanel } from "@/components/transfers/resolve-panel";
 import { SendTransferButton } from "@/components/transfers/send-button";
@@ -43,6 +45,7 @@ export default async function TransferDetailPage({ params }: PageProps<"/traslad
 
   return (
     <div className="space-y-5">
+      <ConfirmedFlash kind="traslado-recibido" id={t.id} message={transferReceivedFlashText(t)} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <Link href="/traslados" className="inline-flex items-center rounded-md text-sm font-semibold text-brand-ink underline-offset-4 hover:underline max-md:min-h-11">

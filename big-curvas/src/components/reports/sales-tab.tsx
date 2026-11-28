@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { SalesByPaymentMethod, SalesPeriodRow } from "@/modules/reports";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { barPercent, pluralize, periodLabel } from "./format";
-import { Definitions, EmptyState } from "./shared";
+import { Definitions, EmptyState, ResetRangeAction } from "./shared";
 
 // Los tres medios se distinguen por color Y por rótulo, monto y porcentaje (la barra nunca es lo único que informa).
 const METHODS = [
@@ -58,7 +58,8 @@ function PeriodCard({ r, groupBy, maxTotal, hasOthers }: { r: SalesPeriodRow; gr
   );
 }
 
-export function SalesTab({ report }: { report: SalesByPaymentMethod }) {
+/** `resetHref`: solo si el rango o el canal no son los de siempre. */
+export function SalesTab({ report, resetHref }: { report: SalesByPaymentMethod; resetHref?: string }) {
   const { rows, totals, voided, pendingRefunds, groupBy } = report;
   const maxTotal = Math.max(0, ...rows.map((r) => r.total));
   const hasOthers = totals.otros > 0;
@@ -66,7 +67,7 @@ export function SalesTab({ report }: { report: SalesByPaymentMethod }) {
   return (
     <div className="space-y-4">
       {totals.count === 0 ? (
-        <EmptyState title="No hay ventas en este rango">
+        <EmptyState title="No hay ventas en este rango" action={resetHref ? <ResetRangeAction href={resetHref} /> : null}>
           Prueba con otras fechas o con “Tienda y online”. Las ventas anuladas no se cuentan.
         </EmptyState>
       ) : (

@@ -7,6 +7,7 @@ import { getOrderBoard, type OrderBoardItem, type OrderStatus } from "@/modules/
 import { formatCLP } from "@/lib/money";
 import { formatTimeWithSeconds } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
 import { AutoRefresh } from "@/components/stock/auto-refresh";
 import { ageDays, ageLabel, CHANNEL_LABEL, ORDER_STATUS_LABEL, OrderStatusBadge } from "@/components/orders/status-badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -120,6 +121,8 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
   const activeCount = ACTIVE.reduce((a, s) => a + counts[s], 0);
   const countOf = (t: Tab) => (t === "activos" ? activeCount : counts[t as OrderStatus]);
   const label = (t: Tab) => (t === "activos" ? "Activos" : ORDER_STATUS_LABEL[t as OrderStatus]);
+  const emptyAction =
+    tab === "activos" ? <EmptyAction href="/pedidos/nuevo">Nuevo pedido</EmptyAction> : <EmptyAction href="/pedidos">Ver pedidos activos</EmptyAction>;
 
   return (
     <div className="space-y-4">
@@ -162,7 +165,11 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
       </nav>
 
       <ul className="space-y-3 md:hidden" aria-label="Pedidos">
-        {orders.length === 0 && <li className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">No hay pedidos en esta bandeja.</li>}
+        {orders.length === 0 && (
+          <li className="rounded-2xl border bg-card p-6">
+            <EmptyLine action={emptyAction}>No hay pedidos en esta bandeja.</EmptyLine>
+          </li>
+        )}
         {orders.map((o) => (
           <OrderCard key={o.id} o={o} now={now} />
         ))}
@@ -185,7 +192,7 @@ export default async function OrdersPage({ searchParams }: PageProps<"/pedidos">
             {orders.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
-                  No hay pedidos en esta bandeja.
+                  <EmptyLine action={emptyAction}>No hay pedidos en esta bandeja.</EmptyLine>
                 </TableCell>
               </TableRow>
             )}

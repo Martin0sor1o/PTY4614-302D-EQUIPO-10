@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { isAppError } from "@/lib/errors";
 import { getSaleForActor } from "@/modules/sales";
+import { ConfirmedFlash } from "@/components/feedback/confirmed-flash";
+import { saleFlashText } from "@/components/feedback/messages";
 import { PrintButton } from "@/components/pos/print-button";
 import { Ticket } from "@/components/pos/ticket";
 import { buttonVariants } from "@/components/ui/button";
@@ -30,6 +32,7 @@ export default async function TicketPage({ params }: PageProps<"/pos/ticket/[sal
 
   return (
     <div className="space-y-4">
+      <ConfirmedFlash kind="venta" id={sale.id} message={saleFlashText(sale)} />
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Venta {sale.number} registrada</h1>

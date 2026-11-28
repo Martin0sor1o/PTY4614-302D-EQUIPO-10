@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { setSalesPinAction } from "@/app/(app)/ajustes/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 
@@ -36,9 +36,9 @@ export function TeamPinForm({ userId, userName, hasPin }: { userId: string; user
         aria-label={`PIN nuevo de ${userName}`}
         className="h-11 w-32 text-center tracking-[0.4em] md:h-9"
       />
-      <Button type="submit" variant="outline" size="sm" disabled={pending || pin.length < 6}>
-        {pending ? "Guardando…" : hasPin ? "Restablecer PIN" : "Definir PIN"}
-      </Button>
+      <PendingButton type="submit" variant="outline" size="sm" disabled={pin.length < 6} pending={pending} pendingLabel="Guardando…">
+        {hasPin ? "Restablecer PIN" : "Definir PIN"}
+      </PendingButton>
       {result &&
         (result.ok ? (
           <Notice tone="ok" role="status" className="py-1.5">

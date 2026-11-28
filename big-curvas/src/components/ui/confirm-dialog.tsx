@@ -3,6 +3,7 @@
 import { useRef, type RefObject } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface ConfirmDialogProps {
   confirmLabel: string;
   /** Mientras la acción confirmada corre: el botón queda deshabilitado y el diálogo no se cierra. */
   pending: boolean;
+  /** Texto del botón mientras corre ("Enviando…"). */
+  pendingLabel?: string;
   onConfirm: () => void;
   tone?: "default" | "danger";
   /** Dónde queda el foco al cerrar. Sin valor, vuelve al botón que abrió el diálogo. */
@@ -25,7 +28,7 @@ interface ConfirmDialogProps {
  * llegar al botón con Tab o con el puntero. Escape cancela. Cada sitio decide cuándo cerrarlo; este componente no
  * genera claves de idempotencia ni ejecuta nada por su cuenta.
  */
-export function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, pending, onConfirm, tone = "default", finalFocusRef }: ConfirmDialogProps) {
+export function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel, pending, pendingLabel = "Procesando…", onConfirm, tone = "default", finalFocusRef }: ConfirmDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -61,9 +64,9 @@ export function ConfirmDialog({ open, onOpenChange, title, description, confirmL
             >
               Cancelar
             </AlertDialog.Close>
-            <Button type="button" variant={tone === "danger" ? "danger" : "default"} size="lg" className="h-11 px-4" onClick={onConfirm} disabled={pending}>
-              {pending ? "Procesando…" : confirmLabel}
-            </Button>
+            <PendingButton type="button" variant={tone === "danger" ? "danger" : "default"} size="lg" className="h-11 px-4" onClick={onConfirm} pending={pending} pendingLabel={pendingLabel}>
+              {confirmLabel}
+            </PendingButton>
           </div>
         </AlertDialog.Popup>
       </AlertDialog.Portal>

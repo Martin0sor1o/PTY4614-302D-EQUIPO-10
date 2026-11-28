@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { closeCashAction, openCashAction, type FormState } from "@/app/(app)/pos/actions";
-import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,9 +35,9 @@ export function OpenCashForm({ locationName }: { locationName: string }) {
           {state.message}
         </Notice>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={pending}>
-        {pending ? "Abriendo…" : "Abrir caja"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full text-base" pending={pending} pendingLabel="Abriendo…">
+        Abrir caja
+      </PendingButton>
     </form>
   );
 }
@@ -83,9 +83,9 @@ export function CloseCashForm({ locationName }: { locationName: string }) {
           {state.message}
         </Notice>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full text-base" disabled={pending}>
-        {pending ? "Cerrando…" : "Cerrar caja"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full text-base" pending={pending} pendingLabel="Cerrando…">
+        Cerrar caja
+      </PendingButton>
     </form>
   );
 }

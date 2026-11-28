@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { pinLoginAction } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -75,9 +76,9 @@ export function PinLoginForm({ operators }: { operators: OperatorChoice[] }) {
           {message}
         </p>
       )}
-      <Button type="submit" size="lg" className="h-11 w-full" disabled={pending || pin.length < 6 || !userId}>
-        {pending ? "Entrando…" : "Entrar a la caja"}
-      </Button>
+      <PendingButton type="submit" size="lg" className="h-11 w-full" disabled={pin.length < 6 || !userId} pending={pending} pendingLabel="Entrando…">
+        Entrar a la caja
+      </PendingButton>
     </form>
   );
 }

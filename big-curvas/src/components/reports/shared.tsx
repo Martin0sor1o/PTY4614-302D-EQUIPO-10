@@ -1,12 +1,23 @@
 import type { ReactNode } from "react";
+import { EmptyAction } from "@/components/ui/empty-state";
 
 /** Estado vacío: dice qué pasa y qué hacer, no deja una tabla en blanco. */
-export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
+export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="rounded-3xl border-2 border-dashed bg-card px-4 py-10 text-center" data-testid="empty-state">
       <p className="text-lg font-bold">{title}</p>
       {children && <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">{children}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
+  );
+}
+
+/** Para un rango sin datos: volver al de siempre. Recarga completa para que los campos del filtro también vuelvan. */
+export function ResetRangeAction({ href }: { href: string }) {
+  return (
+    <EmptyAction href={href} reload>
+      Ver últimos 30 días
+    </EmptyAction>
   );
 }
 

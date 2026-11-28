@@ -12,6 +12,7 @@ import { Assumption } from "@/components/ui/assumption";
 import { DeactivateVoucher } from "@/components/vouchers/deactivate-voucher";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
+import { EmptyAction, EmptyLine } from "@/components/ui/empty-state";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vales" };
@@ -81,9 +82,9 @@ export default async function VouchersPage({ searchParams }: PageProps<"/vales">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
         <section aria-label="Vales" className="overflow-x-auto rounded-3xl border bg-card shadow-soft">
           {vouchers.length === 0 ? (
-            <p className="p-6 text-center text-sm text-muted-foreground" data-testid="no-vouchers">
-              No hay vales en este estado.
-            </p>
+            <div className="p-6" data-testid="no-vouchers">
+              <EmptyLine action={estado !== "TODOS" && <EmptyAction href={href("TODOS")}>Ver todos</EmptyAction>}>No hay vales en este estado.</EmptyLine>
+            </div>
           ) : (
             <table className="w-full text-sm">
               <thead>

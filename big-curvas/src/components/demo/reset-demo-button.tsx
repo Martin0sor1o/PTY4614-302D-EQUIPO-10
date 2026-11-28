@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { RotateCcw } from "lucide-react";
 import { resetDemoDataAction } from "@/app/(app)/demo-actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 
 /** Botón "Reiniciar datos de demo" con confirmación en dos pasos. Solo se muestra a la administradora en DEMO_MODE. */
 export function ResetDemoButton() {
@@ -44,9 +45,9 @@ export function ResetDemoButton() {
       </p>
       <p>Se borra todo lo que hiciste (ventas, pedidos, traslados, aprobaciones) y se vuelve a cargar el ejemplo con su historial. Tendrás que entrar de nuevo.</p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={reset} disabled={pending} data-testid="reset-demo-confirm">
-          {pending ? "Reiniciando… puede tardar unos segundos" : "Sí, reiniciar"}
-        </Button>
+        <PendingButton type="button" onClick={reset} data-testid="reset-demo-confirm" pending={pending} pendingLabel="Reiniciando… puede tardar unos segundos">
+          Sí, reiniciar
+        </PendingButton>
         <Button type="button" variant="outline" onClick={() => setConfirming(false)} disabled={pending}>
           Cancelar
         </Button>

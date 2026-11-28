@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2, Minus, Plus, ScanBarcode, Trash2 } from "lucide-react";
+import { AlertTriangle, Minus, Plus, ScanBarcode, Trash2 } from "lucide-react";
 import { formatCLP, parseCLP, percentToBps } from "@/lib/money";
 import { changeFor, isDiscountOverLimit, priceSale, quotePayment, type PaymentMethodCode, type PosItem } from "@/modules/sales/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/ui/notice";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -19,6 +20,7 @@ import { formatDate } from "@/lib/dates";
 import { requestDiscountApprovalAction, type ApprovalLite } from "@/app/(app)/pos/approvals-actions";
 import { ApprovalWait } from "@/components/approvals/approval-wait";
 import { PosRelogin } from "@/components/pos/pos-relogin";
+import { flashStore } from "@/lib/flash";
 import { Textarea } from "@/components/ui/textarea";
 
 // Pantalla de venta. El navegador solo MUESTRA los cálculos (funciones puras de sales/client): el servidor recalcula
@@ -127,6 +129,11 @@ export function PosTerminal({
         sessionStorage.removeItem(storageKey); // la venta quedó registrada: el carrito guardado ya no sirve
       } catch {
         // sin sessionStorage
+      }
+      try {
+        flashStore.expect("venta", id); // el ticket muestra el aviso con los montos del servidor
+      } catch {
+        // el aviso es secundario: nunca puede dejar una venta confirmada como "sin confirmar"
       }
       router.push(`/pos/ticket/${id}`); // se queda en "procesando" hasta que cargue el ticket
     },
@@ -678,9 +685,9 @@ export function PosTerminal({
                     </Notice>
                   )}
                   <div className="flex gap-2">
-                    <Button type="submit" disabled={asking} data-testid="send-approval">
-                      {asking ? "Enviando…" : "Enviar solicitud"}
-                    </Button>
+                    <PendingButton type="submit" data-testid="send-approval" pending={asking} pendingLabel="Enviando…">
+                      Enviar solicitud
+                    </PendingButton>
                     <Button type="button" variant="ghost" onClick={() => (setAskOpen(false), setAskError(null))}>
                       Cancelar
                     </Button>
@@ -767,9 +774,9 @@ export function PosTerminal({
               }}
             >
               <Input aria-label="Código del vale" autoComplete="off" placeholder="Código del vale (VAL-…)" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} />
-              <Button type="submit" variant="outline" disabled={voucherLoading || !voucherInput.trim()}>
-                {voucherLoading ? "…" : "Usar vale"}
-              </Button>
+              <PendingButton type="submit" variant="outline" disabled={!voucherInput.trim()} pending={voucherLoading} pendingLabel="Buscando…">
+                Usar vale
+              </PendingButton>
             </form>
           )}
           {voucherError && (
@@ -853,15 +860,9 @@ export function PosTerminal({
           </Notice>
         )}
 
-        <Button type="button" size="lg" className="h-14 w-full text-base font-semibold max-md:h-14" disabled={!canConfirm} onClick={confirm} data-testid="confirm-sale">
-          {submitting ? (
-            <>
-              <Loader2 className="animate-spin" /> Procesando…
-            </>
-          ) : (
-            <>Confirmar venta · {formatCLP(quote.amount)}</>
-          )}
-        </Button>
+        <PendingButton type="button" size="lg" className="h-14 w-full text-base font-semibold max-md:h-14" disabled={!canConfirm} pending={submitting} pendingLabel="Cobrando…" onClick={confirm} data-testid="confirm-sale">
+          Confirmar venta · {formatCLP(quote.amount)}
+        </PendingButton>
         {!canConfirm && !submitting && cart.length > 0 && (lineIssues.find(Boolean) ?? paymentIssue) && (
           <p className="text-center text-sm text-muted-foreground">{lineIssues.find(Boolean) ?? paymentIssue}</p>
         )}

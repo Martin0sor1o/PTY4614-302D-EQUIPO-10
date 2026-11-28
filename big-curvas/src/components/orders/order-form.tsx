@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Minus, Plus, ScanLine, Search, Trash2, UserRound } from "lucide-react";
 import { saveOrderAction, searchCustomersAction, searchOrderVariantsAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -319,9 +320,9 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <Button type="submit" variant="outline" size="lg" className="h-11 px-4" disabled={searching}>
-            {searching ? "Buscando…" : "Buscar"}
-          </Button>
+          <PendingButton type="submit" variant="outline" size="lg" className="h-11 px-4" pending={searching} pendingLabel="Buscando…">
+            Buscar
+          </PendingButton>
         </form>
 
         {hits?.ok && hits.items.length > 1 && (
@@ -481,9 +482,9 @@ export function OrderForm({ initial }: { initial: OrderFormInitial }) {
         <Button type="button" variant="outline" size="lg" className="h-11 px-4" onClick={() => router.push(initial.orderId ? `/pedidos/${initial.orderId}` : "/pedidos")}>
           Cancelar
         </Button>
-        <Button type="button" size="lg" className="h-11 px-4" onClick={save} disabled={pending || lines.length === 0}>
-          {pending ? "Guardando…" : initial.orderId ? "Guardar cambios" : "Registrar pedido"}
-        </Button>
+        <PendingButton type="button" size="lg" className="h-11 px-4" onClick={save} disabled={lines.length === 0} pending={pending} pendingLabel="Guardando…">
+          {initial.orderId ? "Guardar cambios" : "Registrar pedido"}
+        </PendingButton>
       </div>
     </div>
   );

@@ -67,6 +67,8 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
   const channel = q.canal ?? "todos";
   const groupBy = q.agrupar ?? "day";
   const cards = await getSalesSummaryCards({ actor, now });
+  // Si el rango o el canal no son los de siempre, un reporte vacío ofrece volver a ellos.
+  const resetHref = q.desde || q.hasta || channel !== "todos" ? `/reportes?tab=${tab}` : undefined;
 
   return (
     <div className="space-y-5">
@@ -84,19 +86,19 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
       {tab === "ventas" && (
         <div className="space-y-4">
           <RangeFilter tab="ventas" from={from} to={to} channel={channel} groupBy={groupBy} />
-          <SalesView actor={actor} from={from} to={to} channel={channel} groupBy={groupBy} />
+          <SalesView actor={actor} from={from} to={to} channel={channel} groupBy={groupBy} resetHref={resetHref} />
         </div>
       )}
       {tab === "mas-vendidos" && (
         <div className="space-y-4">
           <RangeFilter tab="mas-vendidos" from={from} to={to} />
-          <TopSellersView actor={actor} from={from} to={to} />
+          <TopSellersView actor={actor} from={from} to={to} resetHref={resetHref} />
         </div>
       )}
       {tab === "devoluciones" && (
         <div className="space-y-4">
           <RangeFilter tab="devoluciones" from={from} to={to} />
-          <ReturnsView actor={actor} from={from} to={to} />
+          <ReturnsView actor={actor} from={from} to={to} resetHref={resetHref} />
         </div>
       )}
       {tab === "stock-bajo" && <LowStockTab report={await getLowStock({ actor })} />}
@@ -108,17 +110,17 @@ export default async function ReportsPage({ searchParams }: PageProps<"/reportes
 
 type Actor = Awaited<ReturnType<typeof requirePageAccess>>;
 
-async function SalesView({ actor, from, to, channel, groupBy }: { actor: Actor; from: string; to: string; channel: "todos" | "tienda" | "online"; groupBy: "day" | "week" | "month" }) {
+async function SalesView({ actor, from, to, channel, groupBy, resetHref }: { actor: Actor; from: string; to: string; channel: "todos" | "tienda" | "online"; groupBy: "day" | "week" | "month"; resetHref?: string }) {
   const r = await load(() => getSalesByPaymentMethod({ actor, from, to, channel, groupBy }));
-  return r.ok ? <SalesTab report={r.data} /> : <RangeError message={r.error} />;
+  return r.ok ? <SalesTab report={r.data} resetHref={resetHref} /> : <RangeError message={r.error} />;
 }
 
-async function TopSellersView({ actor, from, to }: { actor: Actor; from: string; to: string }) {
+async function TopSellersView({ actor, from, to, resetHref }: { actor: Actor; from: string; to: string; resetHref?: string }) {
   const r = await load(() => getTopSellers({ actor, from, to }));
-  return r.ok ? <TopSellersTab report={r.data} /> : <RangeError message={r.error} />;
+  return r.ok ? <TopSellersTab report={r.data} resetHref={resetHref} /> : <RangeError message={r.error} />;
 }
 
-async function ReturnsView({ actor, from, to }: { actor: Actor; from: string; to: string }) {
+async function ReturnsView({ actor, from, to, resetHref }: { actor: Actor; from: string; to: string; resetHref?: string }) {
   const r = await load(() => getReturnsReport({ actor, from, to }));
-  return r.ok ? <ReturnsTab report={r.data} /> : <RangeError message={r.error} />;
+  return r.ok ? <ReturnsTab report={r.data} resetHref={resetHref} /> : <RangeError message={r.error} />;
 }

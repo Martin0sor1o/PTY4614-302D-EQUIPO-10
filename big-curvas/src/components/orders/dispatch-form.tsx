@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { dispatchOrderAction } from "@/app/(app)/pedidos/actions";
 import { Button } from "@/components/ui/button";
+import { PendingButton } from "@/components/ui/pending-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -50,9 +51,9 @@ export function DispatchForm({ orderId, couriers }: { orderId: string; couriers:
           {message}
         </p>
       )}
-      <Button type="button" size="lg" className="h-11 px-4" onClick={submit} disabled={pending}>
-        {pending ? "Despachando…" : "Marcar como despachado"}
-      </Button>
+      <PendingButton type="button" size="lg" className="h-11 px-4" onClick={submit} pending={pending} pendingLabel="Despachando…">
+        Marcar como despachado
+      </PendingButton>
     </div>
   );
 }
